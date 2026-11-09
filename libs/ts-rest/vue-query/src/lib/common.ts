@@ -11,9 +11,8 @@ import {
   ClientInferResponses,
   ErrorHttpStatusCode,
   SuccessfulHttpStatusCode,
-  fetchApi,
+  executeQueryRequest,
   evaluateFetchApiArgs,
-  isErrorResponse,
 } from '@ts-restless/core';
 
 // Data response if it's a 2XX
@@ -49,19 +48,9 @@ export const queryFn = <
         : argsMapper;
 
     const fetchApiArgs = evaluateFetchApiArgs(route, clientArgs, args);
-    const result = await fetchApi({
-      ...fetchApiArgs,
-      fetchOptions: {
-        ...(queryFnContext?.signal && { signal: queryFnContext.signal }),
-        ...fetchApiArgs.fetchOptions,
-      },
-    });
-
-    // If the response is not a 2XX, throw an error to be handled by react-query
-    if (isErrorResponse(result)) {
-      throw result;
-    }
-
-    return result as DataResponse<TAppRoute>;
+    return executeQueryRequest(
+      { ...fetchApiArgs, route },
+      queryFnContext?.signal,
+    );
   };
 };

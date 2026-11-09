@@ -2,11 +2,18 @@ import { vi, type Mock } from 'vitest';
 import fetchMock from '@fetch-mock/vitest';
 import {
   FetchOptions,
+  StandardSchemaV1,
   HTTPStatusCode,
   initContract,
   OverrideableClientArgs,
 } from '..';
-import { ApiFetcherArgs, initClient, getCompleteUrl } from './client';
+import {
+  ApiFetcherArgs,
+  initClient,
+  getCompleteUrl,
+  evaluateFetchApiArgs,
+  executeQueryRequest,
+} from './client';
 import { Equal, Expect } from './test-helpers';
 import { z } from 'zod';
 import { StandardSchemaError } from './validation-error';
@@ -1380,5 +1387,164 @@ describe('validated client response contracts', () => {
       status: 200,
       body: { value: 'hello' },
     });
+  });
+});
+
+describe('executeQueryRequest', () => {
+  const route = c.router({
+    read: {
+      method: 'GET',
+      path: '/a11',
+      responses: {
+        200: c.type<{ value: string }>(),
+        404: c.type<{ missing: true }>(),
+      },
+    },
+  }).read;
+  it.each([200, 204, 299, 300, 404, 500, 599, 100, 600])(
+    'preserves existing response identity and status policy for %s',
+    async (status) => {
+      const response = {
+        status,
+        body: { value: 'ok' },
+        headers: new Headers(),
+      };
+      const api = vi.fn(async (_args: ApiFetcherArgs) => response);
+      const options = {
+        ...evaluateFetchApiArgs(route, { baseUrl: 'https://a11.example', api }),
+        route,
+      };
+      const pending = executeQueryRequest(options);
+      if (status >= 300 && status < 600)
+        await expect(pending).rejects.toBe(response);
+      else await expect(pending).resolves.toBe(response);
+      expect(api).toHaveBeenCalledTimes(1);
+    },
+  );
+  it('preserves all three signal precedence cases', async () => {
+    const native = new AbortController();
+    const request = new AbortController();
+    const response = {
+      status: 200,
+      body: { value: 'ok' },
+      headers: new Headers(),
+    };
+    for (const [fetchOptions, expected] of [
+      [{}, native.signal],
+      [{ signal: request.signal }, request.signal],
+      [{ signal: undefined }, undefined],
+    ] as const) {
+      const api = vi.fn(async (_args: ApiFetcherArgs) => response);
+      const options = {
+        ...evaluateFetchApiArgs(route, { baseUrl: 'https://a11.example', api }),
+        route,
+        fetchOptions,
+      };
+      await executeQueryRequest(options, native.signal);
+      expect(api.mock.calls[0][0].fetchOptions?.signal).toBe(expected);
+    }
+  });
+  it('preserves exception identity and request-time override inputs', async () => {
+    const failure = new Error('transport failed');
+    const api = vi.fn(async (_args: ApiFetcherArgs) => {
+      throw failure;
+    });
+    const options = {
+      ...evaluateFetchApiArgs(
+        route,
+        {
+          baseUrl: 'https://initial.example',
+          api,
+        },
+        {
+          params: {},
+          body: undefined,
+          query: undefined,
+          headers: {},
+          overrideClientOptions: {
+            baseUrl: 'https://override.example',
+            validateResponse: true,
+          },
+        },
+      ),
+      route,
+    };
+    await expect(executeQueryRequest(options)).rejects.toBe(failure);
+    expect(api.mock.calls[0][0].path).toBe('https://override.example/a11');
+    expect(api.mock.calls[0][0].validateResponse).toBe(true);
+  });
+});
+
+it.each([true, false])(
+  'executeQueryRequest preserves validation dispatch %s',
+  async (validateResponse) => {
+    let calls = 0;
+    const schema: StandardSchemaV1<string, string> = {
+      '~standard': {
+        version: 1,
+        vendor: 'A11',
+        validate: (value) => {
+          calls += 1;
+          return { value: String(value) + '!' };
+        },
+      },
+    };
+    const route = c.router({
+      read: { method: 'GET', path: '/a11', responses: { 200: schema } },
+    }).read;
+    const fetcher = vi.fn(
+      async () =>
+        new Response(JSON.stringify('input'), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+    );
+    vi.stubGlobal('fetch', fetcher);
+    try {
+      const options = {
+        ...evaluateFetchApiArgs(route, {
+          baseUrl: 'https://a11.example',
+          validateResponse,
+        }),
+        route,
+      };
+      const result = await executeQueryRequest(options);
+      expect(result.body).toBe(validateResponse ? 'input!' : 'input');
+      expect(calls).toBe(validateResponse ? 1 : 0);
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  },
+);
+
+it('executeQueryRequest preserves mutation signal and custom fetcher inputs', async () => {
+  const route = c.router({
+    update: {
+      method: 'POST',
+      path: '/a11',
+      body: c.type<{ value: string }>(),
+      responses: { 200: c.type<{ value: string }>() },
+    },
+  }).update;
+  const signal = new AbortController().signal;
+  const response = {
+    status: 200,
+    body: { value: 'ok' },
+    headers: new Headers(),
+  };
+  const api = vi.fn(async (_args: ApiFetcherArgs) => response);
+  const options = {
+    ...evaluateFetchApiArgs(route, { baseUrl: 'https://a11.example', api }),
+    route,
+    body: { value: 'input' },
+    fetchOptions: { signal },
+    extraInputArgs: { tenant: 'example' },
+  };
+  await expect(executeQueryRequest(options)).resolves.toBe(response);
+  expect(api).toHaveBeenCalledTimes(1);
+  expect(api.mock.calls[0][0]).toMatchObject({
+    tenant: 'example',
+    fetchOptions: { signal },
   });
 });

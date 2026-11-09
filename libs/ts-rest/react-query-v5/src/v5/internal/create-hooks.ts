@@ -19,11 +19,10 @@ import {
   AppRouter,
   ClientArgs,
   evaluateFetchApiArgs,
-  fetchApi,
+  executeQueryRequest,
   getRouteQuery,
   isAppRoute,
   isAppRouteQuery,
-  isErrorResponse,
 } from '@ts-restless/core';
 import {
   MutationHooks,
@@ -35,7 +34,6 @@ import {
   TsRestReactQueryClientFunctionsContainer,
   TsRestReactQueryClient,
   RequestData,
-  DataResponse,
 } from '../types';
 
 const apiFetcher = <TAppRoute extends AppRoute, TClientArgs extends ClientArgs>(
@@ -49,20 +47,7 @@ const apiFetcher = <TAppRoute extends AppRoute, TClientArgs extends ClientArgs>(
       clientArgs,
       requestData as any,
     );
-    const result = await fetchApi({
-      ...fetchApiArgs,
-      fetchOptions: {
-        ...(abortSignal && { signal: abortSignal }),
-        ...fetchApiArgs.fetchOptions,
-      },
-    });
-
-    // If the response is not a 2XX, throw an error to be handled by react-query
-    if (isErrorResponse(result)) {
-      throw result;
-    }
-
-    return result as DataResponse<TAppRoute>;
+    return executeQueryRequest({ ...fetchApiArgs, route }, abortSignal);
   };
 };
 
