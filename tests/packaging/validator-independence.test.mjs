@@ -757,3 +757,206 @@ vue.read.useQuery(['a11']);`;
     await rm(consumer, { recursive: true, force: true });
   }
 });
+// Native option interfaces changed arity in Query 5.80; exercise both sides
+// through installed public archives rather than the private workspace helper.
+const queryV5Consumers = [
+  ['5.51.11', '5.51.9'],
+  ['5.80.6', '5.80.6'],
+  ['5.107.1', '5.107.1'],
+];
+test.each(queryV5Consumers)(
+  'packed React Query %s preserves strict infinite inference and native execution',
+  async (queryVersion, coreVersion) => {
+    const consumer = await mkdtemp(join(tmpdir(), 'ts-restless-query-v5-'));
+    try {
+      await writeFile(
+        join(consumer, 'package.json'),
+        JSON.stringify({
+          name: 'packed-query-v5-consumer',
+          private: true,
+          type: 'module',
+          dependencies: {
+            '@ts-restless/core':
+              'file:' + join(archives, 'ts-restless-core.tgz'),
+            '@ts-restless/react-query':
+              'file:' + join(archives, 'ts-restless-react-query.tgz'),
+            '@tanstack/react-query': queryVersion,
+            '@tanstack/query-core': coreVersion,
+            react: '18.3.1',
+            'react-dom': '18.3.1',
+            '@types/react': '18.3.1',
+            '@types/react-dom': '18.3.0',
+            '@types/node': '26.6.5',
+          },
+        }),
+      );
+      execFileSync('pnpm', ['install', '--ignore-scripts'], {
+        cwd: consumer,
+        stdio: 'pipe',
+        env: process.env,
+      });
+      const source = `import { initContract } from '@ts-restless/core';
+import { initTsrReactQuery } from '@ts-restless/react-query/v5';
+
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends
+  (<T>() => T extends B ? 1 : 2) ? true : false;
+type Expect<T extends true> = T;
+const c = initContract();
+const contract = c.router({
+  pages: {
+    method: 'GET',
+    path: '/pages',
+    query: c.type<{ cursor: number }>(),
+    responses: {
+      200: c.type<{ next: number; value: string }>(),
+      404: c.type<{ missing: true }>(),
+    },
+  },
+});
+const api = initTsrReactQuery(contract, { baseUrl: 'https://example.test' });
+const normal = api.pages.useQuery({
+  queryKey: ['normal'],
+  queryData: { query: { cursor: 0 } },
+  select: response => response.body.value,
+});
+type Normal = Expect<Equal<typeof normal.data, string | undefined>>;
+const infinite = api.pages.useInfiniteQuery({
+  queryKey: ['infinite'],
+  initialPageParam: 0,
+  queryData: ({ pageParam }) => {
+    type Page = Expect<Equal<typeof pageParam, number>>;
+    return { query: { cursor: pageParam } };
+  },
+  getNextPageParam: last => last.body.next,
+  select: data => data.pages.map(page => page.body.value),
+});
+type Infinite = Expect<Equal<typeof infinite.data, string[] | undefined>>;
+const suspense = api.pages.useSuspenseInfiniteQuery({
+  queryKey: ['suspense'],
+  initialPageParam: 0,
+  queryData: ({ pageParam }) => ({ query: { cursor: pageParam } }),
+  getNextPageParam: last => last.body.next,
+  select: data => data.pages.map(page => page.body.value),
+});
+type Suspense = Expect<Equal<typeof suspense.data, string[]>>;
+// @ts-expect-error request cursor must be numeric
+api.pages.useQuery({ queryKey: ['bad'], queryData: { query: { cursor: 'bad' } } });
+
+const initial = api.pages.useInfiniteQuery({
+  queryKey: ['initial'],
+  initialPageParam: 0,
+  initialData: { pages: [{ status: 200, body: { next: 1, value: 'first' }, headers: new Headers() }], pageParams: [0] },
+  queryData: ({ pageParam }) => ({ query: { cursor: pageParam } }),
+  getNextPageParam: last => last.body.next,
+  select: data => data.pages.map(page => page.body.value),
+});
+type Initial = Expect<Equal<typeof initial.data, string[]>>;
+`;
+      for (const extension of ['mts', 'cts']) {
+        const file = 'consumer.' + extension;
+        await writeFile(join(consumer, file), source);
+        execFileSync(
+          process.execPath,
+          [
+            resolve(root, 'node_modules/typescript/bin/tsc'),
+            '--noEmit',
+            '--strict',
+            '--pretty',
+            'false',
+            '--target',
+            'es2024',
+            '--module',
+            'nodenext',
+            '--moduleResolution',
+            'nodenext',
+            '--esModuleInterop',
+            file,
+          ],
+          { cwd: consumer, stdio: 'pipe' },
+        );
+      }
+      await writeFile(
+        join(consumer, 'runtime.mjs'),
+        `
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+for (const load of [specifier => import(specifier), async specifier => require(specifier)]) {
+  const { initContract } = await load('@ts-restless/core');
+  const { initTsrReactQuery } = await load('@ts-restless/react-query/v5');
+  const { QueryClient } = await load('@tanstack/react-query');
+  const c = initContract();
+  const contract = c.router({
+    pages: { method: 'GET', path: '/pages', query: c.type(),
+      responses: { 200: c.type(), 404: c.type() } },
+  });
+  const native = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const cursors = [];
+  const failure = { status: 404, body: { missing: true }, headers: new Headers() };
+  let failLater = false;
+  const bound = initTsrReactQuery(contract, {
+    baseUrl: 'https://f01.example',
+    api: async args => {
+      const cursor = args.rawQuery.cursor;
+      cursors.push(cursor);
+      return failLater && cursor === 1 ? failure :
+        { status: 200, body: { next: cursor + 1, value: 'page-' + cursor }, headers: new Headers() };
+    },
+  }).initQueryClient(native);
+  const options = {
+    initialPageParam: 0, pages: 2,
+    queryData: ({ pageParam }) => ({ query: { cursor: pageParam } }),
+    getNextPageParam: last => last.body.next,
+  };
+  try {
+    const result = await bound.pages.fetchInfiniteQuery({ ...options, queryKey: ['pages'] });
+    assert.deepEqual(result.pageParams, [0, 1]);
+    assert.deepEqual(result.pages.map(page => page.body.value), ['page-0', 'page-1']);
+    assert.deepEqual(cursors, [0, 1]);
+    cursors.length = 0;
+    failLater = true;
+    await assert.rejects(bound.pages.fetchInfiniteQuery({ ...options, queryKey: ['later-error'] }),
+      error => error === failure);
+    assert.deepEqual(cursors, [0, 1]);
+
+    let begin;
+    const started = new Promise(resolve => { begin = resolve; });
+    let signal;
+    let reached = false;
+    const cancellable = initTsrReactQuery(contract, {
+      baseUrl: 'https://f01.example',
+      api: args => {
+        signal = args.fetchOptions.signal;
+        return new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => {
+            reached = true;
+            reject(new DOMException('Aborted', 'AbortError'));
+          }, { once: true });
+          begin();
+        });
+      },
+    }).initQueryClient(native);
+    const pending = cancellable.pages.fetchQuery({
+      queryKey: ['cancel'], queryData: { query: { cursor: 0 } },
+    });
+    const settled = pending.catch(error => error);
+    await started;
+    await native.cancelQueries({ queryKey: ['cancel'] });
+    await settled;
+    assert.equal(signal.aborted, true);
+    assert.equal(reached, true);
+  } finally {
+    native.clear();
+  }
+}
+`,
+      );
+      execFileSync(process.execPath, ['runtime.mjs'], {
+        cwd: consumer,
+        stdio: 'pipe',
+      });
+    } finally {
+      await rm(consumer, { recursive: true, force: true });
+    }
+  },
+);

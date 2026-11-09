@@ -554,7 +554,7 @@ git diff --check
 
 Run changed-file formatting and targeted lint using current tooling. CI must pass Build & Test, all retained compatibility fixtures and the aggregate gate before merge; local tests do not certify every advertised peer. Record source, strict archive, docs and CI results separately. Publication is outside this slice.
 
-- [ ] Open a reviewable PR referencing A11/spec/evidence and record its delivery commit and results here. Stop if acceptance requires an unapproved behavior/support change.
+- [x] Open a reviewable PR referencing A11/spec/evidence and record its delivery commit and results here. Stop if acceptance requires an unapproved behavior/support change.
 
 ## Execution record
 
@@ -568,3 +568,9 @@ Implementation baseline: main `30610fc413fd77688862079c0a541afebb5966b0`, isolat
 - Initial packed run exposed duplicate `failure` declarations in the generated proof; scoped the new proof and reran the suite. No compiler checking was weakened.
 
 Docs build/typecheck and all30 static-site tests passed. PR CI remains pending. The independent reviewer dispatch could not run because the task payload arrived encoded; root diff review and executable gates are complete. No merge or publication performed.
+
+## 2026-11-09 conflict resolution
+
+Draft PR #21 was opened and attached at `71145e59`; its original CI passed. Current main `192636d2` includes merged F01 #20. Merging that main into this branch conflicted only where both slices appended installed-consumer checks to `tests/packaging/validator-independence.test.mjs`. The resolution retains both the A11 strict React/Vue consumer and F01 checks on Query5.51.11/Core5.51.9,5.80.6 and5.107.1. F01 infinite-option types remain identical to main; A11 execution behavior and support ranges remain unchanged.
+
+Fresh combined validation: `pnpm check` passed747 source tests with two existing todos, zero lint/type errors and successful inference checks. `pnpm test:packages` passed29 tests in four files, including strict ESM/CommonJS consumers and native pagination/error/cancellation journeys. Fixture syntax and whitespace checks passed. This updates the draft branch only; PR CI reruns on the new head, while merge into main and publication remain separate.
