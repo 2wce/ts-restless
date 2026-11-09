@@ -565,3 +565,8 @@ function App() {
 The import path is `@ts-restless/react-query/tanstack` and not `@ts-restless/react-query/v5/tanstack`. `@ts-restless/react-query/tanstack` simply re-exports whichever version of `@tanstack/react-query` you have installed.
 
 </Callout>
+
+
+## Request execution and native lifecycle
+
+The binding shares request execution with core's `executeQueryRequest`: recognized HTTP errors reject with the original response envelope, and request `fetchOptions.signal` takes precedence over native query cancellation. TanStack Query owns keys, cache and lifecycle. Existing wrapper calls are unchanged. For a portable client that returns response envelopes, use core's `initClient`.

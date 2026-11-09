@@ -11,7 +11,7 @@ import {
   screen,
   waitForElementToBeRemoved,
 } from '@testing-library/react';
-import { ApiFetcher, initContract } from '@ts-restless/core';
+import { ApiFetcher, ApiFetcherArgs, initContract } from '@ts-restless/core';
 import * as React from 'react';
 import { act } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -1715,4 +1715,153 @@ describe('react-query', () => {
       'tsrQueryClient not initialized. Use TsRestReactQueryProvider to initialize one.',
     );
   });
+});
+
+it.each(['resolved', 'rejected'] as const)(
+  'A11 preserves native signal, cache key and %s error identity',
+  async (mode) => {
+    const contract = c.router({
+      read: {
+        method: 'GET',
+        path: '/a11',
+        responses: {
+          200: c.type<{ value: string }>(),
+          404: c.type<{ missing: true }>(),
+        },
+      },
+    });
+    const success = {
+      status: 200,
+      body: { value: 'ok' },
+      headers: new Headers(),
+    };
+    const failure = {
+      status: 404,
+      body: { missing: true },
+      headers: new Headers(),
+    };
+    const api = vi
+      .fn(
+        async (
+          _args: ApiFetcherArgs,
+        ): Promise<{
+          status: number;
+          body: unknown;
+          headers: Headers;
+        }> => success,
+      )
+      .mockResolvedValueOnce(success);
+    if (mode === 'resolved') api.mockResolvedValueOnce(failure);
+    else api.mockRejectedValueOnce(failure);
+    const native = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const bound = initTsrReactQuery(contract, {
+      baseUrl: 'https://a11.example',
+      api,
+    }).initQueryClient(native);
+    try {
+      expect(
+        await bound.read.fetchQuery({ queryKey: ['a11', 'success'] }),
+      ).toBe(success);
+      expect(native.getQueryData(['a11', 'success'])).toBe(success);
+      expect(api.mock.calls[0][0].fetchOptions?.signal).toBeInstanceOf(
+        AbortSignal,
+      );
+      await expect(
+        bound.read.fetchQuery({ queryKey: ['a11', 'error'] }),
+      ).rejects.toBe(failure);
+    } finally {
+      native.clear();
+    }
+  },
+);
+
+it('A11 forwards native cancellation to the active fetcher', async () => {
+  const contract = c.router({
+    read: {
+      method: 'GET',
+      path: '/a11',
+      responses: { 200: c.type<{ value: string }>() },
+    },
+  });
+  const aborted = vi.fn();
+  const api = vi.fn(
+    (args: ApiFetcherArgs) =>
+      new Promise<{
+        status: number;
+        body: unknown;
+        headers: Headers;
+      }>((_resolve, reject) => {
+        args.fetchOptions?.signal?.addEventListener(
+          'abort',
+          () => {
+            aborted();
+            reject(new DOMException('Aborted', 'AbortError'));
+          },
+          { once: true },
+        );
+      }),
+  );
+  const native = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const bound = initTsrReactQuery(contract, {
+    baseUrl: 'https://a11.example',
+    api,
+  }).initQueryClient(native);
+  try {
+    const pending = bound.read.fetchQuery({ queryKey: ['a11-cancel'] });
+    const rejection = expect(pending).rejects.toBeDefined();
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
+    await native.cancelQueries({ queryKey: ['a11-cancel'] });
+    await rejection;
+    expect(aborted).toHaveBeenCalledTimes(1);
+    expect(api.mock.calls[0][0].fetchOptions?.signal?.aborted).toBe(true);
+  } finally {
+    native.clear();
+  }
+});
+
+it('A11 retains page mapping and later-page HTTP errors', async () => {
+  const success = { status: 200, body: { next: 1 }, headers: new Headers() };
+  const failure = {
+    status: 404,
+    body: { missing: true },
+    headers: new Headers(),
+  };
+  api.mockResolvedValueOnce(success).mockResolvedValue(failure);
+  queryClient.setDefaultOptions({ queries: { retry: false } });
+  const localContract = c.router({
+    pages: {
+      method: 'GET',
+      path: '/a11/pages',
+      query: c.type<{ cursor: number }>(),
+      responses: {
+        200: c.type<{ next: number }>(),
+        404: c.type<{ missing: true }>(),
+      },
+    },
+  });
+  const local = initTsrReactQuery(localContract, {
+    baseUrl: 'https://api.com',
+    api: api as ApiFetcher,
+  });
+  const { result } = renderHook(
+    () =>
+      local.pages.useInfiniteQuery({
+        queryKey: ['a11-pages'],
+        initialPageParam: 0,
+        queryData: ({ pageParam }) => ({ query: { cursor: pageParam } }),
+        getNextPageParam: (last) => last.body.next,
+      }),
+    { wrapper: ReactQueryProvider },
+  );
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  await act(async () => {
+    await result.current.fetchNextPage();
+  });
+  await waitFor(() => expect(result.current.error).toBe(failure));
+  expect(api.mock.calls[1][0].rawQuery).toEqual({ cursor: 1 });
+  expect(result.current.data?.pages).toEqual([success]);
 });

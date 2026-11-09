@@ -1,5 +1,6 @@
+import { queryFn } from './common';
 import { vi } from 'vitest';
-import { ApiFetcher, initContract } from '@ts-restless/core';
+import { ApiFetcher, ApiFetcherArgs, initContract } from '@ts-restless/core';
 import { z } from 'zod';
 import { initQueryClient } from './vue-query';
 import { VueQueryPlugin } from '@tanstack/vue-query';
@@ -503,4 +504,51 @@ describe('vue-query', () => {
 
     expect(unref(result.current.data)).toStrictEqual(SUCCESS_RESPONSE);
   });
+});
+
+it('A11 Vue preserves request signal and resolved HTTP error identity', async () => {
+  const { QueryClient } = await import('@tanstack/vue-query');
+  const route = c.router({
+    read: {
+      method: 'GET',
+      path: '/a11',
+      responses: {
+        200: c.type<{ value: string }>(),
+        404: c.type<{ missing: true }>(),
+      },
+    },
+  }).read;
+  const failure = {
+    status: 404,
+    body: { missing: true },
+    headers: new Headers(),
+  };
+  const api = vi.fn(async (_args: ApiFetcherArgs) => failure);
+  const controller = new AbortController();
+  const mapper = vi.fn(() => ({
+    params: {},
+    body: undefined,
+    query: undefined,
+    headers: {},
+    fetchOptions: { signal: controller.signal },
+  }));
+  const native = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  try {
+    await expect(
+      native.fetchQuery({
+        queryKey: ['a11'],
+        queryFn: queryFn(
+          route,
+          { baseUrl: 'https://a11.example', api },
+          mapper,
+        ),
+      }),
+    ).rejects.toBe(failure);
+    expect(mapper.mock.calls).toHaveLength(1);
+    expect(api.mock.calls[0][0].fetchOptions?.signal).toBe(controller.signal);
+  } finally {
+    native.clear();
+  }
 });

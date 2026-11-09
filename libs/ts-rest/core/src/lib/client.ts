@@ -1,3 +1,5 @@
+import { SuccessfulHttpStatusCode } from './status-codes';
+import { isErrorResponse } from './type-guards';
 import {
   AppRoute,
   AppRouteMutation,
@@ -323,6 +325,31 @@ export const fetchApi = (options: FetchApiOptions) => {
     ...fetcherArgs,
     ...extraInputArgs,
   });
+};
+
+export const executeQueryRequest = async <TAppRoute extends AppRoute>(
+  options: Omit<FetchApiOptions, 'route'> & { route: TAppRoute },
+  abortSignal?: AbortSignal,
+): Promise<
+  ClientInferResponses<TAppRoute, SuccessfulHttpStatusCode, 'force'>
+> => {
+  const result = await fetchApi({
+    ...options,
+    fetchOptions: {
+      ...(abortSignal && { signal: abortSignal }),
+      ...options.fetchOptions,
+    },
+  });
+
+  if (isErrorResponse(result)) {
+    throw result;
+  }
+
+  return result as ClientInferResponses<
+    TAppRoute,
+    SuccessfulHttpStatusCode,
+    'force'
+  >;
 };
 
 export const evaluateFetchApiArgs = <TAppRoute extends AppRoute>(
