@@ -3,7 +3,7 @@ title: Standard Schema migration
 description: Prepare for ts-restless v4's validator-independent major version.
 ---
 
-This guide describes **ts-restless 4.0.0**, the breaking successor to ts-rest v3. Interim `4.0.0-alpha.*` releases are published, with `4.0.0-alpha.1` available through `@alpha` as of 2026-11-06. Stable `4.0.0` is not published and stable publishing remains disabled. Historical npm `0.0.0-stage` registration placeholders contain no library code and must not be installed.
+This guide describes the **ts-restless v4 development baseline**, the breaking successor to ts-rest v3. Select a containing prerelease from the [fork release notes](https://github.com/2wce/ts-restless/releases); the moving alpha tag can point to a different source baseline. Stable `4.0.0` is not published. Historical npm `0.0.0-stage` registration placeholders contain no library code and must not be installed.
 
 Examples compile against this fork's development-checkout `@ts-restless/*` packages. See the [package migration and prerelease guide](/ts-restless-migration) for dependency replacement and release status. Existing published upstream v3 packages keep their current behavior.
 
@@ -42,8 +42,35 @@ The bridge preserves inferred input/output types, validator issue fields and Zod
 object introspection. It does not change the supplied schema. Apply it to the
 schema supplied to the contract; do not wrap every nested field.
 
+For header **field records**, each field is a schema supplied directly to the
+contract, so bridge each old schema that lacks `~standard`:
+
+```typescript twoslash
+import { initContract } from '@ts-restless/core';
+import { toStandardSchema } from '@ts-restless/core/zod3';
+import { z } from 'zod';
+const c = initContract();
+const contract = c.router({
+  read: {
+    method: 'GET', path: '/items',
+    headers: { 'x-token': toStandardSchema(z.string()) },
+    responses: { 200: toStandardSchema(z.object({ ok: z.boolean() })) },
+  },
+});
+```
+
+Bridge old schemas in `pathParams`, `query`, `body`, responses (including an
+`otherResponse` body), and base/route headers. For a whole-object header schema,
+bridge the object once. A modern schema that already implements `~standard`
+needs no bridge. If a contract uses only types, keep `c.type<T>()` / `c.noBody()`;
+these markers do not add runtime validation. Core cannot infer a runtime
+validator from an arbitrary `safeParse` implementation.
+
 An unsupported schema now throws a clear configuration error. Core no longer
 automatically recognizes a `safeParse` method or silently skips that schema.
+Do not work around this by casting the old schema; bridge it or upgrade its
+validator. Promise-returning validation is still unsupported: use a synchronous
+schema and put asynchronous checks in your application handler.
 
 ## Validation errors
 
@@ -62,17 +89,121 @@ validation failures. Adapter request errors expose `StandardSchemaError` in each
 failed request location. Nest also exposes its existing
 `TsRestResponseValidationError` for response validation.
 
+Replace a default `instanceof ZodError` check with issue handling on the new
+class. Retain a Zod-specific check only for errors your own application creates:
+
+```typescript twoslash
+import { StandardSchemaError, validationErrorResponse } from '@ts-restless/core';
+
+function handleValidationFailure(error: unknown) {
+  if (!(error instanceof StandardSchemaError)) throw error;
+  const payload = validationErrorResponse(error);
+  return payload.issues.map((issue) => ({
+    message: issue.message,
+    path: (issue.path ?? []).map((part) =>
+      typeof part === 'object' ? part.key : part,
+    ),
+  }));
+}
+```
+
+On the client, an HTTP error is JSON, not an instance of a server error class.
+Update error-response schemas as well as class checks. A schema for the default
+serialized validation error can be defined with your chosen validator. Here is
+a typechecked Zod 3 example that accepts portable JSON issue paths and preserves
+additional validator fields:
+
+```typescript twoslash
+import { z } from 'zod';
+
+const PathPart = z.union([
+  z.string(), z.number(),
+  z.object({ key: z.union([z.string(), z.number()]) }).passthrough(),
+]);
+const ValidationErrorSchema = z.object({
+  name: z.literal('ValidationError'),
+  issues: z.array(z.object({
+    message: z.string(),
+    path: z.array(PathPart).optional(),
+  }).passthrough()),
+});
+
+// For a combined Express/Fastify-style payload; use your adapter's actual envelope.
+const CombinedRequestFailure = z.object({
+  pathParameterErrors: ValidationErrorSchema.nullable(),
+  headerErrors: ValidationErrorSchema.nullable(),
+  queryParameterErrors: ValidationErrorSchema.nullable(),
+  bodyErrors: ValidationErrorSchema.nullable(),
+});
+```
+
+Express's default handler may return a single validation error rather than the
+combined payload; Next's default handler returns the first failing location's
+validation error. Nest uses `paramsResult`, `headersResult`, `queryResult` and
+`bodyResult`. Serverless includes `message: 'Request validation failed'` with
+the combined location fields. Preserve your adapter's envelope or custom
+handler policy and replace its nested historical Zod-error schema with the
+portable schema. Update any contract response declaration that describes these
+errors, then test invalid parameters, headers, query and body independently.
+
+The historical `/zod3` payload schemas require `name: 'ZodError'` and Zod issue
+fields. They are useful for older payloads, but are not parsers for the new
+default handlers. A `/zod3` import or explicit old-schema bridge does not enable
+legacy error formatting.
+
 ## Historical helpers
 
-Import Zod guards, `zodMerge`, `zodErrorResponse`, `ZodErrorSchema`,
-`ZodInferOrType`, `ZodInputOrType` and the historical request-error schemas from
-`@ts-restless/core/zod3`. Prefer `SchemaInputOrType` and `SchemaOutputOrType` from the
-default core entry for new code.
+These imports move out of the default core entry:
 
-Adapter-specific historical error classes and schemas move to the adapter's
-`/zod3` entry point where they existed. Those helpers describe the historical
-payloads. Importing them does not switch default handlers back to Zod errors.
-The compatibility entry points support Zod 3; Zod 4 uses the default entry points.
+| Previous core export | Replacement |
+| --- | --- |
+| `ZodInferOrType`, `ZodInputOrType` | `SchemaOutputOrType`, `SchemaInputOrType` from the root for Standard Schema; historical names remain under `/zod3`. |
+| `isZodType` | `isStandardSchema` for portable detection; the old Zod-only guard remains under `/zod3`. |
+| `isZodObject`, `isZodObjectStrict`, `extractZodObjectShape` | Keep validator-owned introspection in your integration, or import historical Zod 3 helpers from `/zod3`. Standard Schema does not expose object fields. |
+| `zodMerge` | Use field records or `combineStandardSchemas` for validating both schemas; use `/zod3` only when historical Zod object replacement semantics are required. |
+| `zodErrorResponse`, `ZodErrorSchema` | `validationErrorResponse` and an application-defined portable payload schema; old payload helpers remain under `/zod3`. |
+| `ResponseValidationError` | `TsRestResponseValidationError` from core for current handlers; the historical constructor remains under core `/zod3`. |
+| `RequestValidationErrorSchema`, `RequestValidationErrorSchemaWithoutMessage`, `RequestValidationErrorSchemaForNest` | Define schemas matching current error payloads; historical versions remain under core `/zod3`. |
+| `ContractAnyTypeLegacy` | `ContractAnyType`, after adapting old schemas. The legacy union is removed. |
+| `areAllSchemasLegacyZod` | Remove the vendor-based branch. All default validation failures use `StandardSchemaError`, including bridged old schemas. |
+
+`parseAsStandardSchema` is retained but now only returns a supplied Standard
+Schema or `null`; it no longer adapts old Zod automatically. Use the explicit
+bridge before passing the schema to it.
+
+```typescript twoslash
+import type { SchemaInputOrType, SchemaOutputOrType } from '@ts-restless/core';
+import { toStandardSchema } from '@ts-restless/core/zod3';
+import { z } from 'zod';
+const numberFromString = toStandardSchema(z.string().transform(Number));
+type Input = SchemaInputOrType<typeof numberFromString>; // string
+type Output = SchemaOutputOrType<typeof numberFromString>; // number
+```
+
+The compatibility entry points support Zod 3. Zod 4 uses the default entry
+points and its own introspection/conversion tools.
+
+## Adapter error imports
+
+| Adapter | Current default-handler error API | Historical imports available under `/zod3` |
+| --- | --- | --- |
+| Express | Root `RequestValidationError` contains `StandardSchemaError` in failed locations. | `DefaultRequestValidationErrorSchema`, `CombinedRequestValidationErrorSchema`. |
+| Fastify | Root `RequestValidationError` contains `StandardSchemaError` in failed locations. | `RequestValidationErrorSchema`. |
+| Nest | Root `TsRestRequestValidationError` / `TsRestResponseValidationError`; old short names alias these current classes. | Historical `RequestValidationError`, `ResponseValidationError`, `RequestValidationErrorSchema`. |
+| Next Pages API | Root `TsRestRequestValidationError` (`RequestValidationError` aliases it); response errors use core's `TsRestResponseValidationError`. | Historical `RequestValidationError`, `RequestValidationErrorSchema`. |
+| Serverless | Root `TsRestRequestValidationError` (`RequestValidationError` aliases it) and `ResponseValidationError`. | Historical `RequestValidationError`, `RequestValidationErrorSchema`. |
+
+For example, `RequestValidationErrorSchema` moves from `@ts-rest/nest` to
+`@ts-restless/nest/zod3` if you still need to describe an **old** payload. For
+new handlers, catch `TsRestRequestValidationError` from `@ts-restless/nest` and
+read the failed location's `issues`. A middleware filter importing the
+historical constructor will not catch the new class solely because their
+exported names match.
+
+For response validation errors, preserve your adapter's existing HTTP/error
+policy and read `cause.issues` on core's current response error (Nest uses its
+own response error's `error.issues`). Serverless exposes its response error's
+`error.issues`. Do not replace the response policy just to rename an import.
 
 ## Whole-object headers
 
@@ -85,6 +216,9 @@ Field-record names are normalized to lowercase before merging and validation.
 Route overrides and `null` removals therefore apply regardless of casing, even
 in nested routers. Client header types describe schema inputs; server header
 types describe transformed outputs, with optionality inferred independently.
+Change mixed-case property access in handlers to lowercase field-record names.
+For transformed schemas, send the schema's input type from clients and use its
+output type in handlers. Do not share a server-output type as the request type.
 
 Whole-object schemas remain supported, including stable Zod 4 and bridged old
 Zod 3 objects. Use lowercase header keys in their input and output shapes, since
@@ -121,3 +255,18 @@ make JSON Schema generation independent. The OpenAPI package still uses its
 existing Zod 3 transformer by default; other validators need the existing custom
 transformer option. The old-Zod bridge preserves the introspection that transformer
 needs. Validator-independent OpenAPI work is tracked in issue #4.
+
+You can migrate the package scope while keeping a Zod 3 contract and its current
+default converter. If you change to Zod 4, Valibot or another validator, select
+an explicit matching `schemaTransformer` and use `generateOpenApiAsync` for an
+asynchronous converter. Standard Schema validation alone cannot reconstruct
+JSON Schema or metadata. See the [OpenAPI transformer guide](/openapi) and
+compare the generated request/response document before deploying the change.
+
+## Verify the migration
+
+Typecheck your contracts and their clients, then exercise each invalid request
+location and a response-validation failure. Check old-schema transforms,
+header overrides/removals, middleware class checks and serialized issue
+payloads. Generate OpenAPI if used. The [fork migration checklist](/ts-restless-migration#verify-your-application)
+also covers framework upgrades and coordinated package replacement.

@@ -21,7 +21,7 @@ const {
 
 <Callout type="info" title="React Query v5 Documentation">
 
-TanStack Query v5 is the default baseline. Import `initTsrReactQuery` from `@ts-restless/react-query`; `/v5` remains an alias. Query v4 and React16/17 are removed from this initial stable baseline. See the [migration guide](/docs/query-v5-migration).
+TanStack Query v5 is the default baseline. Import `initTsrReactQuery` from `@ts-restless/react-query`; `/v5` remains an alias. Query v4 and React16/17 are removed from this initial stable baseline. See the [migration guide](/query-v5-migration).
 
 </Callout>
 
@@ -58,7 +58,7 @@ export const tsr = initTsrReactQuery(contract, {
 <Callout type="info" title="Fetch Client Configuration">
 
 `initTsrReactQuery` uses our fetch client under the hood, so you can configure it just as you would the fetch client, including passing a custom API fetcher.
-For more information, see the [fetch client documentation](/docs/core/fetch).
+For more information, see the [fetch client documentation](/client/fetch).
 
 </Callout>
 
@@ -164,7 +164,7 @@ If you want to make `fetch` requests directly without going through React Query,
 const { body, status } = await tsr.posts.get.query();
 
 // useQuery hook
-const { data, isLoading } = tsr.posts.get.useQuery();
+const { data, isPending } = tsr.posts.get.useQuery({ queryKey: ['posts'] });
 ```
 
 ## Query Client
@@ -366,7 +366,8 @@ import { dehydrate, QueryClient } from '@tanstack/react-query';
 import { tsr } from './tsr';
 
 export async function getServerSideProps() {
-  const tsrQueryClient = tsr.initQueryClient(new QueryClient());
+  const queryClient = new QueryClient();
+  const tsrQueryClient = tsr.initQueryClient(queryClient);
 
   await tsrQueryClient.getPosts.prefetchQuery({ queryKey: ['POSTS'] });
 
@@ -433,8 +434,8 @@ const Posts = ({ ids }: { ids: string[] }) => {
 
   return (
     <div>
-      {queries.map((query) => (
-        <p key={query.data?.body.id}>{query.data?.body.title}</p>
+      {data.map((response, index) => (
+        <p key={index}>{response?.body.title}</p>
       ))}
     </div>
   );
@@ -560,7 +561,7 @@ function App() {
 
 <Callout type="info" title="Import Path">
 
-The import path is `@ts-restless/react-query/tanstack` and not `@ts-restless/react-query/tanstack`. `@ts-restless/react-query/tanstack` simply re-exports whichever version of `@tanstack/react-query` you have installed.
+The public `@ts-restless/react-query/tanstack` subpath re-exports the installed native `@tanstack/react-query` package.
 
 </Callout>
 

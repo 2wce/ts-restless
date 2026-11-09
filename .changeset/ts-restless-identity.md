@@ -10,8 +10,10 @@ identifiers and supported subpaths, including `/zod3` and React Query `/v5`, rem
 Report bugs and prerelease feedback at https://github.com/2wce/ts-restless/issues.
 
 This major includes the Standard Schema default API and the separately documented
-legacy Zod bridge. A prerelease does not widen framework support: public React
-peers cover React 16.8–18, Fastify support remains on major 4, and Query v5 evidence
-is limited to the pinned compatibility baseline. OpenAPI still has its existing
-converter boundary. Follow the package and Standard Schema migration guides in
-the repository before moving from upstream v3.
+legacy Zod bridge. The initial stable baseline uses Query5 only and public React18
+peers; React19 remains pending. Fastify support remains on major4. OpenAPI keeps
+its existing Zod3 default converter and explicit transformer hooks. Follow the
+[fork migration checklist](https://github.com/2wce/ts-restless/blob/main/apps/docs/content/docs/ts-restless-migration.mdx)
+before moving from upstream v3; it links every changed support line, import and
+behavior to its replacement. Select a containing prerelease from release notes
+rather than assuming the moving alpha tag contains the development baseline.

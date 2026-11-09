@@ -68,6 +68,29 @@ Retire one selected surface per reviewable change. Before removal:
 
 Follow the [consumer compatibility workflow](../CONTRIBUTING.md#consumer-compatibility): the full isolated fixture matrix runs in CI. A passing pinned fixture establishes evidence for that installation, not every version allowed by a broad peer range. The A01 inventory reconciles declared floors and supported lines with the checks needed to justify them; unverified floors remain explicit gaps.
 
+## Migration documentation gate
+
+Every support reduction or breaking API/behavior change, including the initial
+stable baseline, must have a row in the public [fork migration checklist](../apps/docs/content/docs/ts-restless-migration.mdx).
+The row links to guidance that identifies:
+
+- The affected framework versions, imports, types or behavior, and the exact replacement.
+- The first released version containing the replacement, or an explicit development-only status until that version exists.
+- The upgrade order and concrete before/after calls or payload examples, including provider, cache, pagination and error changes where relevant.
+- Required application checks and the last compatible release/fallback when immediate migration is not possible.
+- Any unsupported combined dependency versions or capabilities the replacement does not supply.
+
+Update the guide with the removal PR and link it from the Changeset/release
+notes. Distinguish removed features from retained deprecated helpers and future
+work. Typecheck executable examples and run the docs build and rendered
+migration-link checks before release; an internal plan or a link to a generic
+upstream upgrade guide alone does not cover adapter-specific changes.
+
+The [2026-11-09 audit](superpowers/results/2026-11-09-migration-documentation.md)
+records the initial v4 coverage and verification. Review this checklist again
+when new removals or release contents change; it does not automatically certify
+future changes.
+
 ## Initial review priorities
 
 The following observations are a checkout snapshot from 2026-11-04, not an adopted support reduction.

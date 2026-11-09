@@ -33,4 +33,4 @@ const mutation = client.write.createMutation();
 await mutation.mutateAsync({ body: { value: 'save' } });
 ```
 
-Infinite queries require `initialPageParam` and `getNextPageParam`. Their default result is `InfiniteData` with typed response-envelope pages; selected results remain inferred. Mutation status uses `isPending` and mutations have no synthetic query cancellation signal. See the [Query v5 migration guide](/docs/query-v5-migration) for the breaking baseline change.
+Infinite queries require `initialPageParam` and `getNextPageParam`. Their default result is `InfiniteData` with typed response-envelope pages; selected results remain inferred. Mutation status uses `isPending` and mutations have no synthetic query cancellation signal. See the [Query v5 migration guide](/query-v5-migration) for the breaking baseline change.

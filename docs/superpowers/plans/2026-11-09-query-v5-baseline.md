@@ -24,7 +24,7 @@
 - [x] Extend existing installed-tarball suite with root and `/v5` React equivalence, absent v4 helpers, strict Vue/Solid ESM/CJS selected/page/request assertions and native runtime paths. Compile with --strict and no skipLibCheck; tests must reject missing request/page options. Exercise exact older and current native Query5 sets.
 - [x] Update example Vue infinite query with `initialPageParam`; use React root import in examples. Build all examples and document any external host/build limitations.
 - [x] Replace v4 doc pages with migration notices linking current v5 guidance, add Vue5/Solid5 documentation and query-v5 migration guide, update navigation, support policy/inventory and roadmap. Add major Changeset for all three public adapters. Support commitments reduce 13 to 12; captured demand is historical, not changed.
-- [ ] Review diff, run pnpm check, pnpm test:packages, docs tests/build and examples build. Record actual versions/results; open draft PR after checks and attach it. No publication proof claimed.
+- [x] Review diff, run pnpm check, pnpm test:packages, docs tests/build and examples build. Record actual versions/results; open draft PR after checks and attach it. No publication proof claimed.
 
 ## Execution evidence
 
@@ -47,3 +47,5 @@ Verification adjustment: standalone native Solid key changes pass in a browser-c
 The draft integration PR includes F01/A11 prerequisites. After those are merged, rebase this branch onto main to leave the support migration as its review diff. CI and independent reviewer approval remain separate from these local checks.
 
 Final local gates: `pnpm check` passed with728 source tests and two existing todos, zero lint/type errors (existing warnings retained), all production/inference tasks passed. The final emitted-declaration `pnpm test:packages` rerun again passed31 tests. Docs build/typecheck and33 static-page tests pass; all13 example build tasks pass. F01 #20 and A11 #21 have Build & Test, all ten compatibility fixtures and the aggregate fixture gate green on their current implementation heads. The integration draft still requires its own CI and human review.
+
+2026-11-09 delivery refresh: draft PR #22 was opened and attached at `f764798f`; Build & Test, all ten compatibility fixtures and the aggregate gate passed on that head. F01 #20 is now merged on main `192636d2`. Human review and migration merge remain separate. The subsequent [migration documentation audit](../results/2026-11-09-migration-documentation.md) expands the user upgrade paths and adds rendered link/anchor checks; its docs gate passes46 tests. The initial v5 migration is not yet a released artifact.

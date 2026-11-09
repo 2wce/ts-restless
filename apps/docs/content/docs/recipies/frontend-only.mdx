@@ -36,7 +36,7 @@ export const contract = c.router({
 });
 ```
 
-Read our [core guide](/docs/core) to learn more about contracts.
+Read our [core guide](/contract/overview) to learn more about contracts.
 
 ## Setup react-query in your project
 
@@ -60,7 +60,7 @@ const App = () => {
 
 ## Consume the Contract
 
-Set up `client.ReactQueryProvider` below the native `QueryClientProvider` as shown in the [React v5 guide](/docs/client/react-query-v5). Now that we have a contract, we can use it to create a client. We're going to use `react-query` to handle the data fetching, but you can use any data fetching library you want.
+Set up `client.ReactQueryProvider` below the native `QueryClientProvider` as shown in the [React v5 guide](/client/react-query-v5). Now that we have a contract, we can use it to create a client. We're going to use `react-query` to handle the data fetching, but you can use any data fetching library you want.
 
 ```tsx
 import { contract } from './contract';
