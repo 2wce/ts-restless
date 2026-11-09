@@ -24,3 +24,5 @@
 - [x] Record coverage/evidence in `docs/superpowers/results/2026-11-09-migration-documentation.md`, commit documentation and test changes on the existing migration branch, and push the draft PR update. Merge/publication remain separate.
 
 Verification: final docs build, TypeScript/Twoslash and all46 static-site tests passed. Public npm manifests confirm the documented alpha.2 Query4 and alpha.1 Next12-14 fallback ranges. Documentation is delivered as a follow-up on draft PR #22; migration merge and publication remain separate.
+
+Current main was merged without changing the documentation or implementation tree; the fixture resolution preserves the v5 root and retained A11/Vue/Solid checks. A final installed-package rerun passed31 tests.

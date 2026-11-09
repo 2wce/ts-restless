@@ -73,7 +73,12 @@ guides cover these audited surfaces:
   `listen EPERM ::1`; the approved run outside the sandbox completed successfully.
 - The same docs command is already part of `.github/workflows/build-test.yml`.
   No workflow or publication-control change is needed to run the new checks in CI.
-- `git diff --check` is used before committing. This is documentation validation,
+- After merging current main, the only conflicts were the React root versus
+  `/v5` test import and retained additional A11/Vue/Solid fixtures. Keeping the
+  migration fixture made the merge tree identical to documentation commit
+  `bf3e5e0c`. A fresh `pnpm test:packages` run passed all31 installed-package
+  tests; `node --check` also accepted the resolved fixture.
+- `git diff --check` passed before committing. This is documentation validation,
   not a new application/runtime verification campaign. Framework-specific runtime
   journeys remain those recorded in the Query migration implementation plan.
 
