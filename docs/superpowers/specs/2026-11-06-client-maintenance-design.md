@@ -1,6 +1,6 @@
 # Shared query execution and native client direction
 
-**Status:** Proposed for review. The user authorized recording evidence/design/planning and opening a draft PR on 2026-11-06. This is not approval to ship the helper, change supported majors, remove wrappers or publish packages.
+**Status:** A11 implementation authorized on 2026-11-09 and implemented locally with source, strict packed-consumer and docs checks passing. The original 2026-11-06 documentation approval was followed by explicit implementation authorization. Native composition and support/API removals require their own scoped decision; merge and publication remain separate.
 
 **Baseline:** merged main `a708f05935a1954799b0a8899259c25e6f611a0b`. **Scope:** A11 of the [adapter epic](../plans/2026-11-04-adapter-maintenance-epic.md), with one bounded reuse step from A14. The [evidence record](../results/2026-11-06-support-demand.md) supplies the wider direction and demand rationale. The [execution plan](../plans/2026-11-06-common-query-execution.md) implements this spec only after design approval.
 
