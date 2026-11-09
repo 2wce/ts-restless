@@ -1,6 +1,6 @@
 # Shared query execution and native client direction
 
-**Status:** Proposed for review. The user authorized recording evidence/design/planning and opening a draft PR on 2026-11-06. This is not approval to ship the helper, change supported majors, remove wrappers or publish packages.
+**Status:** A11 implementation authorized on 2026-11-09 and implemented locally with source, strict packed-consumer and docs checks passing. The original 2026-11-06 documentation approval was followed by explicit implementation authorization. Native composition and support/API removals require their own scoped decision; merge and publication remain separate.
 
 **Baseline:** merged main `a708f05935a1954799b0a8899259c25e6f611a0b`. **Scope:** A11 of the [adapter epic](../plans/2026-11-04-adapter-maintenance-epic.md), with one bounded reuse step from A14. The [evidence record](../results/2026-11-06-support-demand.md) supplies the wider direction and demand rationale. The [execution plan](../plans/2026-11-06-common-query-execution.md) implements this spec only after design approval.
 
@@ -118,3 +118,7 @@ Package retirement, supported-major narrowing and recommending composition as th
 ## Review gate and resume instructions
 
 Review the helper's name/public placement, its preserved signal/error semantics and React+Vue extraction scope. Approval must be recorded here before executing the linked plan. Recheck current main, pinned versions, F01/F04 work and draft PR ownership at execution time. If intervening changes alter any preserved behavior, revise the spec and plan before implementation. No implementer should infer approval from the existence or merge of this documentation PR.
+
+## 2026-11-09 implementation authorization
+
+The user authorized F01 and A11 in parallel. The public `executeQueryRequest` name/location and preserved error/signal semantics above are the implemented A11 scope. React5 and Vue adopt this capability; native composition and broader roadmap steps remain separate. TanStack Query v4 removal and Vue/Solid migration were subsequently authorized as a separate initial-stable-baseline slice; that does not alter this extraction's baseline checks.

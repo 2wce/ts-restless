@@ -277,7 +277,7 @@ for (const { profile, definition, nextVersion } of consumers) {
           'no-Zod consumer must not install Zod transitively',
         );
       }
-      const source = `import { initContract, evaluateResponse, ResponseMetadata, ResponseEvaluation, StandardSchemaV1, SchemaInputOrType, SchemaOutputOrType, ServerInferRequest, ClientInferRequest, ClientInferResponseBody } from '@ts-restless/core';
+      const source = `import { initContract, executeQueryRequest, evaluateFetchApiArgs, evaluateResponse, ResponseMetadata, ResponseEvaluation, StandardSchemaV1, SchemaInputOrType, SchemaOutputOrType, ServerInferRequest, ClientInferRequest, ClientInferResponseBody } from '@ts-restless/core';
 import { createExpressEndpoints, initServer } from '@ts-restless/express';
 import * as fastify from '@ts-restless/fastify';
 import * as nest from '@ts-restless/nest';
@@ -379,6 +379,23 @@ const serverlessNextHandler = serverlessNext.createNextHandler(contract, {
   },
 }, { handlerType: 'app-router', responseValidation: true });
 void serverlessNextHandler;
+const executionRoute = initContract().router({
+  read: {
+    method: 'GET',
+    path: '/a11',
+    responses: { 200: initContract().type<{ value: string }>() },
+  },
+}).read;
+const execution = executeQueryRequest({
+  ...evaluateFetchApiArgs(executionRoute, { baseUrl: 'https://a11.example' }),
+  route: executionRoute,
+});
+type ExecutionBody = Expect<
+  Equal<Awaited<typeof execution>['body'], { value: string }>
+>;
+type ExecutionStatus = Expect<Equal<Awaited<typeof execution>['status'], 200>>;
+// @ts-expect-error successful body value is a string
+const incorrect: Promise<{ body: { value: number } }> = execution;
 void [createExpressEndpoints, initServer, fastify, nest, next, serverless, fetch, aws, azure, serverlessNext];
 `;
       for (const extension of ['mts', 'cts']) {
@@ -432,7 +449,43 @@ for (const name of ['@ts-restless/core', '@ts-restless/express', '@ts-restless/f
   assert.deepEqual(Object.keys(esm).filter((key) => key !== 'default').sort(), Object.keys(cjs).sort());
 }
 ${definition.replace('schema: StandardSchemaV1<string, number>', 'schema')}
-for (const { validateIfSchema, validateMultiSchemaObject, initContract, StandardSchemaError, evaluateResponse } of [await import('@ts-restless/core'), require('@ts-restless/core')]) {
+for (const { validateIfSchema, validateMultiSchemaObject, initContract, StandardSchemaError, evaluateResponse, executeQueryRequest, evaluateFetchApiArgs } of [await import('@ts-restless/core'), require('@ts-restless/core')]) {
+{
+const queryRoute = initContract().router({
+  read: {
+    method: 'GET',
+    path: '/a11',
+    responses: { 200: initContract().type() },
+  },
+}).read;
+const success = { status: 200, body: { value: 'ok' }, headers: new Headers() };
+const options = {
+  ...evaluateFetchApiArgs(queryRoute, {
+    baseUrl: 'https://a11.example',
+    api: async () => success,
+  }),
+  route: queryRoute,
+};
+const response = await executeQueryRequest(options);
+assert.equal(response, success);
+assert.equal(response.headers, success.headers);
+const failure = {
+  status: 404,
+  body: { missing: true },
+  headers: new Headers(),
+};
+const failureOptions = {
+  ...evaluateFetchApiArgs(queryRoute, {
+    baseUrl: 'https://a11.example',
+    api: async () => failure,
+  }),
+  route: queryRoute,
+};
+await assert.rejects(
+  executeQueryRequest(failureOptions),
+  (error) => error === failure,
+);
+}
   assert.equal(validateIfSchema('42', schema).value, 42);
   const failure = validateIfSchema({}, schema).error;
   assert.ok(failure instanceof StandardSchemaError);
@@ -621,6 +674,89 @@ for (const compat of [await import('@ts-restless/core/zod3'), require('@ts-restl
   });
 }
 
+test('packed shared execution preserves strict public React and Vue inference', async () => {
+  const consumer = await mkdtemp(
+    join(tmpdir(), 'ts-restless-query-execution-'),
+  );
+  try {
+    await writeFile(
+      join(consumer, 'package.json'),
+      JSON.stringify({
+        name: 'packed-query-execution',
+        private: true,
+        type: 'module',
+        dependencies: {
+          '@ts-restless/core': 'file:' + join(archives, 'ts-restless-core.tgz'),
+          '@ts-restless/react-query':
+            'file:' + join(archives, 'ts-restless-react-query.tgz'),
+          '@ts-restless/vue-query':
+            'file:' + join(archives, 'ts-restless-vue-query.tgz'),
+          '@tanstack/react-query': '5.51.11',
+          '@tanstack/query-core': '5.51.9',
+          '@tanstack/vue-query': '4.44.0',
+          vue: '3.5.44',
+          react: '18.3.1',
+          'react-dom': '18.3.1',
+          '@types/react': '18.3.1',
+          '@types/react-dom': '18.3.0',
+          '@types/node': '26.6.5',
+        },
+      }),
+    );
+    execFileSync('pnpm', ['install', '--ignore-scripts'], {
+      cwd: consumer,
+      stdio: 'pipe',
+    });
+    const source = `import { initContract } from '@ts-restless/core';
+import { initTsrReactQuery } from '@ts-restless/react-query/v5';
+import { initQueryClient } from '@ts-restless/vue-query';
+const c = initContract();
+const contract = c.router({
+  read: {
+    method: 'GET',
+    path: '/a11/:id',
+    responses: { 200: c.type<{ value: string }>() },
+  },
+});
+const react = initTsrReactQuery(contract, { baseUrl: 'https://a11.example' });
+react.read.useQuery({
+  queryKey: ['a11'],
+  queryData: { params: { id: '1' } },
+  select: (r) => r.body.value,
+});
+// @ts-expect-error required path param is missing
+react.read.useQuery({ queryKey: ['a11'] });
+const vue = initQueryClient(contract, { baseUrl: 'https://a11.example' });
+vue.read.useQuery(['a11'], () => ({ params: { id: '1' } }), {
+  select: (r) => r.body.value,
+});
+// @ts-expect-error required request mapper is missing
+vue.read.useQuery(['a11']);`;
+    for (const extension of ['mts', 'cts']) {
+      const file = 'consumer.' + extension;
+      await writeFile(join(consumer, file), source);
+      execFileSync(
+        process.execPath,
+        [
+          resolve(root, 'node_modules/typescript/bin/tsc'),
+          '--noEmit',
+          '--strict',
+          '--target',
+          'es2024',
+          '--module',
+          'nodenext',
+          '--moduleResolution',
+          'nodenext',
+          '--esModuleInterop',
+          file,
+        ],
+        { cwd: consumer, stdio: 'pipe' },
+      );
+    }
+  } finally {
+    await rm(consumer, { recursive: true, force: true });
+  }
+});
 // Native option interfaces changed arity in Query 5.80; exercise both sides
 // through installed public archives rather than the private workspace helper.
 const queryV5Consumers = [

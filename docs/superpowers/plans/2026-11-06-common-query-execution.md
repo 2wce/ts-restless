@@ -2,7 +2,7 @@
 
 > **For agentic workers:** After the design approval below is recorded, use `executing-plans` to implement one task at a time with review checkpoints. Track steps with checkboxes. Do not implement the wider client/support roadmap from this plan.
 
-**Status:** Proposed, not executable authorization. No production changes or tests described below have been implemented by the documentation PR.
+**Status:** Implemented locally on 2026-11-09 by explicit user authorization ("lets do f01 and a11 in parallel"). Draft PR/CI and publication remain separate.
 
 **Goal:** Replace React v5 and Vue's duplicated signal/transport/error policy with one core implementation while preserving existing public APIs and behavior.
 
@@ -14,9 +14,9 @@
 
 ## Approval and stop conditions
 
-- [ ] Record approval in the spec of the public helper name/location, preserved error/signal semantics and React+Vue extraction scope. A merged documentation PR alone does not satisfy this gate.
-- [ ] Check current main, open PRs and F01/F04 ownership; adapt this plan to intervening client changes before touching source.
-- [ ] Establish a clean isolated branch, pinned runtime and focused baseline. Record exact installed versions, commands and results.
+- [x] Record approval in the spec of the public helper name/location, preserved error/signal semantics and React+Vue extraction scope. A merged documentation PR alone does not satisfy this gate.
+- [x] Check current main, open PRs and F01/F04 ownership; adapt this plan to intervening client changes before touching source.
+- [x] Establish a clean isolated branch, pinned runtime and focused baseline. Record exact installed versions, commands and results.
 
 Stop and revise the design if it requires a new package, native types in core, changed cancellation/error/validation semantics, a native-major upgrade, peer narrowing, wrapper removal or inference fixes concealed by casts/`skipLibCheck`. If a native declaration failure already exists on the baseline, preserve its reproduction and resolve the appropriate compatibility slice before claiming this gate passes.
 
@@ -35,7 +35,7 @@ Stop and revise the design if it requires a new package, native types in core, c
 
 **Consumes:** Existing `initTsrReactQuery`, native `QueryClient`, Vue `queryFn` and each suite's contract/mock setup. **Produces:** Tests that pass against the old wrappers and detect error/signal regressions.
 
-- [ ] Run the focused baseline:
+- [x] Run the focused baseline:
 
 ```sh
 pnpm exec vp test run --project core --project react-query-v5 --project vue-query
@@ -43,7 +43,7 @@ pnpm exec vp test run --project core --project react-query-v5 --project vue-quer
 
 Expected: all existing focused tests pass. Record the actual count, not a copied historical count.
 
-- [ ] Append this React test to the existing suite. Merge the `ApiFetcherArgs` type import into the existing core import. It uses fresh native state and the existing imported `c`, `QueryClient`, `initTsrReactQuery` and `vi`.
+- [x] Append this React test to the existing suite. Merge the `ApiFetcherArgs` type import into the existing core import. It uses fresh native state and the existing imported `c`, `QueryClient`, `initTsrReactQuery` and `vi`.
 
 ```typescript
 it.each(['resolved', 'rejected'] as const)(
@@ -109,7 +109,7 @@ it.each(['resolved', 'rejected'] as const)(
 
 The two modes distinguish HTTP-envelope rejection from transport rejection. Both preserve object identity; the resolved mode must detect removal of the current `throw result` policy.
 
-- [ ] Add this native cancellation case in the same React suite. Cancellation must reach the fetcher, not merely appear in its options:
+- [x] Add this native cancellation case in the same React suite. Cancellation must reach the fetcher, not merely appear in its options:
 
 ```typescript
 it('A11 forwards native cancellation to the active fetcher', async () => {
@@ -159,7 +159,7 @@ it('A11 forwards native cancellation to the active fetcher', async () => {
 });
 ```
 
-- [ ] Append this Vue test in the existing suite. Merge `ApiFetcherArgs` into the core import and add `queryFn` from `./common`. It executes the existing binding with an actual native `QueryClient` without constructing a component.
+- [x] Append this Vue test in the existing suite. Merge `ApiFetcherArgs` into the core import and add `queryFn` from `./common`. It executes the existing binding with an actual native `QueryClient` without constructing a component.
 
 ```typescript
 it('A11 Vue preserves request signal and resolved HTTP error identity', async () => {
@@ -210,7 +210,7 @@ it('A11 Vue preserves request signal and resolved HTTP error identity', async ()
 });
 ```
 
-- [ ] Extend the existing React infinite success case with a declared later-page error, using a new local route with response `404: c.type<{ missing: true }>()`, query `c.type<{ cursor: number }>()` and response `200: c.type<{ next: number }>()`. Use the existing hook/provider fixture pattern with:
+- [x] Extend the existing React infinite success case with a declared later-page error, using a new local route with response `404: c.type<{ missing: true }>()`, query `c.type<{ cursor: number }>()` and response `200: c.type<{ next: number }>()`. Use the existing hook/provider fixture pattern with:
 
 ```typescript
 const success = { status: 200, body: { next: 1 }, headers: new Headers() };
@@ -257,8 +257,8 @@ expect(result.current.data?.pages).toEqual([success]);
 
 Wrap this code in an `it('A11 retains page mapping and later-page HTTP errors', async () => { ... })` case. The existing `api as ApiFetcher` boundary is already part of this suite, not a new production workaround. Retry must be disabled or a second mocked page can obscure the failure.
 
-- [ ] Run focused tests again: expected pass on old wrappers. Temporarily remove React's `throw result` and then reverse Vue's signal merge order, one mutation at a time. Run the A11 cases and confirm each mutation fails for the intended assertion; restore both files immediately. Do not commit mutations.
-- [ ] Record the two existing policy locations and commit only characterization tests. Review this checkpoint before production extraction.
+- [x] Run focused tests again: expected pass on old wrappers. Temporarily remove React's `throw result` and then reverse Vue's signal merge order, one mutation at a time. Run the A11 cases and confirm each mutation fails for the intended assertion; restore both files immediately. Do not commit mutations.
+- [ ] Historical checkpoint separation: characterization was run on old wrappers, but tests/helper/adoption are delivered in one reviewed extraction commit rather than separate characterization commits.
 
 ## Task 2: Add the core capability and adopt both bindings
 
@@ -266,7 +266,7 @@ Wrap this code in an `it('A11 retains page mapping and later-page HTTP errors', 
 
 **Consumes:** Spec's exact helper signature and existing `FetchApiOptions`, `evaluateFetchApiArgs`, `fetchApi`, `isErrorResponse`. **Produces:** Public `executeQueryRequest`, two real consumers and unchanged native wrapper APIs.
 
-- [ ] Merge helper/normalizer imports into the existing core client test imports and append this block. Existing `vi`, `c` and `ApiFetcherArgs` are in scope.
+- [x] Merge helper/normalizer imports into the existing core client test imports and append this block. Existing `vi`, `c` and `ApiFetcherArgs` are in scope.
 
 ```typescript
 describe('executeQueryRequest', () => {
@@ -355,8 +355,8 @@ describe('executeQueryRequest', () => {
 });
 ```
 
-- [ ] Run the focused core cases; expected failure is a missing export/function. Implement the exact helper from the spec in `client.ts`, adding imports from `./status-codes` and `./type-guards`. `src/index.ts` already re-exports `client.ts`; do not introduce another export entry.
-- [ ] Add a JSON transform-count case to the same suite. Stub global fetch in a `try/finally` and restore it with `vi.unstubAllGlobals()`. The exact transform and response are:
+- [x] Run the focused core cases; expected failure is a missing export/function. Implement the exact helper from the spec in `client.ts`, adding imports from `./status-codes` and `./type-guards`. `src/index.ts` already re-exports `client.ts`; do not introduce another export entry.
+- [x] Add a JSON transform-count case to the same suite. Stub global fetch in a `try/finally` and restore it with `vi.unstubAllGlobals()`. The exact transform and response are:
 
 ```typescript
 let calls = 0;
@@ -400,7 +400,7 @@ try {
 
 Import `StandardSchemaV1` as a type from the existing core entry. Wrap the block in a named `it` case. Add the disabled variant with `validateResponse: false`; expected body `'input'`, calls `0`, fetch count `1`. This preserves the current fetcher boundary, not F04's future text/binary correction.
 
-- [ ] In React `apiFetcher`, retain its factory signature and existing `evaluateFetchApiArgs` input assertion. Replace everything after evaluation with:
+- [x] In React `apiFetcher`, retain its factory signature and existing `evaluateFetchApiArgs` input assertion. Replace everything after evaluation with:
 
 ```typescript
 return executeQueryRequest({ ...fetchApiArgs, route }, abortSignal);
@@ -408,7 +408,7 @@ return executeQueryRequest({ ...fetchApiArgs, route }, abortSignal);
 
 Replace imports of `fetchApi`/`isErrorResponse` with `executeQueryRequest`; remove `DataResponse` only if now unused. Do not change hook factories, `query`/`mutate` direct calls, option/type modules or QueryClient wiring.
 
-- [ ] In Vue `queryFn`, retain `argsMapper` and native-context mapping. Replace everything after evaluation with:
+- [x] In Vue `queryFn`, retain `argsMapper` and native-context mapping. Replace everything after evaluation with:
 
 ```typescript
 return executeQueryRequest({ ...fetchApiArgs, route }, queryFnContext?.signal);
@@ -416,8 +416,8 @@ return executeQueryRequest({ ...fetchApiArgs, route }, queryFnContext?.signal);
 
 Replace transport/guard imports with the helper. Keep Vue's exported `DataResponse`/`ErrorResponse`, native function types and mutation wrappers unchanged.
 
-- [ ] Run the focused suites and `pnpm typecheck`; expected pass. Verify existing mutation tests retain body/custom inputs and absence of synthetic native signal; existing optional-input and inference tests remain green. A custom extra-argument path must still reach `ApiFetcherArgs` through `extraInputArgs`; retain its existing client tests.
-- [ ] Inspect the diff: exactly one policy implementation, two consumers, no plain-client rerouting or native import in core. Commit this independently testable capability/adoption checkpoint and review it.
+- [x] Run the focused suites and `pnpm typecheck`; expected pass. Verify existing mutation tests retain body/custom inputs and absence of synthetic native signal; existing optional-input and inference tests remain green. A custom extra-argument path must still reach `ApiFetcherArgs` through `extraInputArgs`; retain its existing client tests.
+- [x] Inspect the diff: exactly one policy implementation, two consumers, no plain-client rerouting or native import in core. Commit this independently testable capability/adoption checkpoint and review it.
 
 ## Task 3: Prove installed declarations and ESM/CommonJS behavior
 
@@ -425,7 +425,7 @@ Replace transport/guard imports with the helper. Keep Vue's exported `DataRespon
 
 **Consumes:** Native core/React Query/Vue tarballs produced by `pnpm test:packages`. **Produces:** Strict consumer and runtime evidence for public exports; no workspace-source substitute.
 
-- [ ] Extend the existing four-profile core consumer's TypeScript source with these assertions, merging imports into its existing source template:
+- [x] Extend the existing four-profile core consumer's TypeScript source with these assertions, merging imports into its existing source template:
 
 ```typescript
 const executionRoute = initContract().router({
@@ -447,7 +447,7 @@ type ExecutionStatus = Expect<Equal<Awaited<typeof execution>['status'], 200>>;
 const incorrect: Promise<{ body: { value: number } }> = execution;
 ```
 
-- [ ] Extend the same runtime template's existing ESM/CJS core loop: include `executeQueryRequest`/`evaluateFetchApiArgs` in destructuring and add this block inside the loop. Do not invoke hooks outside native providers.
+- [x] Extend the same runtime template's existing ESM/CJS core loop: include `executeQueryRequest`/`evaluateFetchApiArgs` in destructuring and add this block inside the loop. Do not invoke hooks outside native providers.
 
 ```typescript
 const queryRoute = initContract().router({
@@ -486,7 +486,7 @@ await assert.rejects(
 );
 ```
 
-- [ ] Add one bounded strict integration consumer test in this same suite. Dependencies are native tarballs for core/react-query/vue-query plus exact React/DOM `18.3.1`, React types `18.3.1`/`18.3.0`, React Query `5.51.11`, query-core `5.51.9`, Vue `3.5.44`, Vue Query `4.44.0` and the current Node types. No private v5 package dependency. Use the existing consumer install/config/cleanup sequence. Write both `consumer.mts` and `consumer.cts` with:
+- [x] Add one bounded strict integration consumer test in this same suite. Dependencies are native tarballs for core/react-query/vue-query plus exact React/DOM `18.3.1`, React types `18.3.1`/`18.3.0`, React Query `5.51.11`, query-core `5.51.9`, Vue `3.5.44`, Vue Query `4.44.0` and the current Node types. No private v5 package dependency. Use the existing consumer install/config/cleanup sequence. Write both `consumer.mts` and `consumer.cts` with:
 
 ```typescript
 import { initContract } from '@ts-restless/core';
@@ -518,8 +518,8 @@ vue.read.useQuery(['a11']);
 
 Run the existing compiler command for each extension: `--noEmit --strict --target es2022 --module nodenext --moduleResolution nodenext --esModuleInterop`, without `skipLibCheck`. Compiler exit 0 must also consume both negative assertions. Import graph checks and the no-transitive-Zod standard consumer must remain green.
 
-- [ ] Run `pnpm test:packages` and source/inference checks again; expected all applicable tests pass. Record exact resolved peer/compiler versions and separate strict versus existing relaxed generic-consumer evidence. If a baseline native declaration prevents strict compilation, preserve its failing reproduction and stop under the approval conditions; do not hide it by altering compiler strictness.
-- [ ] Commit the packed proof and review this checkpoint.
+- [x] Run `pnpm test:packages` and source/inference checks again; expected all applicable tests pass. Record exact resolved peer/compiler versions and separate strict versus existing relaxed generic-consumer evidence. If a baseline native declaration prevents strict compilation, preserve its failing reproduction and stop under the approval conditions; do not hide it by altering compiler strictness.
+- [x] Commit the packed proof and review this checkpoint.
 
 ## Task 4: Document the outcome and run delivery gates
 
@@ -527,8 +527,8 @@ Run the existing compiler command for each extension: `--noEmit --strict --targe
 
 **Produces:** Documented additive core capability, correct public release intent and measured extraction evidence.
 
-- [ ] Explain in both client docs: existing wrappers are unchanged; core shares execution/rejection policy while native libraries own keys/cache/lifecycle. `initClient` remains a portable envelope-returning client. Native composition is still a later design, so do not advertise an unimplemented replacement API.
-- [ ] Add this Changeset without versioning/publishing:
+- [x] Explain in both client docs: existing wrappers are unchanged; core shares execution/rejection policy while native libraries own keys/cache/lifecycle. `initClient` remains a portable envelope-returning client. Native composition is still a later design, so do not advertise an unimplemented replacement API.
+- [x] Add this Changeset without versioning/publishing:
 
 ```markdown
 ---
@@ -540,8 +540,8 @@ Run the existing compiler command for each extension: `--noEmit --strict --targe
 Share query-library request execution between existing React v5 and Vue wrappers while preserving response envelopes, error identity and cancellation precedence.
 ```
 
-- [ ] Record the two removed policy implementations, remaining three Solid sites, exact commands/results, resolved versions and any limitations. Mark A11 complete only after both consumer gates pass. A14 remains partial/unstarted for native composition; this reuse does not complete it. No package retirement or upgrade savings are claimed.
-- [ ] Run the delivery gates:
+- [x] Record the two removed policy implementations, remaining three Solid sites, exact commands/results, resolved versions and any limitations. Mark A11 complete only after both consumer gates pass. A14 remains partial/unstarted for native composition; this reuse does not complete it. No package retirement or upgrade savings are claimed.
+- [x] Run the delivery gates:
 
 ```sh
 pnpm exec vp test run --project core --project react-query-v5 --project vue-query
@@ -554,8 +554,23 @@ git diff --check
 
 Run changed-file formatting and targeted lint using current tooling. CI must pass Build & Test, all retained compatibility fixtures and the aggregate gate before merge; local tests do not certify every advertised peer. Record source, strict archive, docs and CI results separately. Publication is outside this slice.
 
-- [ ] Open a reviewable PR referencing A11/spec/evidence and record its delivery commit and results here. Stop if acceptance requires an unapproved behavior/support change.
+- [x] Open a reviewable PR referencing A11/spec/evidence and record its delivery commit and results here. Stop if acceptance requires an unapproved behavior/support change.
 
 ## Execution record
 
-No A11 implementation has started. The documentation PR records a proposed design and future commands, not passing implementation checks. Append actual baseline/checkpoint/final evidence only during execution after the approval gate.
+Implementation baseline: main `30610fc413fd77688862079c0a541afebb5966b0`, isolated `feat/a11-query-execution`. The user authorized F01/A11 on 2026-11-09; the later Query5-only migration is a separate support/API slice.
+
+- Focused old-wrapper baseline: 304 passed, one todo. Characterization on the old wrappers:42 React/Vue tests passed.
+- Core helper red proof:14 missing-function failures; after helper and binding adoption focused core/React/Vue:322 passed, one todo. Added the planned later-page HTTP failure regression before the final check.
+- Full `pnpm check`: passed (source suites, formatting/lint and inference assertions). Full `pnpm test:packages`:26 tests passed in four files, with strict real-tarball ESM/CJS core and React/Vue consumers. Native baseline remains React Query5.51.11/Core5.51.9 and Vue Query4.44.0; current native majors belong to the separate migration.
+- Mutation proof: reversing signal precedence and disabling helper envelope rejection each fails the A11/executeQueryRequest cases; source restored immediately. The negative tests detect actual policy changes.
+- Two policy copies removed (React apiFetcher, Vue queryFn); one implementation in core. Three Solid copies remain at this checkpoint. Plain initClient behavior, JSON validation dispatch and native cache/provider ownership remain unchanged. No reduction in advertised support or native-composition API is delivered by A11.
+- Initial packed run exposed duplicate `failure` declarations in the generated proof; scoped the new proof and reran the suite. No compiler checking was weakened.
+
+Docs build/typecheck and all30 static-site tests passed. PR CI remains pending. The independent reviewer dispatch could not run because the task payload arrived encoded; root diff review and executable gates are complete. No merge or publication performed.
+
+## 2026-11-09 conflict resolution
+
+Draft PR #21 was opened and attached at `71145e59`; its original CI passed. Current main `192636d2` includes merged F01 #20. Merging that main into this branch conflicted only where both slices appended installed-consumer checks to `tests/packaging/validator-independence.test.mjs`. The resolution retains both the A11 strict React/Vue consumer and F01 checks on Query5.51.11/Core5.51.9,5.80.6 and5.107.1. F01 infinite-option types remain identical to main; A11 execution behavior and support ranges remain unchanged.
+
+Fresh combined validation: `pnpm check` passed747 source tests with two existing todos, zero lint/type errors and successful inference checks. `pnpm test:packages` passed29 tests in four files, including strict ESM/CommonJS consumers and native pagination/error/cancellation journeys. Fixture syntax and whitespace checks passed. This updates the draft branch only; PR CI reruns on the new head, while merge into main and publication remain separate.
