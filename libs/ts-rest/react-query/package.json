@@ -21,17 +21,17 @@
   },
   "license": "MIT",
   "peerDependencies": {
-    "@tanstack/react-query": "^4.0.0 || ^5.0.0",
-    "react": "^16.8.0 || ^17.0.0 || ^18.0.0",
+    "@tanstack/react-query": "^5.0.0",
+    "react": "^18.0.0",
     "@ts-restless/core": "workspace:^"
   },
   "scripts": {
     "build": "vp pack",
-    "typecheck": "tsc --noEmit -p tsconfig.assertions.json"
+    "typecheck": "tsc --noEmit -p tsconfig.lib.json"
   },
   "devDependencies": {
     "@ts-restless/core": "workspace:*",
-    "@tanstack/react-query": "4.36.1",
+    "@tanstack/react-query": "catalog:",
     "@ts-restless/react-query-v5": "workspace:*",
     "@ts-restless/build-config": "workspace:*"
   },

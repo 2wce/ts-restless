@@ -1,4 +1,9 @@
 {
   "title": "Client",
-  "pages": ["fetch", "react-query-v4", "react-query-v5", "vue-query-v4"]
+  "pages": [
+    "fetch",
+    "react-query-v5",
+    "vue-query-v5",
+    "solid-query-v5"
+  ]
 }

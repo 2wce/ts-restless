@@ -713,7 +713,7 @@ test.each(queryV5Consumers)(
         env: process.env,
       });
       const source = `import { initContract } from '@ts-restless/core';
-import { initTsrReactQuery } from '@ts-restless/react-query/v5';
+import { initTsrReactQuery } from '@ts-restless/react-query';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends
   (<T>() => T extends B ? 1 : 2) ? true : false;
@@ -896,7 +896,7 @@ test('packed shared execution preserves strict public React and Vue inference', 
             'file:' + join(archives, 'ts-restless-vue-query.tgz'),
           '@tanstack/react-query': '5.51.11',
           '@tanstack/query-core': '5.51.9',
-          '@tanstack/vue-query': '4.44.0',
+          '@tanstack/vue-query': '5.107.1',
           vue: '3.5.44',
           react: '18.3.1',
           'react-dom': '18.3.1',
@@ -960,3 +960,170 @@ vue.read.useQuery(['a11']);`;
     await rm(consumer, { recursive: true, force: true });
   }
 });
+
+// Native v5 consumer checks for the two migrated bindings, with no workspace-source imports.
+test.each(['5.51.1', '5.107.1'])(
+  'packed Vue and Solid Query %s preserve strict inference and native lifecycle',
+  async (version) => {
+    const consumer = await mkdtemp(join(tmpdir(), 'ts-restless-native-v5-'));
+    try {
+      const jsdomVersion = JSON.parse(
+        await readFile(
+          resolve(root, 'node_modules/jsdom/package.json'),
+          'utf8',
+        ),
+      ).version;
+      await writeFile(
+        join(consumer, 'package.json'),
+        JSON.stringify({
+          name: 'packed-native-v5-consumer',
+          private: true,
+          type: 'module',
+          dependencies: {
+            '@ts-restless/core':
+              'file:' + join(archives, 'ts-restless-core.tgz'),
+            '@ts-restless/vue-query':
+              'file:' + join(archives, 'ts-restless-vue-query.tgz'),
+            '@ts-restless/solid-query':
+              'file:' + join(archives, 'ts-restless-solid-query.tgz'),
+            '@tanstack/vue-query': version,
+            '@tanstack/solid-query': version,
+            vue: '3.5.44',
+            'solid-js': '1.9.17',
+            '@types/node': '26.6.5',
+            jsdom: jsdomVersion,
+          },
+        }),
+      );
+      execFileSync('pnpm', ['install', '--ignore-scripts'], {
+        cwd: consumer,
+        stdio: 'pipe',
+      });
+      const source = `import { initContract } from '@ts-restless/core';
+import { initQueryClient as initVue } from '@ts-restless/vue-query';
+import { initQueryClient as initSolid } from '@ts-restless/solid-query';
+import { ref, computed } from 'vue';
+import { createSignal } from 'solid-js';
+type Equal<A,B> = (<T>() => T extends A ? 1:2) extends (<T>() => T extends B ? 1:2) ? true:false;
+type Expect<T extends true> = T;
+const c = initContract();
+const contract = c.router({
+ read: { method:'GET', path:'/items/:id', responses:{200:c.type<{value:string}>(),404:c.type<{missing:true}>()} },
+ pages: { method:'GET', path:'/pages', query:c.type<{cursor:number}>(), responses:{200:c.type<{next:number}>()} },
+ write: { method:'POST', path:'/items', body:c.type<{value:string}>(), responses:{200:c.type<{value:string}>()} },
+});
+const vue = initVue(contract,{baseUrl:'https://native.example'});
+const solid = initSolid(contract,{baseUrl:'https://native.example'});
+const id = ref('1');
+const v = vue.read.useQuery(computed(() => ['items',id.value]), () => ({params:{id:id.value}}), {select:r => r.body.value});
+type VueSelected = Expect<Equal<typeof v.data.value,string|undefined>>;
+const vp = vue.pages.useInfiniteQuery(['pages'], ({pageParam}) => { const cursor:number=pageParam;return {query:{cursor}}; }, {initialPageParam:0,getNextPageParam:last => last.body.next});
+const vpSelected = vue.pages.useInfiniteQuery(['pages-selected'], ({pageParam}) => ({query:{cursor:pageParam}}), {initialPageParam:0,getNextPageParam:last => last.body.next,select:r => r.pages.map(p => p.body.next)});
+type VuePage = Expect<Equal<NonNullable<typeof vp.data.value>['pages'][number]['body'],{next:number}>>;
+type VuePageSelect = Expect<Equal<typeof vpSelected.data.value,number[]|undefined>>;
+const [sid] = createSignal('1');
+const sq = solid.read.createQuery(() => ['items',sid()], () => ({params:{id:sid()}}), () => ({select:r => r.body.value}));
+type SolidSelected = Expect<Equal<typeof sq.data,string|undefined>>;
+const sp = solid.pages.createInfiniteQuery(() => ['pages'], ({pageParam}) => { const cursor:number=pageParam;return {query:{cursor}}; }, {initialPageParam:0,getNextPageParam:last => last.body.next});
+const spSelected = solid.pages.createInfiniteQuery(() => ['pages-selected'], ({pageParam}) => ({query:{cursor:pageParam}}), {initialPageParam:0,getNextPageParam:last => last.body.next,select:r => r.pages.map(p => p.body.next)});
+type SolidPage = Expect<Equal<NonNullable<typeof sp.data>['pages'][number]['body'],{next:number}>>;
+type SolidPageSelect = Expect<Equal<typeof spSelected.data,number[]|undefined>>;
+vue.write.useMutation().mutate({body:{value:'ok'}});
+solid.write.createMutation().mutate({body:{value:'ok'}});
+// @ts-expect-error route input remains required
+vue.read.useQuery(['invalid']);
+// @ts-expect-error route input remains required
+solid.read.createQuery(() => ['invalid'], {});
+// @ts-expect-error initialPageParam is required in v5
+vue.pages.useInfiniteQuery(['invalid-pages'],() => ({query:{cursor:0}}),{getNextPageParam:last => last.body.next});
+// @ts-expect-error initialPageParam is required in v5
+solid.pages.createInfiniteQuery(() => ['invalid-pages'],() => ({query:{cursor:0}}),{getNextPageParam:last => last.body.next});
+// @ts-expect-error mutation body must match contract
+vue.write.useMutation().mutate({body:{value:1}});
+// @ts-expect-error mutation body must match contract
+solid.write.createMutation().mutate({body:{value:1}});
+`;
+      for (const ext of ['mts', 'cts']) {
+        const file = join(consumer, 'consumer.' + ext);
+        await writeFile(file, source);
+        execFileSync(
+          process.execPath,
+          [
+            resolve(root, 'node_modules/typescript/bin/tsc'),
+            '--noEmit',
+            '--strict',
+            '--target',
+            'es2022',
+            '--module',
+            'nodenext',
+            '--moduleResolution',
+            'nodenext',
+            '--esModuleInterop',
+            file,
+          ],
+          { cwd: consumer, stdio: 'inherit' },
+        );
+      }
+      const runtime = `import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {JSDOM} from 'jsdom';
+const require=createRequire(import.meta.url);
+const dom=new JSDOM('<!doctype html><html><body></body></html>');
+for(const key of ['window','document','Element','SVGElement','HTMLElement','Node']) globalThis[key]=dom.window[key];
+const delay=() => new Promise(resolve => setTimeout(resolve,10));
+async function until(check) { for(let n=0;n<250;n++){try{check();return;}catch(error){if(n===249)throw error;await delay();}} }
+for (const load of [name => import(name),name => Promise.resolve(require(name))]) {
+ const {initContract}=await load('@ts-restless/core');const c=initContract();
+ const contract=c.router({read:{method:'GET',path:'/items/:id',responses:{200:c.type()}},pages:{method:'GET',path:'/pages',query:c.type(),responses:{200:c.type(),404:c.type()}},write:{method:'POST',path:'/items',body:c.type(),responses:{200:c.type(),404:c.type()}}});
+ for (const framework of ['vue','solid']) {
+  const {initQueryClient}=await load('@ts-restless/'+framework+'-query');
+  const native=await load('@tanstack/'+framework+'-query');
+  const failure={status:404,body:{missing:true},headers:new Headers()};const calls=[];
+  const api=async args => {calls.push(args);if(args.route===contract.pages){const cursor=args.rawQuery.cursor;return cursor<2?{status:200,body:{next:cursor+1},headers:new Headers()}:failure;}if(args.route===contract.write && args.rawBody.value==='fail') return failure;return {status:200,body:{value:args.path},headers:new Headers()};};
+  const client=initQueryClient(contract,{baseUrl:'https://native.example',api});
+  const queryClient=new native.QueryClient({defaultOptions:{queries:{retry:false,gcTime:Infinity,staleTime:Infinity},mutations:{retry:false,gcTime:Infinity}}});
+  let query,pages,mutation,change,dispose;
+  if(framework==='vue') {
+   const vue=await load('vue');const id=vue.ref('1');change=() => {id.value='2';};
+   const app=vue.createApp({setup(){query=client.read.useQuery(vue.computed(() => ['items',id.value]),() => ({params:{id:id.value}}),{select:r => r.body.value});pages=client.pages.useInfiniteQuery(['pages'],({pageParam}) => ({query:{cursor:pageParam}}),{initialPageParam:0,getNextPageParam:r => r.body.next});mutation=client.write.useMutation();return () => null;}});
+   app.use(native.VueQueryPlugin,{queryClient});app.mount(document.createElement('div'));dispose=() => app.unmount();
+  } else {
+   const solid=await load('solid-js');const [id,setId]=solid.createSignal('1');change=() => setId('2');
+   solid.createRoot(stop => {dispose=stop;native.QueryClientProvider({client:queryClient,get children(){query=client.read.createQuery(() => ['items',id()],() => ({params:{id:id()}}),{select:r => r.body.value});pages=client.pages.createInfiniteQuery(() => ['pages'],({pageParam}) => ({query:{cursor:pageParam}}),{initialPageParam:0,getNextPageParam:r => r.body.next});mutation=client.write.createMutation();return null;}});});
+  }
+  const value=(obj,key) => framework==='vue'?obj[key].value:obj[key];
+  try {
+   await until(() => {assert.equal(value(query,'data'),'https://native.example/items/1');assert.equal(value(pages,'isSuccess'),true);});
+   change();await until(() => assert.equal(value(query,'data'),'https://native.example/items/2',framework+' key change '+JSON.stringify(calls.map(a=>a.path))));
+   await pages.fetchNextPage();assert.deepEqual(value(pages,'data').pages.map(p => p.body.next),[1,2]);
+   await pages.fetchNextPage();assert.equal(queryClient.getQueryState(['pages']).error,failure);
+   await mutation.mutateAsync({body:{value:'save'}});const args=calls.find(a => a.route===contract.write);assert.equal(args.body,JSON.stringify({value:'save'}));assert.equal(args.fetchOptions.signal,undefined);await assert.rejects(mutation.mutateAsync({body:{value:'fail'}}),error => error===failure);
+   const pageCalls=calls.filter(a => a.route===contract.pages);assert.deepEqual(pageCalls.map(a => a.rawQuery.cursor),[0,1,2]);assert.ok(pageCalls.every(a => a.fetchOptions.signal instanceof AbortSignal));
+  } finally {dispose();queryClient.clear();}
+  // Active native cancellation must reach the installed binding's transport.
+  let started=false,aborted=0,cancelDispose;
+  const cancelApi=args => {started=true;return new Promise((_resolve,reject) => args.fetchOptions.signal.addEventListener('abort',() => {aborted++;reject(new DOMException('Aborted','AbortError'));},{once:true}));};
+  const cancelClient=initQueryClient(contract,{baseUrl:'https://native.example',api:cancelApi});
+  const cancelNative=new native.QueryClient({defaultOptions:{queries:{retry:false,gcTime:Infinity}}});
+  if(framework==='vue') {
+   const vue=await load('vue');const app=vue.createApp({setup(){cancelClient.read.useQuery(['cancel'],() => ({params:{id:'1'}}));return () => null;}});app.use(native.VueQueryPlugin,{queryClient:cancelNative});app.mount(document.createElement('div'));cancelDispose=() => app.unmount();
+  } else {
+   const solid=await load('solid-js');solid.createRoot(stop => {cancelDispose=stop;native.QueryClientProvider({client:cancelNative,get children(){cancelClient.read.createQuery(() => ['cancel'],{params:{id:'1'}});return null;}});});
+  }
+  try {await until(() => assert.equal(started,true));await cancelNative.cancelQueries({queryKey:['cancel']});assert.equal(aborted,1);}finally{cancelDispose();cancelNative.clear();}
+ }
+}
+dom.window.close();
+`;
+      const file = join(consumer, 'runtime.mjs');
+      await writeFile(file, runtime);
+      execFileSync(process.execPath, ['--conditions=browser', file], {
+        timeout: 30000,
+        cwd: consumer,
+        stdio: 'pipe',
+      });
+    } finally {
+      await rm(consumer, { recursive: true, force: true });
+    }
+  },
+);

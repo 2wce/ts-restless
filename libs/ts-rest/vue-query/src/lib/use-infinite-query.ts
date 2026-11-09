@@ -1,34 +1,52 @@
-import { useInfiniteQuery } from '@tanstack/vue-query';
-import type {
-  QueryFunction,
-  QueryFunctionContext,
-  QueryKey,
-  UseInfiniteQueryOptions,
-  UseInfiniteQueryReturnType,
+import {
+  useInfiniteQuery,
+  type QueryFunctionContext,
+  type QueryKey,
+  type UseInfiniteQueryReturnType,
+  type InfiniteData,
 } from '@tanstack/vue-query';
+import { computed, unref, type Ref } from 'vue-demi';
 import {
   AppRoute,
-  AppRouteMutation,
   ClientArgs,
-  ClientInferRequest,
   PartialClientInferRequest,
 } from '@ts-restless/core';
 import { DataResponse, ErrorResponse, queryFn } from './common';
+type MaybeRef<T> = T | Ref<T>;
 
-// Used on X.useInfiniteQuery
+type ObjectOptions<T> =
+  T extends Ref<infer U>
+    ? ObjectOptions<U>
+    : T extends () => infer U
+      ? ObjectOptions<U>
+      : T;
+type Options<TAppRoute extends AppRoute, TData, TPageParam> = Omit<
+  ObjectOptions<
+    Parameters<
+      typeof useInfiniteQuery<
+        DataResponse<TAppRoute>,
+        ErrorResponse<TAppRoute>,
+        TData,
+        QueryKey,
+        TPageParam
+      >
+    >[0]
+  >,
+  'queryKey' | 'queryFn'
+>;
+
 export type DataReturnInfiniteQuery<
   TAppRoute extends AppRoute,
   TClientArgs extends ClientArgs,
-> = <TData = DataResponse<TAppRoute>>(
-  queryKey: QueryKey,
+> = <
+  TPageParam = unknown,
+  TData = InfiniteData<DataResponse<TAppRoute>, TPageParam>,
+>(
+  queryKey: MaybeRef<QueryKey>,
   args: (
-    context: QueryFunctionContext,
+    context: QueryFunctionContext<QueryKey, TPageParam>,
   ) => PartialClientInferRequest<TAppRoute, TClientArgs>,
-  options?: UseInfiniteQueryOptions<
-    DataResponse<TAppRoute>,
-    ErrorResponse<TAppRoute>,
-    TData
-  >,
+  options: MaybeRef<Options<TAppRoute, TData, TPageParam>>,
 ) => UseInfiniteQueryReturnType<TData, ErrorResponse<TAppRoute>>;
 
 export const getRouteUseInfiniteQuery =
@@ -36,24 +54,32 @@ export const getRouteUseInfiniteQuery =
     route: TAppRoute,
     clientArgs: TClientArgs,
   ) =>
-  (
-    queryKey: QueryKey,
+  <
+    TPageParam = unknown,
+    TData = InfiniteData<DataResponse<TAppRoute>, TPageParam>,
+  >(
+    queryKey: MaybeRef<QueryKey>,
     argsMapper: (
-      context: QueryFunctionContext,
-    ) => ClientInferRequest<AppRouteMutation, ClientArgs>,
-    options?: UseInfiniteQueryOptions<DataResponse<TAppRoute>>,
+      context: QueryFunctionContext<QueryKey, TPageParam>,
+    ) => PartialClientInferRequest<TAppRoute, TClientArgs>,
+    options: MaybeRef<Options<TAppRoute, TData, TPageParam>>,
   ) => {
-    const dataFn: QueryFunction<DataResponse<TAppRoute>> = async (context) => {
-      const resultingQueryArgs = argsMapper(context);
-
-      const innerDataFn = queryFn(route, clientArgs, resultingQueryArgs);
-
-      return innerDataFn(undefined as any);
-    };
-
-    return useInfiniteQuery({
-      queryKey,
-      queryFn: dataFn,
-      ...options,
-    });
+    const dataFn = queryFn<TAppRoute, TClientArgs, TPageParam>(
+      route,
+      clientArgs,
+      argsMapper,
+    );
+    return useInfiniteQuery<
+      DataResponse<TAppRoute>,
+      ErrorResponse<TAppRoute>,
+      TData,
+      QueryKey,
+      TPageParam
+    >(
+      computed(() => ({
+        ...unref(options),
+        queryKey: unref(queryKey),
+        queryFn: dataFn,
+      })),
+    );
   };

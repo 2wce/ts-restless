@@ -11,6 +11,7 @@
     "---Extras---",
     "recipies",
     "ts-restless-migration",
+    "query-v5-migration",
     "standard-schema-migration",
     "changelog",
     "faq"

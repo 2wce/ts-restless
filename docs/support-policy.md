@@ -1,6 +1,6 @@
 # Compatibility support and retirement policy
 
-**Recorded:** 2026-11-04; Next baseline updated 2026-11-06. **Status:** Adopted policy. The user approved excluding upstream-unsupported Next majors from the first stable v4 baseline on 2026-11-06. The [A01 inventory](support-inventory.md) records version floors, working lines, evidence gaps and package ownership. Other compatibility reductions remain subject to A19 of the [adapter maintenance epic](superpowers/plans/2026-11-04-adapter-maintenance-epic.md).
+**Recorded:** 2026-11-04; Next baseline updated 2026-11-06. **Status:** Adopted policy. The user approved excluding upstream-unsupported Next majors from the first stable v4 baseline on 2026-11-06. The [A01 inventory](support-inventory.md) records version floors, working lines, evidence gaps and package ownership. The initial Query5-only baseline is approved below; other compatibility reductions remain subject to A19 of the [adapter maintenance epic](superpowers/plans/2026-11-04-adapter-maintenance-epic.md).
 
 Support the newest verified dependency major actively, retain a previous supported major for a dated migration window, and remove compatibility in a ts-rest major release. This bounds maintenance work while giving consumers a predictable upgrade path.
 
@@ -26,6 +26,12 @@ This establishes the fork's initial stable major baseline rather than withdrawin
 Examples and current documentation target supported Next majors. The maintained example uses Next 16; Pages Router, App Router and Pages Router Edge integrations remain available. Router style is separate from framework-major lifecycle status. Packed consumers use Next 15.5.29 and 16.4.2 for native behavior and checked public types; exact upstream declaration diagnostics and untested floors are recorded in the inventory.
 
 Review the official policy when updating this baseline. Changes to Next's LTS status do not edit our peer ranges automatically. After stable v4 publication, future removals follow the notice and major-release process below.
+
+### Query baseline for ts-restless v4
+
+On 2026-11-09 the user approved TanStack Query **v5 only** across React, Vue and Solid for the first stable fork v4. Query4 is removed entirely rather than moved to `/legacy`. Native peers are `^5.0.0`; React's public peer is `^18.0.0`, excluding React16/17. React root exports v5; `/v5` remains an alias. Vue/Solid retain their framework bindings and adopt native5. See the [migration guide](../apps/docs/content/docs/query-v5-migration.mdx) and inventory for measured verification and remaining floor/React19 gaps.
+
+This is an initial stable-baseline decision, separate from removing a shipped stable fork promise. Existing upstream v3 and published fork prereleases remain unchanged. A six-month retirement clock has not started for other surfaces; future stable support changes retain the policy below.
 
 ## Support states
 
@@ -72,8 +78,8 @@ The following observations are a checkout snapshot from 2026-11-04, not an adopt
 | Nest                | Peer ranges permit majors 9 through 12; isolated fixtures cover 9, 10 and 11.              | Focus workspace work on 12; retain broader promises and add isolated 12 coverage before claiming equivalent evidence across lines.             |
 | Next                | First stable v4 peers permit majors 15 and 16, per the 2026-11-06 decision above.          | Maintain verified LTS lines and current examples; review future lifecycle changes before updating published support.                           |
 | Fastify             | Peer range permits major 4 only.                                                           | Deliver and verify support for a newer major before proposing a migration away from 4.                                                         |
-| React Query         | Peer range permits majors 4 and 5; v5 has its own import path.                             | Prove the v5 migration before retiring v4. Decide import-path changes separately.                                                              |
-| Vue and Solid Query | Each peer range permits major 4 only.                                                      | Deliver and verify replacements before proposing v4 retirement.                                                                                |
+| React Query         | Initial stable baseline permits Query5 only; root and `/v5` share one implementation.      | Verify the initial migration; future support reductions follow the stable retirement policy.                                                   |
+| Vue and Solid Query | Initial stable baseline permits native Query5 only.                                        | Retain native reactivity/lifecycle and verified v5 migration coverage.                                                                         |
 | Zod 3               | Standard Schema is the default boundary; older schemas and historical helpers use `/zod3`. | Keep the bridge through the initial migration. Review bridge and helper retirements separately; modern Zod 3 can use Standard Schema directly. |
 
 Sources: library [package manifests](../libs/ts-rest/), the [isolated CI matrix](../.github/workflows/build-test.yml) and the [Standard Schema migration guide](../apps/docs/content/docs/standard-schema-migration.mdx).

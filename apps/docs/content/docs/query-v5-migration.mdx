@@ -1,0 +1,47 @@
+---
+title: 'TanStack Query v5 migration'
+description: Upgrade React, Vue and Solid from the Query v4 adapters to the initial stable fork baseline.
+---
+
+The first stable **ts-restless v4** release supports **TanStack Query v5 only** for React, Vue and Solid. These are separate version numbers. The user approved this initial baseline on 2026-11-09 after the demand snapshot showed roughly 95% of measured native downloads on v5. Download share informs the decision; it does not prove the number of installed applications.
+
+The change is in development. Existing alpha.2 and upstream v3 artifacts are unchanged. Follow the merged release notes to identify the first prerelease containing this migration. Stable publication remains disabled.
+
+## React
+
+Install `@tanstack/react-query@5` with React18. Replace the old root `initQueryClient` and positional hooks with `initTsrReactQuery` and the v5 object-options API. The public React peer is now `^18.0.0`; React16/17 are excluded. React19 compatibility has a separate release gate.
+
+```tsx
+import { initTsrReactQuery } from '@ts-restless/react-query';
+const tsr = initTsrReactQuery(contract, { baseUrl: 'https://api.example' });
+const query = tsr.read.useQuery({
+  queryKey: ['items', id],
+  queryData: { params: { id } },
+  select: (response) => response.body.value,
+});
+```
+
+Set up native `QueryClientProvider` and `tsr.ReactQueryProvider` as described in the [React v5 guide](/docs/client/react-query-v5). Existing `@ts-restless/react-query/v5` imports remain valid aliases of the default. The v4 `initQueryClient` and `useTsRestQueryClient` exports are removed; there is no `/legacy` fallback. Native cache access uses `tsr.useQueryClient()` under the provider.
+
+## Vue and Solid
+
+Install `@tanstack/vue-query@5` or `@tanstack/solid-query@5` explicitly (Solid's latest tag may select a different major). Existing adapter package names and `initQueryClient` stay the same. Query-key/request-mapper convenience calls are retained; use native Vue refs/computed keys and Solid key/request/options accessors for changing inputs. Providers, caches, lifecycle and cancellation remain native.
+
+Every infinite query must provide an explicit initial page value and next-page mapper:
+
+```ts
+client.pages.useInfiniteQuery(
+  ['pages'],
+  ({ pageParam }) => ({ query: { cursor: pageParam } }),
+  { initialPageParam: 0, getNextPageParam: (last) => last.body.next },
+);
+// Solid: createInfiniteQuery(() => ['pages'], mapper, options).
+```
+
+Unselected infinite data is `InfiniteData` containing response-envelope pages, with page types and selected data inferred. Vue now forwards the full native infinite context, including cancellation, to the request mapper. Query and mutation status follows native v5: mutation `isLoading` becomes `isPending`; pending queries and fetching state have distinct meanings. Rename `cacheTime` to `gcTime`, use native placeholder-data behavior instead of removed `keepPreviousData`, and move query callbacks to the native v5 patterns. See the [official v5 migration guide](https://tanstack.com/query/v5/docs/framework/react/guides/migrating-to-v5) for all native option changes.
+
+The binding supplies query keys and query/mutation functions. Configure custom execution through the client `api` fetcher instead of overriding native `queryFn` or `mutationFn` options.
+
+Mutation request bodies and custom fetchers retain their contract types. HTTP failures reject their existing envelope; transport exceptions propagate. Per-request `fetchOptions.signal` takes precedence over native cancellation, including explicit `undefined`. Plain `initClient` remains available to any JavaScript framework and returns response envelopes.
+
+See the [Vue v5 guide](/docs/client/vue-query-v5) and [Solid v5 guide](/docs/client/solid-query-v5). No framework adapter is deprecated by this migration; it removes the older query-library major.

@@ -476,3 +476,7 @@ The 25-test packed/release suite verifies both pinned supported majors across fo
 ### A11 implementation checkpoint (2026-11-09)
 
 The user authorized A11; shared `executeQueryRequest` now replaces React5/Vue execution-policy copies with source and strict installed-package coverage. Three Solid copies remain in this slice. A14 native composition and framework-support reductions are separate; see the common-query execution plan's measured record. PR CI/merge/publication are separate delivery states.
+
+### Query5 baseline and execution reuse (2026-11-09)
+
+The user approved removing native Query4 entirely, making React5 the default and migrating Vue/Solid to5. This supersedes `/legacy` discussion and the prior unapproved native-major proposal. See the scoped Query5 baseline plan. Vue/Solid retain native keys/cache/lifecycle. Solid's three execution-policy sites now call A11's core helper in the migration slice; A15's native-composition API is still unimplemented. A14's broader native composition likewise remains separate. Twelve dependency-major commitments remain; other adapter/version removals are unapproved.

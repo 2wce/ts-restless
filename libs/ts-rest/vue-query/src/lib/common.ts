@@ -5,9 +5,8 @@ import {
 } from '@tanstack/vue-query';
 import {
   AppRoute,
-  AppRouteMutation,
   ClientArgs,
-  ClientInferRequest,
+  PartialClientInferRequest,
   ClientInferResponses,
   ErrorHttpStatusCode,
   SuccessfulHttpStatusCode,
@@ -32,16 +31,17 @@ export type ErrorResponse<TAppRoute extends AppRoute> = ClientInferResponses<
 export const queryFn = <
   TAppRoute extends AppRoute,
   TClientArgs extends ClientArgs,
+  TPageParam = never,
 >(
   route: TAppRoute,
   clientArgs: TClientArgs,
   argsMapper?:
-    | ClientInferRequest<AppRouteMutation, ClientArgs>
+    | PartialClientInferRequest<TAppRoute, TClientArgs>
     | ((
-        context: QueryFunctionContext<QueryKey>,
-      ) => ClientInferRequest<AppRouteMutation, ClientArgs>),
-): QueryFunction<DataResponse<TAppRoute>> => {
-  return async (queryFnContext: QueryFunctionContext) => {
+        context: QueryFunctionContext<QueryKey, TPageParam>,
+      ) => PartialClientInferRequest<TAppRoute, TClientArgs>),
+): QueryFunction<DataResponse<TAppRoute>, QueryKey, TPageParam> => {
+  return async (queryFnContext) => {
     const args =
       typeof argsMapper === 'function'
         ? argsMapper(queryFnContext)

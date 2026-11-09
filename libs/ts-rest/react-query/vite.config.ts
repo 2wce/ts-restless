@@ -7,7 +7,7 @@ export default defineConfig(
     {
       index: 'src/index.ts',
       tanstack: 'src/tanstack.ts',
-      v5: '../react-query-v5/src/v5.ts',
+      v5: 'src/v5.ts',
     },
     {
       pack: { tsconfig: '../../../tsconfig.react-query-pack.json' },

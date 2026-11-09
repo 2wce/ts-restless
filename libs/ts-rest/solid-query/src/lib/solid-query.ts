@@ -1,36 +1,31 @@
 import {
   createInfiniteQuery,
-  CreateInfiniteQueryOptions,
   CreateInfiniteQueryResult,
   createMutation,
-  CreateMutationOptions,
   CreateMutationResult,
   createQuery,
-  CreateQueryOptions,
   CreateQueryResult,
   QueryFunction,
   QueryFunctionContext,
   QueryKey,
+  InfiniteData,
 } from '@tanstack/solid-query';
 import {
   AppRoute,
-  AppRouteFunction,
   AppRouteMutation,
+  AppRouteFunction,
   AppRouteQuery,
   AppRouter,
   ClientArgs,
-  ClientInferRequest,
   ClientInferResponses,
   ErrorHttpStatusCode,
   evaluateFetchApiArgs,
-  fetchApi,
+  executeQueryRequest,
   getRouteQuery,
   isAppRoute,
-  isErrorResponse,
   PartialClientInferRequest,
   SuccessfulHttpStatusCode,
   Without,
-  SchemaOutputOrType,
 } from '@ts-restless/core';
 
 type RecursiveProxyObj<T extends AppRouter, TClientArgs extends ClientArgs> = {
@@ -76,47 +71,95 @@ type ErrorResponse<TAppRoute extends AppRoute> = ClientInferResponses<
   'ignore'
 >;
 
-// Used on X.createQuery
+// Native lifecycle and reactivity remain owned by Solid Query.
+type MaybeAccessor<T> = T | (() => T);
+const resolve = <T extends object>(value: MaybeAccessor<T>): T =>
+  typeof value === 'function' ? value() : value;
+
+type NativeQueryOptions<TRoute extends AppRoute, TData> = ReturnType<
+  Parameters<
+    typeof createQuery<
+      DataResponse<TRoute>,
+      ErrorResponse<TRoute>,
+      TData,
+      QueryKey
+    >
+  >[0]
+>;
+type NativeInfiniteOptions<
+  TRoute extends AppRoute,
+  TData,
+  TPageParam,
+> = ReturnType<
+  Parameters<
+    typeof createInfiniteQuery<
+      DataResponse<TRoute>,
+      ErrorResponse<TRoute>,
+      TData,
+      QueryKey,
+      TPageParam
+    >
+  >[0]
+>;
+type QueryOptions<TRoute extends AppRoute, TData> = Omit<
+  NativeQueryOptions<TRoute, TData>,
+  'queryKey' | 'queryFn' | 'initialData'
+> &
+  Partial<Pick<NativeQueryOptions<TRoute, TData>, 'initialData'>>;
+type InfiniteOptions<TRoute extends AppRoute, TData, TPageParam> = Omit<
+  NativeInfiniteOptions<TRoute, TData, TPageParam>,
+  'queryKey' | 'queryFn' | 'initialData'
+> &
+  Partial<
+    Pick<NativeInfiniteOptions<TRoute, TData, TPageParam>, 'initialData'>
+  >;
+type MutationOptions<
+  TRoute extends AppRoute,
+  TClientArgs extends ClientArgs,
+> = Omit<
+  ReturnType<
+    Parameters<
+      typeof createMutation<
+        DataResponse<TRoute>,
+        ErrorResponse<TRoute>,
+        PartialClientInferRequest<TRoute, TClientArgs>,
+        unknown
+      >
+    >[0]
+  >,
+  'mutationFn'
+>;
+
 type DataReturnQuery<
   TAppRoute extends AppRoute,
   TClientArgs extends ClientArgs,
 > = <TData = DataResponse<TAppRoute>>(
   queryKey: () => QueryKey,
-  args: PartialClientInferRequest<TAppRoute, TClientArgs>,
-  options?: CreateQueryOptions<
-    DataResponse<TAppRoute>,
-    ErrorResponse<TAppRoute>,
-    TData
-  >,
+  args: MaybeAccessor<PartialClientInferRequest<TAppRoute, TClientArgs>>,
+  options?:
+    | QueryOptions<TAppRoute, TData>
+    | (() => QueryOptions<TAppRoute, TData>),
 ) => CreateQueryResult<TData, ErrorResponse<TAppRoute>>;
 
-// Used on X.useInfiniteQuery
 type DataReturnInfiniteQuery<
   TAppRoute extends AppRoute,
   TClientArgs extends ClientArgs,
-> = <TData = DataResponse<TAppRoute>>(
+> = <
+  TPageParam = unknown,
+  TData = InfiniteData<DataResponse<TAppRoute>, TPageParam>,
+>(
   queryKey: () => QueryKey,
   args: (
-    context: QueryFunctionContext<QueryKey>,
+    context: QueryFunctionContext<QueryKey, TPageParam>,
   ) => PartialClientInferRequest<TAppRoute, TClientArgs>,
-  options?: CreateInfiniteQueryOptions<
-    DataResponse<TAppRoute>,
-    ErrorResponse<TAppRoute>,
-    TData
-  >,
+  options: MaybeAccessor<InfiniteOptions<TAppRoute, TData, TPageParam>>,
 ) => CreateInfiniteQueryResult<TData, ErrorResponse<TAppRoute>>;
 
-// Used pn X.createMutation
 type DataReturnMutation<
   TAppRoute extends AppRoute,
   TClientArgs extends ClientArgs,
 > = (
-  options?: CreateMutationOptions<
-    DataResponse<TAppRoute>,
-    ErrorResponse<TAppRoute>,
-    PartialClientInferRequest<TAppRoute, TClientArgs>,
-    unknown
-  >,
+  options?: MaybeAccessor<MutationOptions<TAppRoute, TClientArgs>>,
 ) => CreateMutationResult<
   DataResponse<TAppRoute>,
   ErrorResponse<TAppRoute>,
@@ -124,118 +167,94 @@ type DataReturnMutation<
   unknown
 >;
 
-const getRouteUseQuery = <
-  TAppRoute extends AppRoute,
-  TClientArgs extends ClientArgs,
->(
-  route: TAppRoute,
-  clientArgs: TClientArgs,
-) => {
-  return (
+const getRouteUseQuery =
+  <TAppRoute extends AppRoute, TClientArgs extends ClientArgs>(
+    route: TAppRoute,
+    clientArgs: TClientArgs,
+  ) =>
+  <TData = DataResponse<TAppRoute>>(
     queryKey: () => QueryKey,
-    args: ClientInferRequest<AppRouteMutation, ClientArgs>,
-    options?: CreateQueryOptions<TAppRoute['responses']>,
-  ) => {
-    const dataFn: QueryFunction<TAppRoute['responses']> = async ({
-      signal,
-    }) => {
-      const fetchApiArgs = evaluateFetchApiArgs(route, clientArgs, args);
-      const result = await fetchApi({
-        ...fetchApiArgs,
-        fetchOptions: {
-          ...(signal && { signal }),
-          ...fetchApiArgs.fetchOptions,
-        },
-      });
+    args: MaybeAccessor<PartialClientInferRequest<TAppRoute, TClientArgs>>,
+    options?:
+      | QueryOptions<TAppRoute, TData>
+      | (() => QueryOptions<TAppRoute, TData>),
+  ) =>
+    createQuery<
+      DataResponse<TAppRoute>,
+      ErrorResponse<TAppRoute>,
+      TData,
+      QueryKey
+    >(() => {
+      const request = resolve(args);
+      const queryFn: QueryFunction<DataResponse<TAppRoute>, QueryKey> = ({
+        signal,
+      }) =>
+        executeQueryRequest(
+          { ...evaluateFetchApiArgs(route, clientArgs, request), route },
+          signal,
+        );
+      return {
+        ...(options && resolve(options)),
+        queryKey: queryKey(),
+        queryFn,
+      };
+    });
 
-      // If the response is not a 2XX, throw an error to be handled by solid-query
-      if (isErrorResponse(result)) {
-        throw result;
-      }
-
-      return result;
-    };
-
-    return createQuery(queryKey, dataFn, options);
-  };
-};
-
-const getRouteUseInfiniteQuery = <
-  TAppRoute extends AppRoute,
-  TClientArgs extends ClientArgs,
->(
-  route: TAppRoute,
-  clientArgs: TClientArgs,
-) => {
-  return (
+const getRouteUseInfiniteQuery =
+  <TAppRoute extends AppRoute, TClientArgs extends ClientArgs>(
+    route: TAppRoute,
+    clientArgs: TClientArgs,
+  ) =>
+  <
+    TPageParam = unknown,
+    TData = InfiniteData<DataResponse<TAppRoute>, TPageParam>,
+  >(
     queryKey: () => QueryKey,
     args: (
-      context: QueryFunctionContext,
-    ) => ClientInferRequest<AppRouteMutation, ClientArgs>,
-    options?: CreateInfiniteQueryOptions<TAppRoute['responses']>,
+      context: QueryFunctionContext<QueryKey, TPageParam>,
+    ) => PartialClientInferRequest<TAppRoute, TClientArgs>,
+    options: MaybeAccessor<InfiniteOptions<TAppRoute, TData, TPageParam>>,
   ) => {
-    const dataFn: QueryFunction<TAppRoute['responses']> = async (
-      infiniteQueryParams,
-    ) => {
-      const resultingQueryArgs = args(infiniteQueryParams);
-
-      const fetchApiArgs = evaluateFetchApiArgs(
-        route,
-        clientArgs,
-        resultingQueryArgs,
+    const queryFn: QueryFunction<
+      DataResponse<TAppRoute>,
+      QueryKey,
+      TPageParam
+    > = (context) =>
+      executeQueryRequest(
+        { ...evaluateFetchApiArgs(route, clientArgs, args(context)), route },
+        context.signal,
       );
-      const result = await fetchApi({
-        ...fetchApiArgs,
-        fetchOptions: {
-          ...(infiniteQueryParams.signal && {
-            signal: infiniteQueryParams.signal,
-          }),
-          ...fetchApiArgs.fetchOptions,
-        },
+    return createInfiniteQuery<
+      DataResponse<TAppRoute>,
+      ErrorResponse<TAppRoute>,
+      TData,
+      QueryKey,
+      TPageParam
+    >(() => ({
+      ...resolve(options),
+      queryKey: queryKey(),
+      queryFn,
+    }));
+  };
+
+const getRouteUseMutation =
+  <TAppRoute extends AppRoute, TClientArgs extends ClientArgs>(
+    route: TAppRoute,
+    clientArgs: TClientArgs,
+  ) =>
+  (options?: MaybeAccessor<MutationOptions<TAppRoute, TClientArgs>>) => {
+    const mutationFn = (
+      args: PartialClientInferRequest<TAppRoute, TClientArgs>,
+    ) =>
+      executeQueryRequest({
+        ...evaluateFetchApiArgs(route, clientArgs, args),
+        route,
       });
-
-      // If the response is not a 2XX, throw an error to be handled by solid-query
-      if (isErrorResponse(result)) {
-        throw result;
-      }
-
-      return result;
-    };
-
-    return createInfiniteQuery(queryKey, dataFn, options);
+    return createMutation(() => ({
+      ...(options && resolve(options)),
+      mutationFn,
+    }));
   };
-};
-
-const getRouteUseMutation = <
-  TAppRoute extends AppRoute,
-  TClientArgs extends ClientArgs,
->(
-  route: TAppRoute,
-  clientArgs: TClientArgs,
-) => {
-  return (options?: CreateMutationOptions<TAppRoute['responses']>) => {
-    const mutationFunction = async (
-      args: ClientInferRequest<AppRouteMutation, ClientArgs>,
-    ) => {
-      const fetchApiArgs = evaluateFetchApiArgs(route, clientArgs, args);
-      const result = await fetchApi(fetchApiArgs);
-
-      // If the response is not a 2XX, throw an error to be handled by solid-query
-      if (isErrorResponse(result)) {
-        throw result;
-      }
-
-      return result;
-    };
-
-    return createMutation(
-      mutationFunction as () => Promise<
-        SchemaOutputOrType<TAppRoute['responses']>
-      >,
-      options,
-    );
-  };
-};
 
 /** @deprecated Use `TsRestSolidQueryClient` instead */
 export type InitClientReturn<

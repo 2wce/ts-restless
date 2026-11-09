@@ -52,12 +52,12 @@ for (const [slug, packages] of [
     '@ts-restless/react-query@alpha @tanstack/react-query@5',
   ],
   [
-    'client/react-query-v4',
-    '@ts-restless/react-query@alpha @tanstack/react-query@4',
+    'client/solid-query-v5',
+    '@ts-restless/solid-query@alpha @tanstack/solid-query@5',
   ],
   [
-    'client/vue-query-v4',
-    '@ts-restless/vue-query@alpha @tanstack/vue-query',
+    'client/vue-query-v5',
+    '@ts-restless/vue-query@alpha @tanstack/vue-query@5',
   ],
   [
     'recipies/frontend-only',

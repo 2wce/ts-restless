@@ -1,2 +1,1 @@
-// default to v4 to avoid breaking changes
-export * from './v4/';
+export * from '../../react-query-v5/src/v5';

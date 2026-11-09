@@ -34,10 +34,10 @@ Replace the ts-rest dependencies your application uses as a matched set, includi
 // These imports compile against the new-scope development packages.
 import { initClient, initContract } from '@ts-restless/core';
 import { toStandardSchema } from '@ts-restless/core/zod3';
-import { initTsrReactQuery } from '@ts-restless/react-query/v5';
+import { initTsrReactQuery } from '@ts-restless/react-query';
 ```
 
-`react-query-v5` is a private implementation package. Consumers use the public `@ts-restless/react-query/v5` entry point.
+`react-query-v5` is a private implementation package. Consumers use the public `@ts-restless/react-query` entry point; `/v5` remains an alias.
 
 ## Trying an alpha
 
@@ -71,3 +71,8 @@ Applications that depend on historical error classes, serialization or whole-obj
 Report bugs in [ts-restless's issue tracker](https://github.com/2wce/ts-restless/issues), including the exact prerelease, framework, validator and TypeScript versions, the import you use, and a minimal reproduction.
 
 ts-restless preserves the original project's contributor credits and MIT licence notices. It has its own package releases, support commitments and issue reporting.
+
+
+## TanStack Query baseline
+
+React, Vue and Solid target TanStack Query v5 only in the initial stable fork v4 baseline; Query v4 is removed. React16/17 are excluded by the public React18 baseline. Upgrade using the [Query v5 migration guide](/docs/query-v5-migration). Existing published alpha.2 artifacts remain unchanged; this guide describes the in-development baseline.

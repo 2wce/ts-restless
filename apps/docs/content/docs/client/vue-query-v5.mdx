@@ -1,0 +1,36 @@
+---
+title: 'Vue Query (v5)'
+description: Contract-aware Vue queries and mutations using TanStack Query v5.
+---
+
+<InstallTabs packageName="@ts-restless/vue-query @tanstack/vue-query@5" />
+
+Configure the native `VueQueryPlugin` with a `QueryClient` at your application root. The binding uses TanStack's Vue reactivity, cache, provider and lifecycle; core shares transport and HTTP-error rejection. Use the [native setup guide](https://tanstack.com/query/v5/docs/framework/vue/overview) and the [migration guide](/docs/query-v5-migration).
+
+```ts
+import { initQueryClient } from '@ts-restless/vue-query';
+import { computed, ref } from 'vue';
+import { contract } from './contract';
+
+const client = initQueryClient(contract, { baseUrl: 'https://api.example' });
+const id = ref('1');
+const query = client.read.useQuery(
+  computed(() => ['items', id.value]),
+  () => ({ params: { id: id.value } }),
+  { select: (response) => response.body.value },
+);
+```
+
+Call composables during component setup. Include every request input that changes the cache identity in the reactive key. The mapper runs for each fetch; options may be a plain object or Vue ref/computed. Response envelopes retain `status`, `body` and `headers`; `select` controls the result's data type. HTTP errors reject with their envelope. Request `fetchOptions.signal` overrides the native query signal, including an explicit `undefined`.
+
+```ts
+const pages = client.pages.useInfiniteQuery(
+  ['pages'],
+  ({ pageParam }) => ({ query: { cursor: pageParam } }),
+  { initialPageParam: 0, getNextPageParam: (last) => last.body.next },
+);
+const mutation = client.write.useMutation();
+await mutation.mutateAsync({ body: { value: 'save' } });
+```
+
+Infinite queries require `initialPageParam` and `getNextPageParam`; the page mapper receives the full native context and typed page parameter. Data defaults to `InfiniteData` with response-envelope pages, or the selected result. Mutation status uses `isPending`; mutations receive no synthetic query cancellation signal. Plain `client.read.query()` and core's `initClient` continue to return response envelopes.

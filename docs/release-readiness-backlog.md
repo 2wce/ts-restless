@@ -97,3 +97,7 @@ All ten npm `alpha` tags point to `4.0.0-alpha.1`; `latest` points to alpha.0 de
 | Historical cross-package inference reports | Reproduce with current strict packed packages and actual peer/compiler versions; avoid reimplementing issues already resolved by Standard Schema or packaging work.                                                             |
 
 Defer SSE, serialization redesign and executable contract middleware until a concrete product/API design justifies their cross-cutting maintenance cost. Prioritize reproducible compatibility/correctness failures over votes alone. This file records triage evidence and acceptance gates; it does not create GitHub issues or claim those fixes are complete.
+
+## Query v5-only initial stable baseline (approved 2026-11-09)
+
+The user superseded the proposed Query4 `/legacy` path with complete native-v4 removal and Vue/Solid migration to5. The [scoped plan](superpowers/plans/2026-11-09-query-v5-baseline.md) delivers exports/peers, wrapper migration, strict archive/native checks, examples and documentation. It builds on F01 and A11, without completing native-composition A12–A15 or React19 F03a. Query-major commitments reduce 13 to 12. Current historical registry/download snapshots remain unchanged; publication and stable activation remain separate.

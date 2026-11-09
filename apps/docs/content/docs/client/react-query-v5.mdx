@@ -21,9 +21,7 @@ const {
 
 <Callout type="info" title="React Query v5 Documentation">
 
-This documentation is for React Query v5. If you are looking for the v4 docs, please click [here](/docs/react-query/v4).
-
-In order to use the React Query v5 version of `@ts-restless/react-query`, make sure you import `@ts-restless/react-query/v5` in your code and not `@ts-restless/react-query`.
+TanStack Query v5 is the default baseline. Import `initTsrReactQuery` from `@ts-restless/react-query`; `/v5` remains an alias. Query v4 and React16/17 are removed from this initial stable baseline. See the [migration guide](/docs/query-v5-migration).
 
 </Callout>
 
@@ -44,7 +42,7 @@ Before proceeding, make sure you set up your `QueryClientProvider` at the root o
 Import your contract, and pass it with the client options to the `initTsrReactQuery` function. The client options are the same as the ones you would pass to the `initClient` function in `@ts-restless/core`.
 
 ```tsx
-import { initTsrReactQuery } from '@ts-restless/react-query/v5';
+import { initTsrReactQuery } from '@ts-restless/react-query';
 import { getAccessToken } from '@some-auth-lib/sdk';
 import { contract } from './contract';
 
@@ -243,7 +241,7 @@ set to your response schema for status codes defined in your contract, or `unkno
 The `Error` type is included because requests can fail without returning a response. See [Fetch#Exceptions](https://developer.mozilla.org/en-US/docs/Web/API/Window/fetch#exceptions) for more information.
 
 ```tsx
-import { isFetchError } from '@ts-restless/react-query/v5';
+import { isFetchError } from '@ts-restless/react-query';
 import { tsr } from './tsr';
 
 const Post = ({ id }: { id: string }) => {
@@ -300,7 +298,7 @@ import {
   isFetchError,
   isUnknownErrorResponse,
   exhaustiveGuard,
-} from '@ts-restless/react-query/v5';
+} from '@ts-restless/react-query';
 import { tsr } from './tsr';
 
 const Post = ({ id }: { id: string }) => {
@@ -562,7 +560,7 @@ function App() {
 
 <Callout type="info" title="Import Path">
 
-The import path is `@ts-restless/react-query/tanstack` and not `@ts-restless/react-query/v5/tanstack`. `@ts-restless/react-query/tanstack` simply re-exports whichever version of `@tanstack/react-query` you have installed.
+The import path is `@ts-restless/react-query/tanstack` and not `@ts-restless/react-query/tanstack`. `@ts-restless/react-query/tanstack` simply re-exports whichever version of `@tanstack/react-query` you have installed.
 
 </Callout>
 

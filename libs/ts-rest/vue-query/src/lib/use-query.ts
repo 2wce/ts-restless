@@ -5,17 +5,24 @@ import {
   UseQueryOptions,
   QueryFunctionContext,
 } from '@tanstack/vue-query';
+import { computed, unref, type Ref } from 'vue-demi';
 import {
   AppRoute,
-  AppRouteMutation,
   AreAllPropertiesOptional,
   ClientArgs,
-  ClientInferRequest,
   PartialClientInferRequest,
 } from '@ts-restless/core';
 import { DataResponse, ErrorResponse, queryFn } from './common';
+type MaybeRef<T> = T | Ref<T>;
 
-// Used on X.useQuery
+type UnrefOptions<T> = T extends Ref<infer U> ? U : T;
+type Options<TAppRoute extends AppRoute, TData> = Omit<
+  UnrefOptions<
+    UseQueryOptions<DataResponse<TAppRoute>, ErrorResponse<TAppRoute>, TData>
+  >,
+  'queryKey' | 'queryFn'
+>;
+
 export type DataReturnQuery<
   TAppRoute extends AppRoute,
   TClientArgs extends ClientArgs,
@@ -23,40 +30,34 @@ export type DataReturnQuery<
 > =
   AreAllPropertiesOptional<TArgs> extends true
     ? <TData = DataResponse<TAppRoute>>(
-        queryKey: QueryKey,
+        queryKey: MaybeRef<QueryKey>,
         args?: (context: QueryFunctionContext<QueryKey>) => TArgs,
-        options?: UseQueryOptions<
-          DataResponse<TAppRoute>,
-          ErrorResponse<TAppRoute>,
-          TData
-        >,
+        options?: MaybeRef<Options<TAppRoute, TData>>,
       ) => UseQueryReturnType<TData, ErrorResponse<TAppRoute>>
     : <TData = DataResponse<TAppRoute>>(
-        queryKey: QueryKey,
+        queryKey: MaybeRef<QueryKey>,
         args: (context: QueryFunctionContext<QueryKey>) => TArgs,
-        options?: UseQueryOptions<
-          DataResponse<TAppRoute>,
-          ErrorResponse<TAppRoute>,
-          TData
-        >,
+        options?: MaybeRef<Options<TAppRoute, TData>>,
       ) => UseQueryReturnType<TData, ErrorResponse<TAppRoute>>;
 
-export const getRouteUseQuery = <
-  TAppRoute extends AppRoute,
-  TClientArgs extends ClientArgs,
->(
-  route: TAppRoute,
-  clientArgs: TClientArgs,
-) => {
-  return (
-    queryKey: QueryKey,
+export const getRouteUseQuery =
+  <TAppRoute extends AppRoute, TClientArgs extends ClientArgs>(
+    route: TAppRoute,
+    clientArgs: TClientArgs,
+  ) =>
+  <TData = DataResponse<TAppRoute>>(
+    queryKey: MaybeRef<QueryKey>,
     args?: (
       context: QueryFunctionContext<QueryKey>,
-    ) => ClientInferRequest<AppRouteMutation, ClientArgs>,
-    options?: UseQueryOptions<DataResponse<TAppRoute>>,
+    ) => PartialClientInferRequest<TAppRoute, TClientArgs>,
+    options?: MaybeRef<Options<TAppRoute, TData>>,
   ) => {
     const dataFn = queryFn(route, clientArgs, args);
-
-    return useQuery({ queryKey, queryFn: dataFn, ...options });
+    return useQuery(
+      computed(() => ({
+        ...unref(options),
+        queryKey: unref(queryKey),
+        queryFn: dataFn,
+      })),
+    );
   };
-};

@@ -1,0 +1,36 @@
+---
+title: 'Solid Query (v5)'
+description: Contract-aware Solid queries and mutations using TanStack Query v5.
+---
+
+<InstallTabs packageName="@ts-restless/solid-query @tanstack/solid-query@5" />
+
+Use the native `QueryClientProvider` and call primitives under its owner. The binding composes native accessor options; TanStack owns the cache and Solid owns reactivity and lifecycle. See the [native setup guide](https://tanstack.com/query/v5/docs/framework/solid/overview).
+
+```ts
+import { initQueryClient } from '@ts-restless/solid-query';
+import { createSignal } from 'solid-js';
+import { contract } from './contract';
+
+const client = initQueryClient(contract, { baseUrl: 'https://api.example' });
+const [id, setId] = createSignal('1');
+const query = client.read.createQuery(
+  () => ['items', id()],
+  () => ({ params: { id: id() } }),
+  () => ({ select: (response) => response.body.value }),
+);
+```
+
+Pass accessors for changing request inputs and options; plain objects remain valid for static values. Include changing request identity in the key accessor. Read result properties directly so Solid can track them. Response data remains an envelope unless `select` changes it. HTTP errors reject the original envelope; request `fetchOptions.signal` overrides native cancellation, including an explicit `undefined`.
+
+```ts
+const pages = client.pages.createInfiniteQuery(
+  () => ['pages'],
+  ({ pageParam }) => ({ query: { cursor: pageParam } }),
+  { initialPageParam: 0, getNextPageParam: (last) => last.body.next },
+);
+const mutation = client.write.createMutation();
+await mutation.mutateAsync({ body: { value: 'save' } });
+```
+
+Infinite queries require `initialPageParam` and `getNextPageParam`. Their default result is `InfiniteData` with typed response-envelope pages; selected results remain inferred. Mutation status uses `isPending` and mutations have no synthetic query cancellation signal. See the [Query v5 migration guide](/docs/query-v5-migration) for the breaking baseline change.

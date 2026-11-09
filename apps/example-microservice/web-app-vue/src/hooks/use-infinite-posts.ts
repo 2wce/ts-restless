@@ -7,13 +7,14 @@ export const useInfinitePosts = () => {
   const { data, fetchNextPage, hasNextPage, refetch } =
     client.getPosts.useInfiniteQuery(
       ['infinite-posts'],
-      ({ pageParam = { skip: 0, take: PAGE_SIZE } }) => ({
+      ({ pageParam }) => ({
         query: {
-          skip: pageParam.skip,
-          take: pageParam.take,
+          skip: String(pageParam.skip),
+          take: String(pageParam.take),
         },
       }),
       {
+        initialPageParam: { skip: 0, take: PAGE_SIZE },
         getNextPageParam: (lastPage, allPages) => {
           if (lastPage.status !== 200) return undefined;
 
