@@ -2,10 +2,10 @@ import {
   InfiniteData,
   QueryFunctionContext,
   QueryKey,
-  UseInfiniteQueryOptions as TanStackUseInfiniteQueryOptions,
+  useInfiniteQuery as tanstackUseInfiniteQuery,
   UseMutationOptions as TanStackUseMutationOptions,
   UseQueryOptions as TanStackUseQueryOptions,
-  UseSuspenseInfiniteQueryOptions as TanStackUseSuspenseInfiniteQueryOptions,
+  useSuspenseInfiniteQuery as tanstackUseSuspenseInfiniteQuery,
   UseSuspenseQueryOptions as TanStackUseSuspenseQueryOptions,
   SkipToken,
 } from '@tanstack/react-query';
@@ -133,14 +133,15 @@ export type UseInfiniteQueryOptions<
   TData = InfiniteData<DataResponse<TAppRoute>>,
   TPageParam = unknown,
 > = Omit<
-  TanStackUseInfiniteQueryOptions<
-    DataResponse<TAppRoute>,
-    ErrorResponse<TAppRoute>,
-    TData,
-    DataResponse<TAppRoute>,
-    QueryKey,
-    TPageParam
-  >,
+  Parameters<
+    typeof tanstackUseInfiniteQuery<
+      DataResponse<TAppRoute>,
+      ErrorResponse<TAppRoute>,
+      TData,
+      QueryKey,
+      TPageParam
+    >
+  >[0],
   'queryFn'
 > &
   TsRestInfiniteQueryOptions<TAppRoute, TClientArgs, TPageParam>;
@@ -171,14 +172,15 @@ export type UseSuspenseInfiniteQueryOptions<
   TData = InfiniteData<DataResponse<TAppRoute>>,
   TPageParam = unknown,
 > = Omit<
-  TanStackUseSuspenseInfiniteQueryOptions<
-    DataResponse<TAppRoute>,
-    ErrorResponse<TAppRoute>,
-    TData,
-    DataResponse<TAppRoute>,
-    QueryKey,
-    TPageParam
-  >,
+  Parameters<
+    typeof tanstackUseSuspenseInfiniteQuery<
+      DataResponse<TAppRoute>,
+      ErrorResponse<TAppRoute>,
+      TData,
+      QueryKey,
+      TPageParam
+    >
+  >[0],
   'queryFn'
 > &
   TsRestSuspenseInfiniteQueryOptions<TAppRoute, TClientArgs, TPageParam>;
