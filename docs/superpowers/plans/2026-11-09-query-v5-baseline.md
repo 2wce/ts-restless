@@ -34,7 +34,7 @@ Verification adjustment: standalone native Solid key changes pass in a browser-c
 
 ## Delivered implementation and gate record
 
-- Integration baseline: `30610fc4`; F01 `cfe0441d`, A11 extraction `6481b7a9` (original `767ddddc`), A11 wording reconciliation `c6b44d39` (original `71145e59`). These prerequisite slices have draft PRs #20 and #21.
+- Integration baseline: `30610fc4`; F01 `cfe0441d`, A11 extraction `6481b7a9` (original `767ddddc`), A11 wording reconciliation `c6b44d39` (original `71145e59`). These prerequisite slices initially had draft PRs #20 and #21; both are now merged into main (see the conflict-resolution record below).
 - React root and `/v5` are thin entries sharing the emitted v5 implementation; v4 source/tests are removed and native peers are v5-only. Both public/private React peers are React18. Literal Query5.0.0 floors and React19 remain unverified.
 - Vue preserves key/mapper ergonomics, native refs/computed and full typed infinite context. Use native's `vue-demi` bridge as a direct runtime dependency; bundling a separate Vue runtime initially broke reactive keys and was corrected before delivery.
 - Solid composes native accessor options and uses core execution in all three sites. Older native query overload order differed; make the existing native initialData field optional without replacing its guard types. No casts or skipLibCheck were added.
@@ -44,8 +44,21 @@ Verification adjustment: standalone native Solid key changes pass in a browser-c
 - `pnpm --filter @ts-restless/docs test`:build/typecheck and33 static-site tests passed. `pnpm build:examples`:13 tasks passed, including React/Next, Vue and Solid builds. The Vue pagination example now serializes correctly inferred numeric page offsets as the contract's string query inputs.
 - Historical demand JSON remains byte unchanged; twelve native-major commitments remain. No release version, npm tag, publication control or stable activation was changed.
 
-The draft integration PR includes F01/A11 prerequisites. After those are merged, rebase this branch onto main to leave the support migration as its review diff. CI and independent reviewer approval remain separate from these local checks.
+F01 #20 and A11 #21 are now merged. Current main is merged into this draft branch, leaving the v5 support migration and its documentation as the review diff. CI and independent reviewer approval remain separate from these local checks.
 
 Final local gates: `pnpm check` passed with728 source tests and two existing todos, zero lint/type errors (existing warnings retained), all production/inference tasks passed. The final emitted-declaration `pnpm test:packages` rerun again passed31 tests. Docs build/typecheck and33 static-page tests pass; all13 example build tasks pass. F01 #20 and A11 #21 have Build & Test, all ten compatibility fixtures and the aggregate fixture gate green on their current implementation heads. The integration draft still requires its own CI and human review.
 
 2026-11-09 delivery refresh: draft PR #22 was opened and attached at `f764798f`; Build & Test, all ten compatibility fixtures and the aggregate gate passed on that head. F01 #20 is now merged on main `192636d2`. Human review and migration merge remain separate. The subsequent [migration documentation audit](../results/2026-11-09-migration-documentation.md) expands the user upgrade paths and adds rendered link/anchor checks; its docs gate passes46 tests. The initial v5 migration is not yet a released artifact.
+
+## 2026-11-09 conflict resolution after A11 merged
+
+A11 #21 is merged as main `ab168d18`, following F01 #20. Merged that main into `feat/query-v5-baseline` from migration head `b795d142`, preserving the v5-only baseline and completed migration documentation. Resolved four conflicts: retain the Vue v4 URL's migration notice, the Query5 epic decision and Vue v5 lifecycle tests, and include A11's completed checklist and actual conflict-validation record. The automatic packaging merge duplicated A11's strict React/Vue consumer with its old Vue4 pin; removed that duplicate because the same consumer already exists with Vue5.107.1. Runtime sources and installed-consumer coverage remain identical to the previously validated migration head.
+
+Fresh combined gates using Node26.12.0 and pnpm12.14.0:
+
+- `pnpm check`:728 source tests passed, two existing todos; formatting, lint/type checks and all production/inference tasks passed. The initial check caught a table-formatting issue in the migration audit; formatted that file and reran the complete gate successfully. Existing warnings remain.
+- `pnpm test:packages`:31 tests passed in four files; strict installed ESM/CommonJS consumers and native pagination, reactive input, HTTP error and cancellation journeys remain covered.
+- `pnpm --filter @ts-restless/docs test`:build/prerender and typecheck passed;46 static-site tests passed, including rendered migration links and anchors.
+- Fixture JavaScript syntax, conflict-marker scan and whitespace checks passed. Example builds are unchanged from the original13-task passing run; this reconciliation changes documentation only relative to `b795d142`.
+
+This record verifies the combined local tree. PR CI must rerun on the pushed merge commit; review, merge of #22, versioning and publication remain separate.
