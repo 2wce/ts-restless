@@ -258,7 +258,7 @@ expect(result.current.data?.pages).toEqual([success]);
 Wrap this code in an `it('A11 retains page mapping and later-page HTTP errors', async () => { ... })` case. The existing `api as ApiFetcher` boundary is already part of this suite, not a new production workaround. Retry must be disabled or a second mocked page can obscure the failure.
 
 - [x] Run focused tests again: expected pass on old wrappers. Temporarily remove React's `throw result` and then reverse Vue's signal merge order, one mutation at a time. Run the A11 cases and confirm each mutation fails for the intended assertion; restore both files immediately. Do not commit mutations.
-- [x] Record the two existing policy locations and commit only characterization tests. Review this checkpoint before production extraction.
+- [ ] Historical checkpoint separation: characterization was run on old wrappers, but tests/helper/adoption are delivered in one reviewed extraction commit rather than separate characterization commits.
 
 ## Task 2: Add the core capability and adopt both bindings
 
@@ -567,4 +567,4 @@ Implementation baseline: main `30610fc413fd77688862079c0a541afebb5966b0`, isolat
 - Two policy copies removed (React apiFetcher, Vue queryFn); one implementation in core. Three Solid copies remain at this checkpoint. Plain initClient behavior, JSON validation dispatch and native cache/provider ownership remain unchanged. No reduction in advertised support or native-composition API is delivered by A11.
 - Initial packed run exposed duplicate `failure` declarations in the generated proof; scoped the new proof and reran the suite. No compiler checking was weakened.
 
-Docs checks and PR CI are recorded with delivery. No merge or publication performed.
+Docs build/typecheck and all30 static-site tests passed. PR CI remains pending. The independent reviewer dispatch could not run because the task payload arrived encoded; root diff review and executable gates are complete. No merge or publication performed.
