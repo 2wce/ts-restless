@@ -43,9 +43,11 @@ There are two flavors of transformers:
 - **Async transformers** (`SchemaTransformerAsync`) - for libraries that require asynchronous transformation
 
 <Callout type="warning">
-  For backwards compatibility, ts-restless currently defaults to a built-in Zod 3
-  transformer (`ZOD_3_SCHEMA_TRANSFORMER`). However, **this built-in support
-  will be removed in v4**, and you should start providing your own transformer.
+  The ts-restless v4 development baseline retains the built-in Zod 3 transformer
+  (`ZOD_3_SCHEMA_TRANSFORMER`). Standard Schema runtime validation does not supply
+  JSON Schema conversion. Contracts using Zod 4 or another validator need an
+  explicit matching transformer. See the [migration guide](/standard-schema-migration#openapi)
+  before changing validators; there is no approved converter removal in this baseline.
 </Callout>
 
 ### Zod 3
@@ -53,12 +55,12 @@ There are two flavors of transformers:
 #### Transformer Implementation
 
 ```typescript
-import { SchemaTransformer } from './types';
+import type { SchemaTransformerSync } from '@ts-restless/open-api';
 import { generateSchema } from '@anatine/zod-openapi';
 import { z } from 'zod';
 
 export const ZOD_3_SYNC: SchemaTransformerSync = ({ schema }) => {
-  if (schema instanceof z.ZodAny) {
+  if (schema instanceof z.ZodType) {
     return generateSchema(schema);
   }
   return null;

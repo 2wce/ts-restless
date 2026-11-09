@@ -3,7 +3,7 @@ title: Quickstart
 description: Let's get started, making a basic contract, server, and client.
 ---
 
-This quickstart describes the **ts-restless v4 development checkout** and compiles against its `@ts-restless/*` packages. No library release is available yet; npm's `0.0.0-stage` registration placeholders contain no library code and must not be installed. Installation commands apply after the first alpha is available. See the [prerelease and migration guide](/ts-restless-migration) for release status. Published upstream v3 packages do not include this fork's major changes.
+This quickstart describes the **ts-restless v4 development baseline**, including the Query v5 migration, and compiles against its `@ts-restless/*` packages. Prereleases are available; consult the [prerelease and migration guide](/ts-restless-migration) and merged release notes for the first version containing this baseline. Older prereleases may use different query adapters and exports. Published upstream v3 packages do not include this fork's major changes.
 
 <Steps>
   <Step>
@@ -362,9 +362,9 @@ if (res.status === 200) {
 
   </Tab>
   <Tab value="react-query">
-  <InstallTabs packageName="@ts-restless/react-query" />
+  <InstallTabs packageName="@ts-restless/react-query @tanstack/react-query@5" />
 
-The `@ts-restless/react-query` integration follows the same underlying pattern as the core `@tanstack/react-query` package so it should feel super familiar.
+Set up native `QueryClientProvider` and `client.ReactQueryProvider` using the [React v5 guide](/client/react-query-v5) before calling the hook below. The `@ts-restless/react-query` integration follows the same underlying pattern as the core `@tanstack/react-query` package so it should feel super familiar.
 
 ```tsx title="pokemon-component.tsx" twoslash
 import React from 'react';
@@ -388,22 +388,20 @@ export const pokemonContract = c.router({
 });
 
 // ---cut---
-import { initQueryClient } from '@ts-restless/react-query';
+import { initTsrReactQuery } from '@ts-restless/react-query';
 
-export const client = initQueryClient(pokemonContract, {
+export const client = initTsrReactQuery(pokemonContract, {
   baseUrl: 'http://localhost:3333',
   baseHeaders: {},
 });
 
 export const PokemonComponent = () => {
-  const { data, isLoading, error } = client.getPokemon.useQuery(
-    ['pokemon', '1'],
-    {
-      params: { id: '1' },
-    },
-  );
+  const { data, isPending, error } = client.getPokemon.useQuery({
+    queryKey: ['pokemon', '1'],
+    queryData: { params: { id: '1' } },
+  });
 
-  if (isLoading) {
+  if (isPending) {
     return <div>Loading...</div>;
   }
 

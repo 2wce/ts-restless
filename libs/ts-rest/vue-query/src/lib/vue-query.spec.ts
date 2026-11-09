@@ -3,8 +3,8 @@ import { vi } from 'vitest';
 import { ApiFetcher, ApiFetcherArgs, initContract } from '@ts-restless/core';
 import { z } from 'zod';
 import { initQueryClient } from './vue-query';
-import { VueQueryPlugin } from '@tanstack/vue-query';
-import { createApp, unref } from 'vue';
+import { VueQueryPlugin, QueryClient } from '@tanstack/vue-query';
+import { createApp, unref, ref, computed, toRaw } from 'vue';
 import { waitFor } from '@testing-library/vue';
 
 const act = <TResult>(cb: () => TResult) => cb();
@@ -158,7 +158,10 @@ const ERROR_RESPONSE = {
 
 function renderHook<TResult>(
   composable: () => TResult,
-  { wrapper }: { wrapper: () => Element },
+  {
+    wrapper,
+    queryClient,
+  }: { wrapper: () => Element; queryClient?: QueryClient },
 ) {
   let result: TResult;
 
@@ -170,14 +173,14 @@ function renderHook<TResult>(
       return () => {};
     },
   });
-  app.use(VueQueryPlugin).mount(wrapper());
+  app.use(VueQueryPlugin, { queryClient }).mount(wrapper());
 
   return {
     result: { all: [], current: result! },
     // eslint-disable-next-line @typescript-eslint/no-empty-function
     rerender: () => {},
     // eslint-disable-next-line @typescript-eslint/no-empty-function
-    unmount: () => {},
+    unmount: () => app.unmount(),
     waitFor: () => Promise.resolve(),
     waitForNextUpdate: () => Promise.resolve(),
     waitForValueToChange: () => Promise.resolve(),
@@ -458,7 +461,7 @@ describe('vue-query', () => {
 
     expect(unref(result.current.data)).toStrictEqual(undefined);
 
-    expect(unref(result.current.isLoading)).toStrictEqual(false);
+    expect(unref(result.current.isPending)).toStrictEqual(false);
 
     expect(unref(result.current.error)).toStrictEqual(null);
 
@@ -551,4 +554,148 @@ it('A11 Vue preserves request signal and resolved HTTP error identity', async ()
   } finally {
     native.clear();
   }
+});
+
+describe('Vue Query v5 migration', () => {
+  const localContract = c.router({
+    read: {
+      method: 'GET',
+      path: '/items/:id',
+      responses: { 200: c.type<{ value: string }>() },
+    },
+    pages: {
+      method: 'GET',
+      path: '/pages',
+      query: c.type<{ cursor: number }>(),
+      responses: {
+        200: c.type<{ next: number }>(),
+        404: c.type<{ missing: true }>(),
+      },
+    },
+  });
+  it('tracks a computed key and maps current reactive request input', async () => {
+    const api = vi.fn(async (args: ApiFetcherArgs) => ({
+      status: 200,
+      body: { value: args.path },
+      headers: new Headers(),
+    }));
+    const client = initQueryClient(localContract, {
+      baseUrl: 'https://vue.example',
+      api,
+    });
+    const id = ref('1');
+    const h = renderHook(
+      () =>
+        client.read.useQuery(
+          computed(() => ['item', id.value]),
+          () => ({ params: { id: id.value } }),
+          { select: (response) => response.body.value },
+        ),
+      { wrapper },
+    );
+    try {
+      await waitFor(() =>
+        expect(h.result.current.data.value).toBe('https://vue.example/items/1'),
+      );
+      const selected: string | undefined = h.result.current.data.value;
+      void selected;
+      id.value = '2';
+      await waitFor(() =>
+        expect(h.result.current.data.value).toBe('https://vue.example/items/2'),
+      );
+      expect(api).toHaveBeenCalledTimes(2);
+    } finally {
+      h.unmount();
+    }
+  });
+  it('forwards numeric page context, native signal and later-page HTTP error', async () => {
+    const failure = {
+      status: 404,
+      body: { missing: true },
+      headers: new Headers(),
+    };
+    const api = vi.fn(async (args: ApiFetcherArgs) => {
+      const cursor = (args.rawQuery as { cursor: number }).cursor;
+      return cursor < 2
+        ? { status: 200, body: { next: cursor + 1 }, headers: new Headers() }
+        : failure;
+    });
+    const native = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const client = initQueryClient(localContract, {
+      baseUrl: 'https://vue.example',
+      api,
+    });
+    const h = renderHook(
+      () =>
+        client.pages.useInfiniteQuery(
+          ['pages'],
+          ({ pageParam }) => {
+            const cursor: number = pageParam;
+            return { query: { cursor } };
+          },
+          { initialPageParam: 0, getNextPageParam: (last) => last.body.next },
+        ),
+      { wrapper, queryClient: native },
+    );
+    try {
+      await waitFor(() => expect(h.result.current.isSuccess.value).toBe(true));
+      await h.result.current.fetchNextPage();
+      expect(
+        h.result.current.data.value?.pages.map((page) => page.body.next),
+      ).toEqual([1, 2]);
+      await h.result.current.fetchNextPage();
+      await waitFor(() =>
+        expect(toRaw(h.result.current.error.value)).toBe(failure),
+      );
+      expect(api.mock.calls.map(([args]) => args.rawQuery)).toEqual([
+        { cursor: 0 },
+        { cursor: 1 },
+        { cursor: 2 },
+      ]);
+      for (const [args] of api.mock.calls)
+        expect(args.fetchOptions?.signal).toBeInstanceOf(AbortSignal);
+    } finally {
+      h.unmount();
+      native.clear();
+    }
+  });
+  it('native cancellation reaches the active transport', async () => {
+    const aborted = vi.fn();
+    const api = vi.fn(
+      (args: ApiFetcherArgs) =>
+        new Promise<{ status: number; body: unknown; headers: Headers }>(
+          (_resolve, reject) => {
+            args.fetchOptions?.signal?.addEventListener(
+              'abort',
+              () => {
+                aborted();
+                reject(new DOMException('Aborted', 'AbortError'));
+              },
+              { once: true },
+            );
+          },
+        ),
+    );
+    const native = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const client = initQueryClient(localContract, {
+      baseUrl: 'https://vue.example',
+      api,
+    });
+    const h = renderHook(
+      () => client.read.useQuery(['cancel'], () => ({ params: { id: '1' } })),
+      { wrapper, queryClient: native },
+    );
+    try {
+      await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
+      await native.cancelQueries({ queryKey: ['cancel'] });
+      expect(aborted).toHaveBeenCalledTimes(1);
+    } finally {
+      h.unmount();
+      native.clear();
+    }
+  });
 });

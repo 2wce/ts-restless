@@ -36,11 +36,11 @@ export const contract = c.router({
 });
 ```
 
-Read our [core guide](/docs/core) to learn more about contracts.
+Read our [core guide](/contract/overview) to learn more about contracts.
 
 ## Setup react-query in your project
 
-It's worth following the excellent `@tanstack/react-query` [installation guide](https://tanstack.com/query/v4/docs/react/quick-start) to get started with `react-query`. We're going to assume you've already done this (snippet below)
+It's worth following the excellent `@tanstack/react-query` [installation guide](https://tanstack.com/query/v5/docs/framework/react/quick-start) to get started with `react-query`. We're going to assume you've already done this (snippet below)
 
 ```tsx
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -60,22 +60,23 @@ const App = () => {
 
 ## Consume the Contract
 
-Now that we have a contract, we can use it to create a client. We're going to use `react-query` to handle the data fetching, but you can use any data fetching library you want.
+Set up `client.ReactQueryProvider` below the native `QueryClientProvider` as shown in the [React v5 guide](/client/react-query-v5). Now that we have a contract, we can use it to create a client. We're going to use `react-query` to handle the data fetching, but you can use any data fetching library you want.
 
 ```tsx
 import { contract } from './contract';
+import { initTsrReactQuery } from '@ts-restless/react-query';
 
-export const client = initQueryClient(contract, {
+export const client = initTsrReactQuery(contract, {
   baseUrl: 'http://localhost:3333',
   baseHeaders: {},
 });
 
 const YourComponent = () => {
-  const queryResult = client.getPosts.useQuery(
-    ['posts'], // <- queryKey
-    { query: { take: 10 } }, // <- Query params, Params, Body etc (all typed)
-    { staleTime: 1000 }, // <- react-query options (optional)
-  );
+  const queryResult = client.getPosts.useQuery({
+    queryKey: ['posts'],
+    queryData: { query: { take: '10' } },
+    staleTime: 1000,
+  });
 
   // ... use the query result
 };

@@ -126,6 +126,15 @@ test('packed packages preserve their public API and consumer compatibility', asy
       ['install', '--ignore-scripts', '--no-frozen-lockfile'],
       { cwd: consumer, stdio: 'inherit' },
     );
+    const rootReact = await import(
+      join(consumer, 'node_modules/@ts-restless/react-query/dist/index.esm.mjs')
+    );
+    const aliasReact = await import(
+      join(consumer, 'node_modules/@ts-restless/react-query/dist/v5.esm.mjs')
+    );
+    assert.equal(rootReact.initTsrReactQuery, aliasReact.initTsrReactQuery);
+    assert.equal('initQueryClient' in rootReact, false);
+    assert.equal('useTsRestQueryClient' in rootReact, false);
     const imports = [];
     for (const [name, before] of Object.entries(baseline)) {
       const pkg = JSON.parse(
@@ -206,14 +215,14 @@ assert.equal(Reflect.getMetadata('design:paramtypes', TsRestInterceptor)[0], Ref
       )
       .join('\n');
     const typeConsumer = `${typeImports}\nimport { initContract, ClientInferResponseBody } from '@ts-restless/core';
-import { initQueryClient } from '@ts-restless/react-query';
+import { initTsrReactQuery as initDefault } from '@ts-restless/react-query';
 import { initTsrReactQuery } from '@ts-restless/react-query/v5';
 import { createFetchHandler } from '@ts-restless/serverless/fetch';
 const contract = initContract().router({ get: { method: 'GET', path: '/test', responses: { 200: initContract().type<{ value: string }>() } } });
 const value: ClientInferResponseBody<typeof contract.get, 200> = { value: 'ok' };
 // @ts-expect-error response inference must reject incompatible body values
 const invalid: ClientInferResponseBody<typeof contract.get, 200> = { value: 1 };
-void [initQueryClient, initTsrReactQuery, createFetchHandler, value, invalid];
+void [initDefault, initTsrReactQuery, createFetchHandler, value, invalid];
 `;
     for (const extension of ['ts', 'mts', 'cts']) {
       await writeFile(join(consumer, `consumer.${extension}`), typeConsumer);

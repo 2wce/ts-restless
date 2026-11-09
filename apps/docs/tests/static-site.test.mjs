@@ -46,18 +46,54 @@ test('exports a static 404 page with a link back to documentation', async () => 
   assert.match(html, /Return to the docs/);
 });
 
+for (const slug of [
+  'ts-restless-migration',
+  'standard-schema-migration',
+  'query-v5-migration',
+  'client/react-query-v4',
+  'client/react-query-v5',
+  'client/vue-query-v4',
+  'client/vue-query-v5',
+  'client/solid-query-v5',
+  'server/next',
+  'server/serverless/next-serverless',
+  'quickstart',
+  'recipies/frontend-only',
+  'openapi',
+]) {
+  test(`/${slug} migration journey links resolve to rendered pages and anchors`, async () => {
+    const html = await readFile(resolve(output, slug, 'index.html'), 'utf8');
+    const article = html.match(/<article\b[^>]*>([\s\S]*?)<\/article>/)?.[1];
+    assert.ok(article, `Missing article: /${slug}`);
+    for (const [, href] of article.matchAll(/href="([^"]+)"/g)) {
+      if (!href.startsWith('/') && !href.startsWith('#')) continue;
+      const target = new URL(href, `https://docs.example/${slug}`);
+      const page = resolve(output, `.${target.pathname}`, 'index.html');
+      const destination = await readFile(page, 'utf8').catch(() => null);
+      assert.ok(destination, `/${slug} links to missing page: ${href}`);
+      if (target.hash) {
+        const id = decodeURIComponent(target.hash.slice(1));
+        assert.ok(
+          destination.includes(`id="${id}"`),
+          `/${slug} links to missing anchor: ${href}`,
+        );
+      }
+    }
+  });
+}
+
 for (const [slug, packages] of [
   [
     'client/react-query-v5',
     '@ts-restless/react-query@alpha @tanstack/react-query@5',
   ],
   [
-    'client/react-query-v4',
-    '@ts-restless/react-query@alpha @tanstack/react-query@4',
+    'client/solid-query-v5',
+    '@ts-restless/solid-query@alpha @tanstack/solid-query@5',
   ],
   [
-    'client/vue-query-v4',
-    '@ts-restless/vue-query@alpha @tanstack/vue-query',
+    'client/vue-query-v5',
+    '@ts-restless/vue-query@alpha @tanstack/vue-query@5',
   ],
   [
     'recipies/frontend-only',

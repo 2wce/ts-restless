@@ -1,70 +1,122 @@
 ---
 title: ts-restless migration and prereleases
-description: Package names, release status and migration from ts-rest v3 to ts-restless v4.
+description: A checklist for moving from ts-rest v3 or earlier fork prereleases to ts-restless v4.
 ---
 
-**ts-restless** is a maintained fork of [ts-rest](https://github.com/ts-rest/ts-rest), with contract-first, end-to-end typed REST for TypeScript.
+**ts-restless** is a maintained fork of [ts-rest](https://github.com/ts-rest/ts-rest), with contract-first, end-to-end typed REST for TypeScript. Use this page as the starting point when upgrading from upstream v3 or an earlier fork prerelease.
 
-## Release status
+## Choose the release first
 
-The first stable release will be **4.0.0**. Interim `4.0.0-alpha.*` releases can ship while stable-launch compatibility fixes continue, followed by beta and release candidates as needed. Prereleases use their explicit `alpha`, `beta` or `rc` npm tag; stable `4.0.0` will use `latest`.
+The first stable target is **ts-restless 4.0.0**. This guide describes the development baseline, including the proposed TanStack Query v5-only migration. That migration is in [draft PR #22](https://github.com/2wce/ts-restless/pull/22); existing `4.0.0-alpha.2` artifacts do not contain it. Check the [fork release notes](https://github.com/2wce/ts-restless/releases) for the first release that includes the changes you need. A source example or passing draft PR does not mean the change is available on npm.
 
-**All ten public libraries have published `4.0.0-alpha.1`**, available through `@alpha` (registry verified 2026-11-06). Stable `4.0.0` is not published. Historical `0.0.0-stage` registration placeholders remain on npm. These placeholders contain no library code and must not be installed. This checkout and its compiled examples use the new package names and describe this fork's development source, which differs from published upstream v3. Use the explicit prerelease channel in the installation commands below. At this snapshot npm also points `latest` to alpha.0; that is not a stable-release designation. Tag reconciliation is a separate release follow-up.
+Prereleases use explicit `alpha`, `beta` or `rc` npm tags. Stable `4.0.0` is not published. Do not infer stability from npm's `latest` tag or install the historical `0.0.0-stage` registration placeholders, which contain no library code. For a reproducible migration, pin the exact released version from its notes across all the ts-restless libraries you use. The moving `@alpha` tag is useful for evaluation, but may point to an earlier baseline than these docs.
+
+## Migration checklist
+
+Each row identifies a removed support line, moved API or changed behavior and its replacement. Follow the rows that apply to your application before switching dependencies.
+
+| Previous feature or support | Replacement in the v4 baseline | Migration path |
+| --- | --- | --- |
+| `@ts-rest/*` dependencies and imports | The matching `@ts-restless/*` packages | [Replace the complete package set](#package-migration), including shared contracts and public subpaths. |
+| Next.js 12, 13 or 14 | A current patched Next.js 15 or 16 release | [Upgrade Next first](#nextjs-1214), retaining your existing router integration. |
+| React 16 or 17 with the React Query adapter | React 18 and matching React/DOM types | [Upgrade React before Query](/query-v5-migration#upgrade-order). React 19 remains a separate compatibility gate. |
+| TanStack Query v4 in React, Vue or Solid | The framework's native Query v5 package | [Query v5 migration](/query-v5-migration), including native options, providers, status flags and pagination. |
+| React root `initQueryClient`, `useTsRestQueryClient` and positional hooks | `initTsrReactQuery`, its providers, object options and `tsr.useQueryClient()` | [React API replacements](/query-v5-migration#react-api-replacements), including mutations, cache access and SSR. |
+| React v4 wrapper types, `includeThrownErrorsInErrorType`, and top-level request `cache` / `next` | Inferred v5 hook/client types, an error union including `Error`, and `queryData.fetchOptions` | [Options and types](/query-v5-migration#react-options-and-types). |
+| Automatic adaptation of old Zod schemas lacking `~standard` | Modern Standard Schema validators, or explicit `toStandardSchema` from `/zod3` | [Older Zod 3](/standard-schema-migration#older-zod-3), including each field in header records. |
+| Zod-specific core helpers and inference types from the root | `/zod3` for historical helpers; `SchemaInputOrType` / `SchemaOutputOrType` for new code | [Moved imports and removed helpers](/standard-schema-migration#historical-helpers). |
+| Historical adapter error schemas/classes from root exports | Portable default errors; historical payload helpers under the adapter's `/zod3` entry | [Exact adapter replacements](/standard-schema-migration#adapter-error-imports). Importing a compatibility helper does not restore old handler behavior. |
+| `instanceof ZodError`, serialized `name: 'ZodError'`, `flatten()` / `format()` on default validation failures | `StandardSchemaError`, serialized `name: 'ValidationError'` and portable issue handling | [Validation errors and payloads](/standard-schema-migration#validation-errors). Update clients, middleware and error-response contracts together. |
+| Zod whole-object header override semantics and mixed-case object fields | Validate both whole-object schemas, or merge before bridging; use lowercase whole-object fields | [Whole-object headers](/standard-schema-migration#whole-object-headers). Field records still support route overrides and `null` removals. |
+
+There is no Query v4 `/legacy` fallback. Vue and Solid adapters remain available on v5. No Svelte adapter has been removed; applications in Svelte or any other framework can use the [plain fetch client](/client/fetch).
 
 ## Package migration
 
 Public packages belong to the project-owned npm organization `ts-restless`, with [@2wce](https://github.com/2wce) as its initial owner.
 
-| Upstream dependency    | ts-restless dependency    |
-| ---------------------- | ------------------------- |
-| `@ts-rest/core`         | `@ts-restless/core`        |
-| `@ts-rest/express`      | `@ts-restless/express`     |
-| `@ts-rest/fastify`      | `@ts-restless/fastify`     |
-| `@ts-rest/nest`         | `@ts-restless/nest`        |
-| `@ts-rest/next`         | `@ts-restless/next`        |
-| `@ts-rest/serverless`   | `@ts-restless/serverless`  |
-| `@ts-rest/react-query`  | `@ts-restless/react-query` |
-| `@ts-rest/open-api`     | `@ts-restless/open-api`    |
-| `@ts-rest/solid-query`  | `@ts-restless/solid-query` |
-| `@ts-rest/vue-query`    | `@ts-restless/vue-query`   |
+| Upstream dependency | ts-restless dependency |
+| --- | --- |
+| `@ts-rest/core` | `@ts-restless/core` |
+| `@ts-rest/express` | `@ts-restless/express` |
+| `@ts-rest/fastify` | `@ts-restless/fastify` |
+| `@ts-rest/nest` | `@ts-restless/nest` |
+| `@ts-rest/next` | `@ts-restless/next` |
+| `@ts-rest/serverless` | `@ts-restless/serverless` |
+| `@ts-rest/react-query` | `@ts-restless/react-query` |
+| `@ts-rest/open-api` | `@ts-restless/open-api` |
+| `@ts-rest/solid-query` | `@ts-restless/solid-query` |
+| `@ts-rest/vue-query` | `@ts-restless/vue-query` |
 
-Replace the ts-rest dependencies your application uses as a matched set, including shared contract packages. Then update their imports. Public API names and supported subpaths such as `/zod3` and React Query `/v5` stay familiar:
-
-```typescript
-// These imports compile against the new-scope development packages.
-import { initClient, initContract } from '@ts-restless/core';
-import { toStandardSchema } from '@ts-restless/core/zod3';
-import { initTsrReactQuery } from '@ts-restless/react-query/v5';
-```
-
-`react-query-v5` is a private implementation package. Consumers use the public `@ts-restless/react-query/v5` entry point.
-
-## Trying an alpha
-
-For an Express application, replace the old packages and select the alpha channel explicitly:
+Replace the dependencies your application uses as a matched set, including shared contract packages, then update imports. For an Express evaluation:
 
 ```bash
 pnpm remove @ts-rest/core @ts-rest/express
 pnpm add @ts-restless/core@alpha @ts-restless/express@alpha
 ```
 
-For a reproducible evaluation, use the exact version named in the release notes instead of the moving tag, for example `@ts-restless/core@4.0.0-alpha.1`. Check that all selected ts-restless libraries resolve to the same prerelease version. Use your package manager's equivalent commands if needed.
+For a pinned evaluation, replace `@alpha` with the exact version selected from the release notes. Preserve native framework and validator dependencies; the scope change does not install or upgrade them for you. Check the lockfile for stale upstream imports in shared workspaces and for duplicated native Query packages.
 
-Read that release's verified dependency versions and known gaps before upgrading. Current evidence covers pinned dependency combinations; the compatibility work for current Query v5, public React19 and Fastify5 is still ahead. The current public React Query peer range ends at React18, Fastify support is on major4, and OpenAPI still uses its existing Zod3 default converter with explicit converter hooks. A prerelease does not establish broader support.
+Use public entry points rather than package-internal `src`, `lib` or `dist` imports. Supported subpaths include core and server adapter `/zod3`, React `/v5` and `/tanstack`, and serverless `/fetch`, `/aws`, `/azure` and `/next`. `react-query-v5` is a private implementation package; consumers use `@ts-restless/react-query`.
 
-## Major behavioral changes
+```typescript
+import { initClient, initContract } from '@ts-restless/core';
+import { toStandardSchema } from '@ts-restless/core/zod3';
+import { initTsrReactQuery } from '@ts-restless/react-query';
+```
 
-### Next.js support
+## Next.js 12–14
 
-The first stable v4 supports Next.js **15 and 16** through `@ts-restless/next` and `@ts-restless/serverless/next`. It excludes Next 12–14, which are unsupported in the [official Next.js lifecycle policy](https://nextjs.org/support-policy) as checked on 2026-11-06. Next 15 receives security maintenance through 2027-01-31; Next 16 is the maintained example baseline.
+The first stable v4 baseline supports Next.js **15 and 16** through `@ts-restless/next` and `@ts-restless/serverless/next`. Next 12–14 are excluded. Use the [official Next.js upgrade guides](https://nextjs.org/docs/app/guides/upgrading) to move through the required framework upgrades before changing ts-rest packages; upgrade React and its types to the versions required by your chosen Next release.
 
-Upgrade an older Next application using the [official upgrade guides](https://nextjs.org/docs/app/guides/upgrading) before replacing its ts-rest packages. Use a current patched supported release. Pages Router API routes, App Router and Pages Router Edge integrations keep their existing public entry points; changing framework major does not require changing router style. On Next 15 and newer, read deployment-provider headers instead of the removed `NextRequest.geo` / `ip` properties. Existing published upstream ts-rest v3 packages remain unchanged.
+| Existing integration | Replacement imports and guide |
+| --- | --- |
+| Pages Router API routes | Keep `createNextRouter` / `createNextRoute` from `@ts-restless/next`; [Pages API guide](/server/next). |
+| App Router handlers | Keep `createNextHandler` from `@ts-restless/serverless/next` with `handlerType: 'app-router'`; [App Router guide](/server/serverless/next-serverless). |
+| Pages Router Edge handlers | Keep `createNextHandler` with `handlerType: 'pages-router-edge'`; [Edge guide](/server/serverless/next-serverless). |
 
-### Contract and schema behavior
+You do not need to change router style to adopt the supported Next major. Apply native framework changes from the upgrade guide, such as asynchronous request APIs where required. On Next 15 and newer, replace the removed `NextRequest.geo` / `ip` properties with the deployment provider's documented headers or helpers. For example, `nextRequest.headers.get('x-vercel-ip-country')` supplies country on deployments that provide that header; it can be absent elsewhere. Use only trusted provider headers for IP-based decisions.
 
-The scope replacement is one part of the upgrade. Read the [Standard Schema migration guide](/standard-schema-migration) for legacy Zod bridging, moved helpers, portable validation errors and header composition. Default core/server adapters are validator independent, while schema validation remains synchronous.
+Next and React Query have separate compatibility ranges. The public React Query adapter currently declares React 18, while Next 16 may require React 19. A passing Next adapter example does not certify that combined React Query application. Verify the selected release's public React peer before combining these integrations; React 19 support remains pending.
 
-Applications that depend on historical error classes, serialization or whole-object header override semantics need the corresponding migration changes. Existing published ts-rest v3 packages retain their current behavior.
+## If you cannot upgrade yet
+
+Keep a compatible version pinned while preparing the migration. These published
+pre-change versions are explicit fallback points, checked against public npm
+manifests on 2026-11-09:
+
+| Requirement you still have | Pre-change release to evaluate |
+| --- | --- |
+| React Query v4 root API, or React16/17 | `@ts-restless/*@4.0.0-alpha.2` with native Query4; its React root still exposes the v4 wrapper. |
+| Native Vue/Solid Query4 | `@ts-restless/*@4.0.0-alpha.2` with the corresponding native Query4 dependency. |
+| Next12–14 | `@ts-restless/*@4.0.0-alpha.1`; its Next/serverless manifests retain those majors. Alpha.2 already narrows Next to15/16. |
+| Automatic old-Zod detection or historical default Zod-error behavior | Your existing upstream `@ts-rest/*` v3 release. Fork alpha releases already use the Standard Schema defaults; `/zod3` is explicit compatibility, not an old-handler mode. |
+
+Pin the whole used package set to the selected version and keep the matching
+native peers. Existing published artifacts remain unchanged; these fallback
+points do not create a new maintenance promise for obsolete native versions.
+Do not bypass peer checks to treat an unsupported combination as supported.
+
+## Retained features and current limits
+
+Express 4/5, Nest 9–12, Fastify 4, the Zod 3 bridge and all ten public libraries remain in the baseline. Fastify 5 and public React 19 are pending additions, rather than support removed by this migration. Peer ranges describe allowed versions; release notes identify the combinations actually tested.
+
+The [OpenAPI Zod 3 default converter is retained](/standard-schema-migration#openapi). Changing runtime validation to Standard Schema does not automatically add JSON Schema generation for a new validator; use a matching converter when changing validators.
+
+Some inherited APIs still carry deprecation comments: Nest's `initNestServer` and controller/request/response-shape helpers, and the plain client's top-level `cache` / `next` options. They are still present in this source baseline. Prefer [`TsRestHandler` and inferred handler types](/server/nest), and `fetchOptions.cache` / `fetchOptions.next`, respectively. Their comments are not evidence that they have already been removed from v4.
+
+The repository's Node 26/pnpm 12 development tools are contributor requirements, not a new documented consumer runtime floor. Check native dependencies and the selected release's runtime evidence for your deployment.
+
+## Verify your application
+
+1. Pin a release containing your required changes, align all ts-restless packages, and install without peer mismatches. Keep the old lockfile or migration branch for rollback.
+2. Run your application's TypeScript check with its normal strict settings. Check required request inputs, selected data, transformed headers and infinite-page types; do not hide migration failures with `skipLibCheck` or casts.
+3. Exercise successful requests and each invalid request location. Check middleware and clients against `ValidationError` issue payloads, and test response validation failures with your configured handler policy.
+4. For Query adapters, test mutation success/error, cache invalidation, a second page and a later-page failure, reactive input changes, cancellation, and hydration if you use SSR. Query errors reject response envelopes; plain `initClient` returns HTTP response envelopes for explicit status handling.
+5. For Next, run the production build and exercise your actual Pages/App/Edge handler on the deployment runtime, including provider-header fallbacks.
+6. Generate and compare your OpenAPI document if you publish one. Verify the converter preserves request/response schemas after any validator migration.
+
+Migrate backend error contracts and their consuming clients together. If a temporary application-level compatibility formatter is necessary, make it explicit and test it; `/zod3` imports do not enable a legacy mode in the default adapters.
 
 ## Feedback and attribution
 

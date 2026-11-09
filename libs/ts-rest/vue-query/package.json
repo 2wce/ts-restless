@@ -21,11 +21,12 @@
   },
   "license": "MIT",
   "peerDependencies": {
-    "@tanstack/vue-query": "^4.0.0",
+    "@tanstack/vue-query": "^5.0.0",
     "@ts-restless/core": "workspace:^"
   },
   "scripts": {
-    "build": "vp pack"
+    "build": "vp pack",
+    "typecheck": "tsc --noEmit -p tsconfig.assertions.json"
   },
   "devDependencies": {
     "@ts-restless/core": "workspace:*",
@@ -62,5 +63,8 @@
   "bugs": {
     "url": "https://github.com/2wce/ts-restless/issues"
   },
-  "homepage": "https://github.com/2wce/ts-restless#readme"
+  "homepage": "https://github.com/2wce/ts-restless#readme",
+  "dependencies": {
+    "vue-demi": "0.14.10"
+  }
 }

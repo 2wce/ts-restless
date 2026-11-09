@@ -1,4 +1,4 @@
-import { initTsrReactQuery } from '@ts-restless/react-query/v5';
+import { initTsrReactQuery } from '@ts-restless/react-query';
 import { apiBlog } from '@ts-restless/example-contracts';
 
 export const tsr = initTsrReactQuery(apiBlog, {

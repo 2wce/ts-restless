@@ -1,0 +1,273 @@
+---
+title: 'TanStack Query v5 migration'
+description: Replace the Query v4 APIs in React, Vue and Solid with the initial stable fork baseline.
+---
+
+The first stable **ts-restless v4** baseline supports **TanStack Query v5 only** for React, Vue and Solid. These are separate version numbers. This guide describes the development source in [draft PR #22](https://github.com/2wce/ts-restless/pull/22); existing alpha.2 and upstream v3 artifacts are unchanged. Select the first released version containing the migration from the [release notes](https://github.com/2wce/ts-restless/releases), then follow the [package replacement checklist](/ts-restless-migration#package-migration).
+
+## Upgrade order
+
+1. For React applications, upgrade React/React DOM and their types to **18** before adopting this adapter. React 16/17 are excluded; React 19 support is a separate pending gate. Follow the [React 18 upgrade guide](https://react.dev/blog/2022/03/08/react-18-upgrade-guide), including `createRoot` when required.
+2. Install the framework's native Query v5 dependency explicitly. Use `@tanstack/react-query@5`, `@tanstack/vue-query@5` or `@tanstack/solid-query@5`, plus the matching native devtools v5 if you use them. Align native Query/Core versions and remove stale v4 installations. Solid's moving latest tag may select another major.
+3. Replace your used `@ts-rest/*` packages as a matched set, pinned to a release containing this migration. Convert calls using the examples below, then run the [application verification checklist](/ts-restless-migration#verify-your-application).
+
+For example, after choosing a containing release, a Vue evaluation installs `@ts-restless/core@alpha`, `@ts-restless/vue-query@alpha` and `@tanstack/vue-query@5`. The moving alpha tag alone does not guarantee it contains the migration.
+
+## React API replacements
+
+| Query v4 adapter API | Query v5 replacement |
+| --- | --- |
+| Root `initQueryClient(contract, options)` | `initTsrReactQuery(contract, options)` from the root; `/v5` remains an alias. |
+| Only native `QueryClientProvider` | Native `QueryClientProvider`, with `tsr.ReactQueryProvider` inside it. |
+| `client.read.useQuery(key, request, options)` | `tsr.read.useQuery({ queryKey: key, queryData: request, ...options })`. |
+| Positional `useInfiniteQuery(key, mapper, options)` | Object options with `queryData: mapper`, `initialPageParam` and `getNextPageParam`. |
+| Positional route cache methods receiving a native `QueryClient` | `tsr.useQueryClient()` in components, or `tsr.initQueryClient(nativeClient)` outside React; call route methods on that extended client. |
+| `useTsRestQueryClient(client)` | `tsr.useQueryClient()`; this old root export is removed. |
+| Per-endpoint query callback options or `suspense: true` | Native v5 callback patterns and dedicated `useSuspenseQuery` / `useSuspenseInfiniteQuery` hooks. |
+
+There is no `/legacy` entry point. Existing imports from `@ts-restless/react-query/v5` remain valid and resolve to the same implementation as the root. The returned **`tsr.initQueryClient(nativeClient)` method is retained**; it is different from the removed root factory named `initQueryClient`.
+
+### Initialize and provide the client
+
+```tsx
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { initTsrReactQuery } from '@ts-restless/react-query';
+import type { PropsWithChildren } from 'react';
+import { contract } from './contract';
+
+export const tsr = initTsrReactQuery(contract, {
+  baseUrl: 'https://api.example',
+});
+const queryClient = new QueryClient();
+
+export function Providers({ children }: PropsWithChildren) {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <tsr.ReactQueryProvider>{children}</tsr.ReactQueryProvider>
+    </QueryClientProvider>
+  );
+}
+```
+
+Keep a stable native client in the browser, and use a request-scoped client on the server to avoid sharing caches between users. See the [React setup guide](/client/react-query-v5) for the application/provider layout.
+
+### Queries and mutations
+
+Before, with the v4 adapter:
+
+```ts
+const query = client.read.useQuery(
+  ['items', id],
+  { params: { id } },
+  { select: (response) => response.body.value },
+);
+const mutation = client.write.useMutation();
+mutation.mutate({ body: { value: 'save' } });
+```
+
+After, with the v5 adapter (the example contract below is typechecked):
+
+```typescript twoslash
+import { initContract } from '@ts-restless/core';
+import { initTsrReactQuery } from '@ts-restless/react-query';
+const c = initContract();
+const contract = c.router({
+  read: {
+    method: 'GET', path: '/items/:id',
+    responses: { 200: c.type<{ value: string }>() },
+  },
+  write: {
+    method: 'POST', path: '/items',
+    body: c.type<{ value: string }>(),
+    responses: { 201: c.type<{ value: string }>() },
+  },
+});
+const tsr = initTsrReactQuery(contract, { baseUrl: 'https://api.example' });
+const id = '1';
+// ---cut---
+const query = tsr.read.useQuery({
+  queryKey: ['items', id],
+  queryData: { params: { id } },
+  select: (response) => response.body.value,
+});
+// query.data is string | undefined; HTTP responses remain envelopes before select.
+const mutation = tsr.write.useMutation();
+mutation.mutate({ body: { value: 'save' } });
+// mutation.isPending replaces the v4 mutation.isLoading flag.
+```
+
+Call hooks inside components. Mutation variables remain the contract request object; do not wrap them in `queryData`. Supply mutation callbacks in `useMutation` options or the `mutate` call as allowed by native v5. The binding supplies `mutationFn`.
+
+For per-endpoint `useQueries`, move each request into its own `queryData` field:
+
+```ts
+const results = tsr.read.useQueries({
+  queries: ids.map((id) => ({
+    queryKey: ['items', id],
+    queryData: { params: { id } },
+  })),
+});
+```
+
+The per-endpoint wrapper handles repeated queries for that endpoint. For native
+query APIs, follow their v5 object signatures; do not pass an old v4 queries
+array or custom React context argument to this wrapper.
+
+### Cache methods and SSR
+
+In a component, replace `useTsRestQueryClient(client)` with:
+
+```ts
+const cache = tsr.useQueryClient();
+await cache.read.fetchQuery({
+  queryKey: ['items', id],
+  queryData: { params: { id } },
+});
+const cached = cache.read.getQueryData(['items', id]);
+cache.invalidateQueries({ queryKey: ['items'] });
+```
+
+Route `fetchQuery`, `prefetchQuery`, `fetchInfiniteQuery` and `prefetchInfiniteQuery` use v5 object options. Route `getQueryData` / `setQueryData` keep the key argument and store full response envelopes, even if a hook uses `select`. Filtering/invalidation methods that do not provide typed route data stay on the root native client.
+
+Outside a provider, such as server-side prefetching:
+
+```ts
+import { QueryClient, dehydrate } from '@tanstack/react-query';
+import { tsr } from './tsr';
+
+const queryClient = new QueryClient();
+const cache = tsr.initQueryClient(queryClient);
+await cache.read.prefetchQuery({
+  queryKey: ['items', id],
+  queryData: { params: { id } },
+});
+const dehydratedState = dehydrate(queryClient);
+```
+
+Replace native v4 `Hydrate` with v5 `HydrationBoundary`. Follow the [native SSR migration guidance](https://tanstack.com/query/v5/docs/framework/react/guides/ssr) for hydration timing and cache lifetimes. A React Query application using Next must also satisfy both [Next and React peer ranges](/ts-restless-migration#nextjs-1214).
+
+### Infinite queries
+
+Move a v4 mapper's implicit page default into `initialPageParam`. Always provide `getNextPageParam`; return `undefined` or `null` when there is no next page. A React example with an inferred numeric page parameter:
+
+```typescript twoslash
+import { initContract } from '@ts-restless/core';
+import { initTsrReactQuery } from '@ts-restless/react-query';
+const c = initContract();
+const contract = c.router({
+  pages: {
+    method: 'GET', path: '/pages', query: c.type<{ cursor: number }>(),
+    responses: { 200: c.type<{ items: string[]; next: number | null }>() },
+  },
+});
+const tsr = initTsrReactQuery(contract, { baseUrl: 'https://api.example' });
+// ---cut---
+const pages = tsr.pages.useInfiniteQuery({
+  queryKey: ['pages'],
+  queryData: ({ pageParam }) => ({ query: { cursor: pageParam } }),
+  initialPageParam: 0,
+  getNextPageParam: (last) => last.body.next ?? undefined,
+});
+const items = pages.data?.pages.flatMap((page) => page.body.items);
+```
+
+The default result is native `InfiniteData`: `pages` contains response envelopes, and `pageParams` contains page values. If your contract expects a string cursor, convert a numeric offset with `String(pageParam)` in the request mapper. Keep `pages` and `pageParams` when manually updating an infinite cache. The same initial-page requirement applies to native infinite prefetch/fetch options; use the [React infinite-query guide](/client/react-query-v5#infinite-query).
+
+## React options and types
+
+Remove `includeThrownErrorsInErrorType` from client initialization. V5 hook errors already include the declared HTTP-error envelope or `Error`; use [the v5 type guards](/client/react-query-v5#fully-type-safe-error-handling) rather than assuming every error has a response status. Transport exceptions still propagate.
+
+Replace imports of v4-only `ReactQueryClientArgs`, `InitClientReturn`, `UseTsRestQueryClient`, `AppRouteFunctions*` and `DataReturn*` helpers. Infer your created instance with `typeof tsr`, the extended client with `ReturnType<typeof tsr.initQueryClient>`, and request/response shapes with core's [`ClientInferRequest` / `ClientInferResponses`](/contract/type-helpers). Exported hook options/results that retain familiar names have v5 generic signatures; use the v5 declarations rather than carrying v4 generic argument lists forward.
+
+Move v4 top-level request `cache` / `next` into `queryData.fetchOptions`; the v5 request type excludes those top-level fields. For example:
+
+```ts
+tsr.read.useQuery({
+  queryKey: ['items', id],
+  queryData: { params: { id }, fetchOptions: { cache: 'no-store' } },
+});
+```
+
+Framework-specific `fetchOptions.next` requires that framework's native fetch types/runtime. It is distinct from Query's own cache. Configure custom transport with the initializer's `api` fetcher, rather than supplying a replacement `queryFn` / `mutationFn`.
+
+## Vue and Solid
+
+The adapter package names and their root `initQueryClient` stay the same. Keep the native `VueQueryPlugin` or Solid `QueryClientProvider`. The Query v4 major is removed, while the Vue/Solid bindings remain. Upgrade the native options using each framework's guide: [Vue v5](https://tanstack.com/query/v5/docs/framework/vue/guides/migrating-to-v5) and [Solid v5](https://tanstack.com/query/v5/docs/framework/solid/guides/migrating-to-v5).
+
+### Vue
+
+Keep the key/request-mapper convenience calls. For changing inputs, use a ref/computed key and read the input inside the request mapper:
+
+```ts
+import { initQueryClient } from '@ts-restless/vue-query';
+import { computed, ref } from 'vue';
+import { contract } from './contract';
+
+const client = initQueryClient(contract, { baseUrl: 'https://api.example' });
+const id = ref('1');
+const query = client.read.useQuery(
+  computed(() => ['items', id.value]),
+  () => ({ params: { id: id.value } }),
+  { select: (response) => response.body.value },
+);
+const pages = client.pages.useInfiniteQuery(
+  ['pages'],
+  ({ pageParam }) => ({ query: { cursor: pageParam } }),
+  { initialPageParam: 0, getNextPageParam: (last) => last.body.next ?? undefined },
+);
+const mutation = client.write.useMutation();
+// In setup code: mutation.isPending.value; pages.data.value?.pages.
+```
+
+Call composables in component setup and include changing request identity in the key. Vue forwards the full native infinite-query context, including its signal, to the mapper. Options may be plain objects or refs/computed values. See the [Vue binding guide](/client/vue-query-v5). Current migration runtime evidence covers Vue 3; the native `vue-demi` bridge alone does not establish verified Vue 2 support.
+
+### Solid
+
+Retain the key accessor. Replace captured changing request/option objects with accessors so Solid tracks their values:
+
+```ts
+import { initQueryClient } from '@ts-restless/solid-query';
+import { createSignal } from 'solid-js';
+import { contract } from './contract';
+
+const client = initQueryClient(contract, { baseUrl: 'https://api.example' });
+const [id, setId] = createSignal('1');
+const query = client.read.createQuery(
+  () => ['items', id()],
+  () => ({ params: { id: id() } }),
+  () => ({ select: (response) => response.body.value }),
+);
+const pages = client.pages.createInfiniteQuery(
+  () => ['pages'],
+  ({ pageParam }) => ({ query: { cursor: pageParam } }),
+  { initialPageParam: 0, getNextPageParam: (last) => last.body.next ?? undefined },
+);
+const mutation = client.write.createMutation();
+// Read mutation.isPending and pages.data?.pages directly; do not destructure reactive results.
+```
+
+Call primitives under the native provider's owner. Static request/options objects remain valid. See the [Solid binding guide](/client/solid-query-v5).
+
+## Native v5 option changes
+
+These changes apply in addition to the adapter-specific replacements:
+
+| Native v4 usage | Native v5 usage |
+| --- | --- |
+| `cacheTime` | `gcTime`. |
+| Mutation `isLoading` / `status: 'loading'` | `isPending` / `status: 'pending'`. |
+| Query `isLoading` meaning no data yet | `isPending`; v5 `isLoading` means pending **and** fetching. Check disabled-query behavior. |
+| `keepPreviousData: true` | `placeholderData` with the native identity helper/pattern; review placeholder status/timestamp differences. |
+| Query `onSuccess`, `onError`, `onSettled` options | Native cache callbacks or framework effects for side effects. Mutation callbacks remain available. |
+| React `suspense: true` / `useErrorBoundary` | Dedicated suspense hooks / native `throwOnError` options. |
+| Implicit first page or manual `fetchNextPage({ pageParam })` | Explicit `initialPageParam` and `getNextPageParam`; let the native query calculate the next page. |
+
+Consult the [complete native v5 migration guide](https://tanstack.com/query/v5/docs/framework/react/guides/migrating-to-v5) for additional native changes such as query defaults, loading indicators and hydration. Providers, cache policy and framework lifecycle remain native.
+
+## Verify behavior and fallback
+
+Test a successful query, a changed reactive key/request, selected data, mutation serialization, cache invalidation, second-page fetching, later-page errors and active-fetch cancellation. Check SSR hydration if used. Infinite data remains a collection of response envelopes; HTTP errors reject the original envelope, and transport exceptions propagate.
+
+Per-request `fetchOptions.signal` takes precedence over native query cancellation, including explicit `undefined`. Remove an override when you want the native query to cancel the transport. Custom `api` fetchers must forward the supplied signal themselves. Mutations have no synthetic query cancellation signal.
+
+If native Query v5 is not suitable yet, core's [plain `initClient`](/client/fetch) is framework independent and returns HTTP response envelopes for explicit status handling. It does not provide Query caching, subscriptions, reactive lifecycle or hydration. Alternatively, keep the old compatible release pinned while migrating; neither option restores a Query v4 adapter in the new baseline.

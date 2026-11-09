@@ -21,9 +21,7 @@ const {
 
 <Callout type="info" title="React Query v5 Documentation">
 
-This documentation is for React Query v5. If you are looking for the v4 docs, please click [here](/docs/react-query/v4).
-
-In order to use the React Query v5 version of `@ts-restless/react-query`, make sure you import `@ts-restless/react-query/v5` in your code and not `@ts-restless/react-query`.
+TanStack Query v5 is the default baseline. Import `initTsrReactQuery` from `@ts-restless/react-query`; `/v5` remains an alias. Query v4 and React16/17 are removed from this initial stable baseline. See the [migration guide](/query-v5-migration).
 
 </Callout>
 
@@ -44,7 +42,7 @@ Before proceeding, make sure you set up your `QueryClientProvider` at the root o
 Import your contract, and pass it with the client options to the `initTsrReactQuery` function. The client options are the same as the ones you would pass to the `initClient` function in `@ts-restless/core`.
 
 ```tsx
-import { initTsrReactQuery } from '@ts-restless/react-query/v5';
+import { initTsrReactQuery } from '@ts-restless/react-query';
 import { getAccessToken } from '@some-auth-lib/sdk';
 import { contract } from './contract';
 
@@ -60,7 +58,7 @@ export const tsr = initTsrReactQuery(contract, {
 <Callout type="info" title="Fetch Client Configuration">
 
 `initTsrReactQuery` uses our fetch client under the hood, so you can configure it just as you would the fetch client, including passing a custom API fetcher.
-For more information, see the [fetch client documentation](/docs/core/fetch).
+For more information, see the [fetch client documentation](/client/fetch).
 
 </Callout>
 
@@ -166,7 +164,7 @@ If you want to make `fetch` requests directly without going through React Query,
 const { body, status } = await tsr.posts.get.query();
 
 // useQuery hook
-const { data, isLoading } = tsr.posts.get.useQuery();
+const { data, isPending } = tsr.posts.get.useQuery({ queryKey: ['posts'] });
 ```
 
 ## Query Client
@@ -243,7 +241,7 @@ set to your response schema for status codes defined in your contract, or `unkno
 The `Error` type is included because requests can fail without returning a response. See [Fetch#Exceptions](https://developer.mozilla.org/en-US/docs/Web/API/Window/fetch#exceptions) for more information.
 
 ```tsx
-import { isFetchError } from '@ts-restless/react-query/v5';
+import { isFetchError } from '@ts-restless/react-query';
 import { tsr } from './tsr';
 
 const Post = ({ id }: { id: string }) => {
@@ -300,7 +298,7 @@ import {
   isFetchError,
   isUnknownErrorResponse,
   exhaustiveGuard,
-} from '@ts-restless/react-query/v5';
+} from '@ts-restless/react-query';
 import { tsr } from './tsr';
 
 const Post = ({ id }: { id: string }) => {
@@ -368,7 +366,8 @@ import { dehydrate, QueryClient } from '@tanstack/react-query';
 import { tsr } from './tsr';
 
 export async function getServerSideProps() {
-  const tsrQueryClient = tsr.initQueryClient(new QueryClient());
+  const queryClient = new QueryClient();
+  const tsrQueryClient = tsr.initQueryClient(queryClient);
 
   await tsrQueryClient.getPosts.prefetchQuery({ queryKey: ['POSTS'] });
 
@@ -435,8 +434,8 @@ const Posts = ({ ids }: { ids: string[] }) => {
 
   return (
     <div>
-      {queries.map((query) => (
-        <p key={query.data?.body.id}>{query.data?.body.title}</p>
+      {data.map((response, index) => (
+        <p key={index}>{response?.body.title}</p>
       ))}
     </div>
   );
@@ -562,7 +561,7 @@ function App() {
 
 <Callout type="info" title="Import Path">
 
-The import path is `@ts-restless/react-query/tanstack` and not `@ts-restless/react-query/v5/tanstack`. `@ts-restless/react-query/tanstack` simply re-exports whichever version of `@tanstack/react-query` you have installed.
+The public `@ts-restless/react-query/tanstack` subpath re-exports the installed native `@tanstack/react-query` package.
 
 </Callout>
 

@@ -10,7 +10,6 @@ const projects = [
   'nest',
   'next',
   'open-api',
-  'react-query',
   'react-query-v5',
   'serverless',
   'solid-query',
@@ -28,7 +27,7 @@ const projects = [
   test: {
     name,
     root: resolve('libs/ts-rest', name),
-    environment: ['react-query', 'react-query-v5', 'vue-query'].includes(name)
+    environment: ['react-query-v5', 'vue-query'].includes(name)
       ? 'jsdom'
       : undefined,
     setupFiles: [resolve('tests/setup.ts')],

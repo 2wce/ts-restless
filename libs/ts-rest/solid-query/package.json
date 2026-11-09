@@ -21,15 +21,18 @@
   },
   "license": "MIT",
   "peerDependencies": {
-    "@tanstack/solid-query": "^4.0.0",
+    "@tanstack/solid-query": "^5.0.0",
     "@ts-restless/core": "workspace:^"
   },
   "scripts": {
-    "build": "vp pack"
+    "build": "vp pack",
+    "typecheck": "tsc --noEmit -p tsconfig.lib.json"
   },
   "devDependencies": {
     "@ts-restless/core": "workspace:*",
-    "@ts-restless/build-config": "workspace:*"
+    "@ts-restless/build-config": "workspace:*",
+    "solid-js": "catalog:",
+    "@tanstack/solid-query": "catalog:"
   },
   "types": "./src/index.ts",
   "exports": {

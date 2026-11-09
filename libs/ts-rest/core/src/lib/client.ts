@@ -355,7 +355,7 @@ export const executeQueryRequest = async <TAppRoute extends AppRoute>(
 export const evaluateFetchApiArgs = <TAppRoute extends AppRoute>(
   route: TAppRoute,
   clientArgs: InitClientArgs,
-  inputArgs?: ClientInferRequest<AppRouteMutation, ClientArgs>,
+  inputArgs?: Partial<ClientInferRequest<AppRouteMutation, ClientArgs>>,
 ) => {
   const {
     query,

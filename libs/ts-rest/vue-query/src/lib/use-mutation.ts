@@ -1,29 +1,33 @@
-import type {
-  MutationOptions,
-  UseMutationReturnType,
+import {
+  useMutation,
+  type MutationOptions,
+  type UseMutationReturnType,
 } from '@tanstack/vue-query';
-import { useMutation } from '@tanstack/vue-query';
+import { computed, unref, type Ref } from 'vue-demi';
 import {
   AppRoute,
-  AppRouteMutation,
   ClientArgs,
-  ClientInferRequest,
   PartialClientInferRequest,
-  SchemaOutputOrType,
+  evaluateFetchApiArgs,
+  executeQueryRequest,
 } from '@ts-restless/core';
-import { DataResponse, ErrorResponse, queryFn } from './common';
+import { DataResponse, ErrorResponse } from './common';
+type MaybeRef<T> = T | Ref<T>;
 
-// Used pn X.useMutation
-export type DataReturnMutation<
-  TAppRoute extends AppRoute,
-  TClientArgs extends ClientArgs,
-> = (
-  options?: MutationOptions<
+type Options<TAppRoute extends AppRoute, TClientArgs extends ClientArgs> = Omit<
+  MutationOptions<
     DataResponse<TAppRoute>,
     ErrorResponse<TAppRoute>,
     PartialClientInferRequest<TAppRoute, TClientArgs>,
     unknown
   >,
+  'mutationFn'
+>;
+export type DataReturnMutation<
+  TAppRoute extends AppRoute,
+  TClientArgs extends ClientArgs,
+> = (
+  options?: MaybeRef<Options<TAppRoute, TClientArgs>>,
 ) => UseMutationReturnType<
   DataResponse<TAppRoute>,
   ErrorResponse<TAppRoute>,
@@ -36,19 +40,20 @@ export const getRouteUseMutation =
     route: TAppRoute,
     clientArgs: TClientArgs,
   ) =>
-  (options?: MutationOptions<TAppRoute['responses']>) => {
-    const mutationFunction = async (
-      args?: ClientInferRequest<AppRouteMutation, ClientArgs>,
-    ) => {
-      const dataFn = queryFn(route, clientArgs, args);
-
-      return dataFn(undefined as any);
-    };
-
-    return useMutation({
-      mutationFn: mutationFunction as () => Promise<
-        SchemaOutputOrType<TAppRoute['responses']>
-      >,
-      ...options,
-    });
+  (
+    options?: MaybeRef<Options<TAppRoute, TClientArgs>>,
+  ): UseMutationReturnType<
+    DataResponse<TAppRoute>,
+    ErrorResponse<TAppRoute>,
+    PartialClientInferRequest<TAppRoute, TClientArgs>,
+    unknown
+  > => {
+    const mutationFn = (
+      args: PartialClientInferRequest<TAppRoute, TClientArgs>,
+    ) =>
+      executeQueryRequest({
+        ...evaluateFetchApiArgs(route, clientArgs, args),
+        route,
+      });
+    return useMutation(computed(() => ({ ...unref(options), mutationFn })));
   };

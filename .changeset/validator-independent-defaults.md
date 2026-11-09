@@ -22,6 +22,7 @@ and validator-provided issue fields are retained. Whole-object header schemas no
 validate both inputs before merging successful outputs; merge typed Zod
 objects before bridging when replacement semantics are required.
 
-See the unreleased Standard Schema migration guide for moved imports and intentional
-major-version changes. This Changeset records the future coordinated release;
-release workflows remain disabled.
+See the [Standard Schema migration guide](https://github.com/2wce/ts-restless/blob/main/apps/docs/content/docs/standard-schema-migration.mdx)
+for exact moved imports, removed legacy detection/types, portable error handling,
+replacement payload schemas and header composition. Prerelease publication follows
+the gated release workflow; stable-release activation remains a separate decision.
