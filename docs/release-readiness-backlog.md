@@ -21,6 +21,8 @@
 
 **Dependency:** A01 identifies supported lines; A02 is general groundwork, not a technical prerequisite for this client-only fix. Do not gate F01 on A11–A13.
 
+**2026-11-09 implementation:** The [F01 plan](superpowers/plans/2026-11-09-query-v5-compatibility.md) records a local fix using native hook-parameter composition and strict installed Query5.51.11/5.80.6/5.107.1 consumers. Full source checks and 28 packed tests passed. PR/CI delivery remains pending. The approved Query4 removal and Vue/Solid Query5 migration are a separate support/export slice; no native Query5 peer floor is narrowed by F01.
+
 ## F02 — Express raw request typing
 
 **Evidence:** upstream [#716](https://github.com/ts-rest/ts-rest/issues/716), [#698](https://github.com/ts-rest/ts-rest/issues/698), prior-art PR [#876](https://github.com/ts-rest/ts-rest/pull/876) (unmerged at triage; recheck when implementing). [types.ts](../libs/ts-rest/express/src/lib/types.ts) defines `TsRestRequest` through `ServerInferRequest` outputs, while [the handler](../libs/ts-rest/express/src/lib/ts-rest-express.ts) supplies transformed top-level arguments and the original native `req`. Consequently raw strings can be typed as transformed numbers or dates. The mismatch is confirmed in code; PR876 does not fully address raw header output typing.
