@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Use the executing-plans skill for these scoped steps. The roadmap owns current delivery status.
 
-**Recorded:** 2026-11-10. **Baseline:** F04 `c0d19211`, stacked on its draft PR. **Goal:** resolve request-scoped asynchronous authentication headers without replacing the transport.
+**Recorded:** 2026-11-10. **Initial baseline:** F04 `c0d19211`. **Integration baseline:** main `45271c21`, containing merged F04 [#29](https://github.com/2wce/ts-restless/pull/29) and serverless [#30](https://github.com/2wce/ts-restless/pull/30). **Goal:** resolve request-scoped asynchronous authentication headers without replacing the transport.
 
 **Architecture:** `fetchApi` resolves header callbacks per request before existing normalization, request overrides and transport dispatch. `Promise.all` starts independent callbacks concurrently and preserves entry order. Plain clients and query integrations share this path; core remains framework-independent.
 
@@ -45,6 +45,15 @@ Before implementation, focused core tests showed 8 expected failures: unresolved
 
 After implementation, `pnpm exec vp test run --project core` passed 314 tests with 1 existing todo across 15 passing files (1 skipped). `pnpm --filter @ts-restless/core typecheck` passed strict inference, including optional caller headers and static Promise rejection. Formatting and `git diff --check` passed.
 
-Logs: `/private/tmp/ts-restless-async-headers-red.log`, `ts-restless-async-headers-final-core.log`, `ts-restless-async-headers-final-types.log`. Broad gates, installed consumer execution, Twoslash/docs checks, independent review and draft delivery remain parent-owned pending work; these focused results do not establish those outcomes or publication.
+Logs: `/private/tmp/ts-restless-async-headers-red.log`, `ts-restless-async-headers-final-core.log`, `ts-restless-async-headers-final-types.log`. These focused results do not alone establish installed-consumer, documentation, CI or publication outcomes; parent verification follows below.
 
 Parent broad verification on the F04-based branch: `pnpm check` passed 767 tests with 2 existing todos and all 14 tasks, `pnpm test:packages` passed 33 installed-consumer tests, and the full docs gate passed 80 checks plus build, prerender and typecheck. A strict test assertion was corrected to index-signature bracket access. Twenty React/Vue tests now wait for the expected transport-call count before retaining their exact dispatch assertions; the compact adapter update passed all 46 adapter tests. Independent implementation review approved. Latest-main integration verification and draft delivery follow below.
+
+Final integration verification on main `45271c21` (both F04 and serverless corrections merged):
+
+- `pnpm check`: exit 0; **782 source tests passed**, 2 existing todos, 56 passing files / 2 skipped; all **14 tasks** passed including strict workspace inference/type checks.
+- `pnpm test:packages`: exit 0; **33 installed-consumer tests passed** in 4 files.
+- `pnpm --filter @ts-restless/docs test`: exit 0; **80 tests passed**, build/prerender, compiler-checked snippets, typecheck and documentation lint passed.
+- Independent initial review and adapter continuation review approved with no findings; continuation independently passed all 46 React/Vue tests.
+
+Logs: `/private/tmp/ts-restless-async-integrated-{check,packages,docs}.log`. Review: `/private/tmp/ts-restless-async-review.md`. The reviewed async commit was rebased locally before its first push; no remote history was rewritten. No merge, versioning or publication was performed for async headers. The roadmap owns its draft delivery status.
