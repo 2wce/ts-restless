@@ -8,6 +8,8 @@
 
 ## Retained implementation and design records
 
+- [Client response validation implementation plan](2026-11-10-client-response-validation.md).
+
 - [React 19 compatibility implementation plan](2026-11-10-react19-compatibility.md).
 - [Response contract evaluation design](001-response-contract-evaluation-design.md).
 - [Response Contract Evaluation Implementation Plan](002-response-contract-evaluation.md).

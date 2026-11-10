@@ -11,6 +11,7 @@ ADRs preserve consequential choices and their rationale. Use short Markdown reco
 | [0005](0005-next-baseline.md)               | Initial stable Next15/16 baseline.                               |
 | [0006](0006-query-v5-baseline.md)           | Query5 only with retained Vue/Solid bindings.                    |
 | [0007](0007-public-coordinated-releases.md) | Ten public libraries, coordinated releases and private examples. |
+| [0008](0008-client-response-validation.md)  | Client execution validates decoded responses once.               |
 
 These initial records extract already approved decisions from existing documents; they do not newly approve roadmap proposals.
 
