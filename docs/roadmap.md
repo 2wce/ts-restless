@@ -18,7 +18,7 @@
 
 ## Follow-up from the upstream shortlist
 
-Async base headers [#832](https://github.com/ts-rest/ts-rest/issues/832) are in progress after F04, with per-request callback resolution, existing override/deletion behavior and concurrent-request isolation; see the [scoped plan](plans/2026-11-10-async-base-headers.md). Serverless empty-body fixes are merged in [#30](https://github.com/2wce/ts-restless/pull/30): #772 reproduces in JSON decoding and AWS serialization; #696's original parse exception did not reproduce, while F04 covers its client no-body normalization. F04 and the serverless fixes are merged; async headers remain in progress. All require a containing release after alpha.4. Release PR [#31](https://github.com/2wce/ts-restless/pull/31) is pending; an open release PR does not establish publication.
+Async base headers [#832](https://github.com/ts-rest/ts-rest/issues/832) are verified in draft [#32](https://github.com/2wce/ts-restless/pull/32) after F04, with per-request callback resolution, existing override/deletion behavior and concurrent-request isolation; see the [scoped plan](plans/2026-11-10-async-base-headers.md). Serverless empty-body fixes are merged in [#30](https://github.com/2wce/ts-restless/pull/30): #772 reproduces in JSON decoding and AWS serialization; #696's original parse exception did not reproduce, while F04 covers its client no-body normalization. F04 and the serverless fixes are merged; async headers remain in draft PR #32. All require a containing release after alpha.4. Release PR [#31](https://github.com/2wce/ts-restless/pull/31) is pending; an open release PR does not establish publication.
 
 ## Adapter maintenance epic
 
