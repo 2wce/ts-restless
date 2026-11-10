@@ -76,6 +76,8 @@ const router = s.router(contract, {
 
 When upgrading from the old raw-request typing, replace transformed reads such as `req.body.value` with `body.value`, `req.query.count` with `query.count`, and transformed path/header reads with `params`/`headers`. Middleware cannot use these validated arguments; validate its raw inputs explicitly and handle missing/defaulted fields there. Revalidate only when that middleware needs its own policy, since non-idempotent transforms must not be mistaken for raw values.
 
+Custom `requestValidationErrorHandler` callbacks run in Express error middleware, where Express can clear the matched route parameters. Their `req.params` values are therefore optional even for required URL segments; check for absence before using them. Query, headers and body stay native, and `req.tsRestRoute` identifies the contract route. Route/global middleware and successful handlers still receive their matched URL parameters.
+
 The former third `TsRestRequest<T, F, S>` inference generic is removed. Prefer `TsRestRequest<typeof contract>` or `TsRestRequest<typeof contract.update>`; use the native Express `Request` generics for separately parsed requests outside this adapter. This typing correction is in development source; published alpha.3 still has the old raw-request types. Select a release containing F02 before relying on it.
 
 ## Options

@@ -175,6 +175,21 @@ const transformedImplementation: AppRouteImplementation<RawRoute> = async ({
 };
 void [middlewareOptions, transformedImplementation];
 
+const validationErrorOptions: TsRestExpressOptions<typeof transformedContract> =
+  {
+    requestValidationErrorHandler: (_error, req, res) => {
+      const optionalParam: Expect<
+        Equal<typeof req.params.date, string | undefined>
+      > = true;
+      // @ts-expect-error Express can clear matched params before error middleware
+      const guaranteedDate: string = req.params.date;
+      const date: string | undefined = req.params.date;
+      void [optionalParam, guaranteedDate, date];
+      res.status(400).json({ date });
+    },
+  };
+void validationErrorOptions;
+
 const heterogeneousContract = c.router({
   transform: transformedContract.transform,
   read: {

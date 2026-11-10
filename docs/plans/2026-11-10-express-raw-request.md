@@ -27,6 +27,17 @@
 - [x] Record migration in the public Express/migration guides and exact support evidence in the inventory. Add an Express major Changeset because unsafe raw reads and the third internal inference generic no longer compile.
 - [x] Run `pnpm check`, `pnpm test:packages`, `pnpm docs:lint` and the docs test task. Record exact results here and in `/tmp/ts-restless-f02-progress.md`; commit verified task edits for root review.
 
+## Review correction: validation-error middleware parameters
+
+Express rematches the root `app.use` error layer and resets `req.params` to `{}` after route validation fails. The custom validation-error callback must allow missing native path parameters while route handlers/middleware keep their matched URL parameters. Preserve raw query/body/headers and `tsRestRoute`; do not restore or mutate parameters.
+
+- [x] Add a single-route callback assertion to `types.spec.ts`: its required URL parameter is `string | undefined`, and assigning it unconditionally to `string` fails compilation. The old type fails with TS2344 and an unused expected-error directive; the corrected type passes.
+- [x] Extend the existing invalid-body conformance case and Express4/5 archive fixtures to capture callback `params`, raw body and route metadata; verify the callback observes `{}` after route/global middleware observe string parameters.
+- [x] Give only the validation-error callback a native request type with partial URL parameters in `types.ts`; retain required matched parameters for successful handlers and prevalidation route middleware. Focused inference and all 40 Express tests pass.
+- [x] Update the migration guide/Changeset for optional callback params and rebuild strict Express4/5 archive consumers. Each native fixture passes 7 HTTP tests and its strict build. Full source733/package31/docs80 gates pass again; independent re-review finds no remaining issues.
+
+The isolated fixture lockfiles refresh checksums for regenerated local archives only; their pinned native/compiler versions and strict declaration checks remain intact. CI uses non-frozen fixture installs for this same local-artifact reason. Combined-branch verification and PR delivery are coordinated separately by root.
+
 ## Baseline and prior art
 
 2026-11-10: Express source tests passed, 4 files / 35 tests; Express inference check passed. Upstream issues 716/698 are closed as not planned; PR876 is closed, locked and unmerged. Its schema-input approach leaves headers as validated outputs and overstates native parser/prevalidation guarantees, so this correction stays native-owned.

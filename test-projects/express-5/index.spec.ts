@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { app, rawRequests } from './index';
+import { app, errorApp, rawRequests } from './index';
 import request from 'supertest';
 
 const expectRes = (res: any) => {
@@ -113,4 +113,28 @@ it('runs raw middleware for invalid JSON fields before validation', async () => 
     { value: 12 },
     { value: 12 },
   ]);
+});
+
+it('allows cleared native params in validation-error callbacks', async () => {
+  rawRequests.length = 0;
+  const result = await request(errorApp)
+    .post('/raw/2026-11-10?count=3')
+    .set('X-Count', '7')
+    .send({ value: 12 });
+  expect(result.status).toBe(400);
+  expect(result.body).toEqual({
+    params: {},
+    body: { value: 12 },
+    route: '/raw/:date/:optional?',
+  });
+  expect(rawRequests.map((snapshot) => snapshot.stage)).toEqual([
+    'global',
+    'route',
+    'error',
+  ]);
+  expect(rawRequests.slice(0, 2).map((snapshot) => snapshot.params)).toEqual([
+    { date: '2026-11-10' },
+    { date: '2026-11-10' },
+  ]);
+  expect(rawRequests[2].params).toEqual({});
 });

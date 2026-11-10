@@ -85,6 +85,14 @@ export type RouterImplementation<T extends AppRouter> = {
       : never;
 };
 
+type TsRestValidationErrorRequest<T extends AppRouter> = Omit<
+  TsRestRequest<FlattenAppRouter<T>>,
+  'params'
+> & {
+  // Express can rematch the error middleware layer and clear route params.
+  params: Partial<TsRestRequest<FlattenAppRouter<T>>['params']>;
+};
+
 export type TsRestExpressOptions<T extends AppRouter> = {
   logInitialization?: boolean;
   jsonQuery?: boolean;
@@ -95,7 +103,7 @@ export type TsRestExpressOptions<T extends AppRouter> = {
     | 'combined'
     | ((
         err: RequestValidationError,
-        req: TsRestRequest<FlattenAppRouter<T>>,
+        req: TsRestValidationErrorRequest<T>,
         res: Response,
         next: NextFunction,
       ) => void);

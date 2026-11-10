@@ -178,6 +178,7 @@ describe.each(['simple', 'extended'] as const)(
       app.set('query parser', parser);
       app.use(express.json());
       const rawBodies: unknown[] = [];
+      let errorRequest: unknown;
       const inputs: TransformInput[] = [];
       const handlers = makeHttpHandlers(inputs);
       createExpressEndpoints(
@@ -203,6 +204,14 @@ describe.each(['simple', 'extended'] as const)(
               next();
             },
           ],
+          requestValidationErrorHandler: (_error, req, res) => {
+            errorRequest = {
+              params: req.params,
+              body: req.body,
+              route: req.tsRestRoute.path,
+            };
+            res.status(400).json({ message: 'invalid body' });
+          },
         },
       );
       const result = await supertest(app)
@@ -212,6 +221,11 @@ describe.each(['simple', 'extended'] as const)(
       expect(result.status).toBe(400);
       expect(rawBodies).toEqual([{ title: 42 }, { title: 42 }]);
       expect(inputs).toEqual([]);
+      expect(errorRequest).toEqual({
+        params: {},
+        body: { title: 42 },
+        route: '/conformance/items/:id/:slug',
+      });
     });
   },
 );

@@ -222,6 +222,39 @@ createExpressEndpoints(contract, router, app, {
   ],
 });
 
+const errorContract = c.router({ raw: contract.raw });
+export const errorApp = express();
+errorApp.set('query parser', 'extended');
+errorApp.use(bodyParser.json());
+createExpressEndpoints(
+  errorContract,
+  s.router(errorContract, { raw: router.raw }),
+  errorApp,
+  {
+    logInitialization: false,
+    globalMiddleware: [
+      (req, _res, next) => {
+        capture('global', req);
+        next();
+      },
+    ],
+    requestValidationErrorHandler: (_error, req, res) => {
+      const optionalParam: Expect<
+        Equal<typeof req.params.date, string | undefined>
+      > = true;
+      // @ts-expect-error error middleware may receive cleared native params
+      const guaranteedDate: string = req.params.date;
+      void [optionalParam, guaranteedDate];
+      capture('error', req);
+      res.status(400).json({
+        params: req.params,
+        body: req.body,
+        route: req.tsRestRoute.path,
+      });
+    },
+  },
+);
+
 // app.listen(8000, () => {
 //   console.log(`Listening on port 8000...`);
 // });
