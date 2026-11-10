@@ -48,6 +48,7 @@
 - [Query v5 baseline implementation plan](2026-11-09-query-v5-baseline.md).
 - [Express raw request typing implementation plan](2026-11-10-express-raw-request.md).
 - [Current Query v5 compatibility implementation plan](2026-11-09-query-v5-compatibility.md).
+- [Serverless empty-body reproduction and correction](2026-11-10-serverless-empty-body.md).
 - [Fork adoption and first-release backlog](release-readiness-backlog.md).
 
 The [historical index](../evidence/2026-11-09-planning-index-history.md) retains previous delivery checkpoints. For new work, create a scoped plan here, link its decision and dependencies, and record verification with exact commands/commits. Detailed designs live alongside plans; do not recreate root `plans/` or tool-specific document directories.

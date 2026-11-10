@@ -319,6 +319,14 @@ type ResponseBody = Expect<Equal<ClientInferResponseBody<typeof contract.convert
 type ClientHeaders = Expect<Equal<ClientInferRequest<typeof contract.convert>['headers'], { 'x-count': string; 'x-note'?: string }>>;
 type ServerHeaders = Expect<Equal<ServerInferRequest<typeof contract.convert>['headers'], { 'x-count': number; 'x-note'?: string }>>;
 const c = initContract();
+const emptySchema: StandardSchemaV1<undefined> = { '~standard': { version: 1, vendor: 'packed-empty', validate: (value) => value === undefined ? { value } : { issues: [{ message: 'Expected absent body' }] } } };
+const emptyContract = c.router({ empty: { method: 'POST', path: '/packed-empty', body: emptySchema, responses: { 200: emptySchema } } });
+const emptyFetchHandler = fetch.createFetchHandler(emptyContract, { empty: async () => {
+  type EmptyResponse = Expect<Equal<ClientInferResponseBody<typeof emptyContract.empty, 200>, undefined>>;
+  return { status: 200, body: undefined };
+} }, { responseValidation: true });
+const emptyAwsHandler = aws.createLambdaHandler(emptyContract, { empty: async () => ({ status: 200, body: undefined }) }, { responseValidation: true });
+void [emptyFetchHandler, emptyAwsHandler];
 const plain = c.router({ get: { method: 'GET', path: '/plain', headers: c.type<{ 'x-key': 'route' }>(), responses: { 200: null } } }, { baseHeaders: c.type<{ 'X-Key': string; 'X-Note'?: string }>() });
 type PlainInput = Expect<Equal<ClientInferRequest<typeof plain.get>['headers'], { 'x-key': 'route'; 'x-note'?: string }>>;
 type PlainOutput = Expect<Equal<ServerInferRequest<typeof plain.get>['headers'], { 'x-key': 'route'; 'x-note'?: string }>>;
@@ -605,6 +613,72 @@ for (const adapter of [await import('@ts-restless/next'), require('@ts-restless/
       } finally {
         await new Promise((resolve, reject) => app.close((error) => error ? reject(error) : resolve()));
       }
+    }
+  }
+}
+for (const commonjs of [false, true]) {
+  const core = commonjs ? require('@ts-restless/core') : await import('@ts-restless/core');
+  const fetchAdapter = commonjs ? require('@ts-restless/serverless/fetch') : await import('@ts-restless/serverless/fetch');
+  const awsAdapter = commonjs ? require('@ts-restless/serverless/aws') : await import('@ts-restless/serverless/aws');
+  const c = core.initContract();
+  const absent = { '~standard': { version: 1, vendor: 'packed-empty',
+    validate: (value) => value === undefined ? { value } : { issues: [{ message: 'Expected absent body' }] },
+  } };
+  const contract = c.router({
+    empty: { method: 'POST', path: '/packed-empty', body: absent, responses: { 200: absent } },
+    noBody: { method: 'POST', path: '/packed-no-body', body: c.noBody(), responses: { 204: c.noBody() } },
+    required: { method: 'POST', path: '/packed-required', body: schema, responses: { 200: schema } },
+    response: { method: 'GET', path: '/packed-response', responses: { 200: absent } },
+  });
+  const router = {
+    empty: async () => ({ status: 200, body: undefined }),
+    noBody: async () => ({ status: 204, body: undefined }),
+    required: async ({ body }) => ({ status: 200, body: String(body) }),
+    response: async () => ({ status: 200, body: undefined }),
+  };
+  const handler = fetchAdapter.createFetchHandler(contract, router, { responseValidation: true });
+  for (const body of [undefined, '']) {
+    const response = await handler(new Request('http://localhost/packed-empty', { method: 'POST', headers: { 'content-type': 'application/json' }, body }));
+    assert.equal(response.status, 200);
+    assert.equal(response.rawBody, null);
+    assert.equal(response.clone().rawBody, null);
+    assert.equal(await response.text(), '');
+  }
+  const missing = await handler(new Request('http://localhost/packed-required', { method: 'POST', headers: { 'content-type': 'application/json' } }));
+  assert.equal(missing.status, 400);
+  for (const prefix of ['', String.fromCharCode(0xfeff)]) {
+  const valid = await handler(new Request('http://localhost/packed-required', { method: 'POST', headers: { 'content-type': 'application/json' }, body: prefix + JSON.stringify('12') }));
+  assert.equal(valid.status, 200);
+  assert.equal(await valid.json(), 12);
+  }
+  let caught;
+  const handled = new fetchAdapter.TsRestResponse(null, { status: 422 });
+  const malformedHandler = fetchAdapter.createFetchHandler(contract, router, { errorHandler: (error) => { caught = error; return handled; } });
+  for (const body of ['{', '   ', String.fromCharCode(0xfeff)]) {
+    const response = await malformedHandler(new Request('http://localhost/packed-empty', { method: 'POST', headers: { 'content-type': 'application/json' }, body }));
+    assert.equal(response, handled);
+    assert.ok(caught instanceof SyntaxError);
+  }
+  const awsHandler = awsAdapter.createLambdaHandler(contract, router, { responseValidation: true });
+  for (const version of [1, 2]) {
+    const makeEvent = (path, method, body) => version === 1 ? {
+      httpMethod: method, path, headers: { 'content-type': 'application/json' }, body, isBase64Encoded: false,
+      requestContext: { identity: { sourceIp: '127.0.0.1' } },
+    } : {
+      version: '2.0', rawPath: path, rawQueryString: '', headers: { 'content-type': 'application/json' }, body, isBase64Encoded: false,
+      requestContext: { http: { method, sourceIp: '127.0.0.1' } },
+    };
+    for (const body of [null, '']) {
+      const response = await awsHandler(makeEvent('/packed-empty', 'POST', body), {});
+      assert.equal(response.statusCode, 200);
+      assert.equal(response.body, '');
+      assert.equal(response.isBase64Encoded, false);
+    }
+    for (const [path, method, status] of [['/packed-response', 'GET', 200], ['/packed-no-body', 'POST', 204]]) {
+      const response = await awsHandler(makeEvent(path, method, null), {});
+      assert.equal(response.statusCode, status);
+      assert.equal(response.body, '');
+      assert.equal(response.isBase64Encoded, false);
     }
   }
 }
