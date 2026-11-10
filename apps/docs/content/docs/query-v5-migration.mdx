@@ -11,7 +11,7 @@ The first stable **ts-restless v4** baseline supports **TanStack Query v5 only**
 2. Install the framework's native Query v5 dependency explicitly. Use `@tanstack/react-query@5`, `@tanstack/vue-query@5` or `@tanstack/solid-query@5`, plus the matching native devtools v5 if you use them. Align native Query/Core versions and remove stale v4 installations. Solid's moving latest tag may select another major.
 3. Replace your used `@ts-rest/*` packages as a matched set, pinned to a release containing this migration. Convert calls using the examples below, then run the [application verification checklist](/ts-restless-migration#verify-your-application).
 
-For a reproducible Vue evaluation, install `@ts-restless/core@4.0.0-alpha.3`, `@ts-restless/vue-query@4.0.0-alpha.3` and `@tanstack/vue-query@5`. On 2026-11-10, the moving `alpha` tag also points to alpha.3; check the selected version when using a tag.
+For a reproducible Vue evaluation, install `@ts-restless/core@4.0.0-alpha.3`, `@ts-restless/vue-query@4.0.0-alpha.3` and `@tanstack/vue-query@5`. On 2026-11-10, the moving `alpha` tag points to alpha.4; check the selected version when using a tag.
 
 React 19 compatibility is verified with React/DOM 19.3.1 and types 19.3.0 on native Query/Core 5.80.6 and 5.107.1. The retained Query 5.51.11/Core 5.51.9 checkpoint supports React 18; its native React peer excludes 19. Keep the adapter's Query 5 range and satisfy both packages' peers when selecting a pair. React 18.3.1 remains checked on all three Query checkpoints. This evidence covers providers, hooks and strict public inference; test your application's SSR/hydration separately if used.
 

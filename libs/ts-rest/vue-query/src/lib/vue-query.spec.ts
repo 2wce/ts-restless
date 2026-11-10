@@ -204,6 +204,7 @@ describe('vue-query', () => {
     expect(unref(result.current.isLoading)).toStrictEqual(true);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/health',
       body: undefined,
@@ -242,6 +243,7 @@ describe('vue-query', () => {
     expect(unref(result.current.isLoading)).toStrictEqual(true);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/health',
       body: undefined,
@@ -285,6 +287,7 @@ describe('vue-query', () => {
     expect(unref(result.current.isLoading)).toStrictEqual(true);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/posts/1',
       body: undefined,
@@ -325,6 +328,7 @@ describe('vue-query', () => {
     expect(unref(result.current.isLoading)).toStrictEqual(true);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/posts/1',
       body: undefined,
@@ -365,6 +369,7 @@ describe('vue-query', () => {
     expect(unref(result.current.isLoading)).toStrictEqual(true);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/posts/1',
       body: undefined,
@@ -394,6 +399,7 @@ describe('vue-query', () => {
     expect(unref(result.current.isLoading)).toStrictEqual(true);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/health',
       body: undefined,
@@ -430,6 +436,7 @@ describe('vue-query', () => {
     expect(unref(result.current.isLoading)).toStrictEqual(true);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/health',
       body: undefined,
@@ -477,6 +484,7 @@ describe('vue-query', () => {
     );
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'POST',
       path: 'https://api.com/posts',
       body: JSON.stringify({

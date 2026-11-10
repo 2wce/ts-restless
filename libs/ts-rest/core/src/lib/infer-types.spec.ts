@@ -969,3 +969,71 @@ describe('UnknownOrUndefinedObjectValuesToOptionalKeys', () => {
     type Assert = Expect<Equal<Actual, {}>>;
   });
 });
+
+describe('client response outputs across media types', () => {
+  it('infers transformed text, binary and declared no-body outputs', () => {
+    const contract = c.router({
+      text: {
+        method: 'GET',
+        path: '/text',
+        responses: {
+          200: c.otherResponse({
+            contentType: 'text/plain',
+            body: z.string().transform(Number),
+          }),
+        },
+      },
+      binary: {
+        method: 'GET',
+        path: '/binary',
+        responses: {
+          200: c.otherResponse({
+            contentType: 'application/octet-stream',
+            body: z.instanceof(Blob).transform((value) => value.size),
+          }),
+        },
+      },
+      empty: { method: 'GET', path: '/empty', responses: { 204: c.noBody() } },
+    });
+    const client = initClient(contract, {
+      baseUrl: 'http://localhost',
+      validateResponse: true,
+    });
+    type Text = Expect<
+      Equal<ClientInferResponseBody<typeof contract.text, 200>, number>
+    >;
+    type Binary = Expect<
+      Equal<ClientInferResponseBody<typeof contract.binary, 200>, number>
+    >;
+    type Empty = Expect<
+      Equal<ClientInferResponseBody<typeof contract.empty, 204>, undefined>
+    >;
+    type TextCall = Expect<
+      Equal<
+        Extract<
+          Awaited<ReturnType<typeof client.text>>,
+          { status: 200 }
+        >['body'],
+        number
+      >
+    >;
+    type BinaryCall = Expect<
+      Equal<
+        Extract<
+          Awaited<ReturnType<typeof client.binary>>,
+          { status: 200 }
+        >['body'],
+        number
+      >
+    >;
+    type EmptyCall = Expect<
+      Equal<
+        Extract<
+          Awaited<ReturnType<typeof client.empty>>,
+          { status: 204 }
+        >['body'],
+        undefined
+      >
+    >;
+  });
+});

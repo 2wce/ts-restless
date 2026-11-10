@@ -220,6 +220,7 @@ describe('react-query', () => {
     expect(result.current.contractEndpoint).toEqual(contract.health);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/health',
       body: undefined,
@@ -396,6 +397,7 @@ describe('react-query', () => {
     expect(result.current.contractEndpoint).toEqual(contract.posts.getPosts);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/posts?skip=0&take=10',
       body: undefined,
@@ -450,6 +452,7 @@ describe('react-query', () => {
     await prefetchResult.current;
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/posts?skip=0&take=10',
       body: undefined,
@@ -528,6 +531,7 @@ describe('react-query', () => {
     expect(result.current.contractEndpoint).toEqual(contract.health);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/health',
       body: undefined,
@@ -562,6 +566,7 @@ describe('react-query', () => {
     expect(result.current.isPending).toStrictEqual(true);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/health',
       body: undefined,
@@ -609,6 +614,7 @@ describe('react-query', () => {
     expect(result.current.isPending).toStrictEqual(true);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/posts/1',
       body: undefined,
@@ -653,6 +659,7 @@ describe('react-query', () => {
     expect(result.current.isPending).toStrictEqual(true);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/posts/1',
       body: undefined,
@@ -696,6 +703,7 @@ describe('react-query', () => {
     expect(result.current.isPending).toStrictEqual(true);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/posts/1',
       body: undefined,
@@ -732,6 +740,7 @@ describe('react-query', () => {
     expect(result.current.isPending).toStrictEqual(true);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/health',
       body: undefined,
@@ -772,6 +781,7 @@ describe('react-query', () => {
     expect(result.current.isPending).toStrictEqual(true);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/health',
       body: undefined,
@@ -814,6 +824,7 @@ describe('react-query', () => {
     expect(result.current).toStrictEqual(null);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/health',
       body: undefined,
@@ -873,6 +884,7 @@ describe('react-query', () => {
     );
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'POST',
       path: 'https://api.com/posts',
       body: JSON.stringify({
@@ -942,6 +954,7 @@ describe('react-query', () => {
     expect(result.current[1].isPending).toStrictEqual(true);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/posts/1',
       body: undefined,
@@ -956,6 +969,7 @@ describe('react-query', () => {
     });
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/posts/2',
       body: undefined,
@@ -1022,6 +1036,7 @@ describe('react-query', () => {
     expect(result.current[1].data).toStrictEqual(undefined);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/posts/1',
       body: undefined,
@@ -1165,6 +1180,7 @@ describe('react-query', () => {
     );
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/posts/1',
       body: undefined,
@@ -1179,6 +1195,7 @@ describe('react-query', () => {
     });
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/posts/2',
       body: undefined,
@@ -1239,6 +1256,7 @@ describe('react-query', () => {
     expect(result.current[1].isLoading).toStrictEqual(true);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/posts/1',
       body: undefined,
@@ -1253,6 +1271,7 @@ describe('react-query', () => {
     });
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/posts/2',
       body: undefined,
@@ -1325,6 +1344,7 @@ describe('react-query', () => {
     expect(result.current[1].isLoading).toStrictEqual(true);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/posts/1',
       body: undefined,
@@ -1339,6 +1359,7 @@ describe('react-query', () => {
     });
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/posts/2',
       body: undefined,
@@ -1387,6 +1408,7 @@ describe('react-query', () => {
     );
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/posts/1',
       body: undefined,
@@ -1428,6 +1450,7 @@ describe('react-query', () => {
     await expect(result.current).resolves.toStrictEqual(ERROR_RESPONSE);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/posts/1',
       body: undefined,
@@ -1463,6 +1486,7 @@ describe('react-query', () => {
     );
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/posts/1',
       body: undefined,
@@ -1513,6 +1537,7 @@ describe('react-query', () => {
     expect(api).toHaveBeenCalledTimes(1);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/posts/1',
       body: undefined,
@@ -1643,6 +1668,7 @@ describe('react-query', () => {
     expect(api).toHaveBeenCalledTimes(1);
 
     expect(api).toHaveBeenCalledWith({
+      validateResponse: false,
       method: 'GET',
       path: 'https://api.com/posts/1',
       body: undefined,

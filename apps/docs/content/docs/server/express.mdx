@@ -78,7 +78,7 @@ When upgrading from the old raw-request typing, replace transformed reads such a
 
 Custom `requestValidationErrorHandler` callbacks run in Express error middleware, where Express can clear the matched route parameters. Their `req.params` values are therefore optional even for required URL segments; check for absence before using them. Query, headers and body stay native, and `req.tsRestRoute` identifies the contract route. Route/global middleware and successful handlers still receive their matched URL parameters.
 
-The former third `TsRestRequest<T, F, S>` inference generic is removed. Prefer `TsRestRequest<typeof contract>` or `TsRestRequest<typeof contract.update>`; use the native Express `Request` generics for separately parsed requests outside this adapter. This typing correction is in development source; published alpha.3 still has the old raw-request types. Select a release containing F02 before relying on it.
+The former third `TsRestRequest<T, F, S>` inference generic is removed. Prefer `TsRestRequest<typeof contract>` or `TsRestRequest<typeof contract.update>`; use the native Express `Request` generics for separately parsed requests outside this adapter. This typing correction is published in alpha.4; alpha.3 retains the old raw-request types. Select alpha.4 or a newer containing release before relying on it.
 
 ## Options
 

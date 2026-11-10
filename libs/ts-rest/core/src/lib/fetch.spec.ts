@@ -35,6 +35,7 @@ describe('fetchApi', () => {
       extraInputArgs: {},
     });
     expect(tsRestApiStub).toHaveBeenCalledWith({
+      validateResponse: false,
       body: undefined,
       contentType: undefined,
       headers: {},
