@@ -1,5 +1,7 @@
 # @ts-rest/nest
 
+## 4.0.0-alpha.5
+
 ## 4.0.0-alpha.4
 
 ## 4.0.0-alpha.3
