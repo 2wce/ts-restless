@@ -1,5 +1,7 @@
 # @ts-rest/core
 
+## 4.0.0-alpha.4
+
 ## 4.0.0-alpha.3
 
 ### Minor Changes

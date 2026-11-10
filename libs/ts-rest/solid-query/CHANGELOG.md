@@ -1,5 +1,7 @@
 # @ts-rest/solid-query
 
+## 4.0.0-alpha.4
+
 ## 4.0.0-alpha.3
 
 ### Major Changes
