@@ -43,7 +43,11 @@
     "@tailwindcss/vite": "4.3.3",
     "vite": "catalog:",
     "@nestjs/common": "^11.0.0",
-    "@nestjs/core": "^11.0.0"
+    "@nestjs/core": "^11.0.0",
+    "@ts-restless/solid-query": "workspace:*",
+    "@ts-restless/vue-query": "workspace:*",
+    "solid-js": "catalog:",
+    "vue": "catalog:"
   },
   "type": "module"
 }

@@ -7,7 +7,26 @@ description: Contract-aware Vue queries and mutations using TanStack Query v5.
 
 Configure the native `VueQueryPlugin` with a `QueryClient` at your application root. The binding uses TanStack's Vue reactivity, cache, provider and lifecycle; core shares transport and HTTP-error rejection. Use the [native setup guide](https://tanstack.com/query/v5/docs/framework/vue/overview) and the [migration guide](/query-v5-migration).
 
-```ts
+```typescript twoslash
+// @filename: contract.ts
+import { initContract } from '@ts-restless/core';
+const c = initContract();
+export const contract = c.router({
+  read: {
+    method: 'GET', path: '/items/:id',
+    responses: { 200: c.type<{ value: string }>() },
+  },
+  pages: {
+    method: 'GET', path: '/pages', query: c.type<{ cursor: number }>(),
+    responses: { 200: c.type<{ next: number | null }>() },
+  },
+  write: {
+    method: 'POST', path: '/items', body: c.type<{ value: string }>(),
+    responses: { 200: c.type<{ value: string }>() },
+  },
+});
+// @filename: client.ts
+// ---cut---
 import { initQueryClient } from '@ts-restless/vue-query';
 import { computed, ref } from 'vue';
 import { contract } from './contract';
@@ -23,7 +42,29 @@ const query = client.read.useQuery(
 
 Call composables during component setup. Include every request input that changes the cache identity in the reactive key. The mapper runs for each fetch; options may be a plain object or Vue ref/computed. Response envelopes retain `status`, `body` and `headers`; `select` controls the result's data type. HTTP errors reject with their envelope. Request `fetchOptions.signal` overrides the native query signal, including an explicit `undefined`.
 
-```ts
+```typescript twoslash
+// @filename: contract.ts
+import { initContract } from '@ts-restless/core';
+const c = initContract();
+export const contract = c.router({
+  read: {
+    method: 'GET', path: '/items/:id',
+    responses: { 200: c.type<{ value: string }>() },
+  },
+  pages: {
+    method: 'GET', path: '/pages', query: c.type<{ cursor: number }>(),
+    responses: { 200: c.type<{ next: number | null }>() },
+  },
+  write: {
+    method: 'POST', path: '/items', body: c.type<{ value: string }>(),
+    responses: { 200: c.type<{ value: string }>() },
+  },
+});
+// @filename: client.ts
+import { initQueryClient } from '@ts-restless/vue-query';
+import { contract } from './contract';
+const client = initQueryClient(contract, { baseUrl: 'https://api.example' });
+// ---cut---
 const pages = client.pages.useInfiniteQuery(
   ['pages'],
   ({ pageParam }) => ({ query: { cursor: pageParam } }),

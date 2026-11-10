@@ -21,3 +21,5 @@ Update the roadmap when work changes delivery state. Retain dated evidence uncha
 Keep detailed designs next to their plans. There is no separate designs/archive directory. Mark old records in the indexes; introduce more structure only when navigation needs it. Root `plans/` and `docs/superpowers/` have been consolidated here.
 
 The public site stays in `apps/docs`. It generates `/llms.txt` and `/markdown/<page>.md` from the same guides, including tab alternatives and installation commands. Its development documentation is not a versioned description of every published prerelease. See [the site README](../apps/docs/README.md) for build and static hosting details.
+
+Run `pnpm docs:lint` for repository links/anchors, current package/command facts and ADR structure. The full docs test task validates public pages and exports; CI requires it before Build & Test. Automation checks these concrete facts, while rationale, migration completeness and publication claims need review. Dated historical records are excluded from current-metadata checks.

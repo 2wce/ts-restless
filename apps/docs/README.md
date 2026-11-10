@@ -20,6 +20,7 @@ Open http://localhost:3000. Build and preview production from the root:
 
 ```sh
 pnpm docs:build
+pnpm docs:lint
 pnpm --filter @ts-restless/docs test
 pnpm docs:start
 ```
@@ -50,6 +51,20 @@ The migration guide explains the validator-independent defaults and explicit
 `/zod3` compatibility imports. The hidden nested-router setup in `client/fetch.mdx` preserves literal
 paths with `as const` to avoid the SDK's inference regression on newer compilers.
 Do not disable diagnostics to accommodate SDK or compiler upgrades.
+
+All Vue/Solid/Nest TypeScript blocks must retain `twoslash`. Blanket `@noErrors`
+is rejected; intentionally invalid examples use specific `@errors` diagnostics
+with an explanation (the Fetch completion popup deliberately leaves a property
+unfinished). Other guides include fragments/before examples that are not all
+compiled. Add hidden setup before `// ---cut---` to make runnable snippets checkable,
+without inventing permissive mocks for the SDK or hiding type errors.
+
+`pnpm docs:lint` checks current metadata, ADR structure and repository links/anchors.
+The full test command also checks all rendered public guide/navigation links,
+agent exports and the checker fixtures. CI exposes this as **Documentation validation**,
+and Build & Test depends on it. Checks use local source; release availability and
+prose correctness still need evidence review. Historical plans/evidence retain their
+recorded versions and statuses.
 
 ## Consumer agent exports
 

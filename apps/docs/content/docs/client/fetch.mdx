@@ -823,7 +823,10 @@ const client = initClient(contract, {
 
 Extend the API with custom arguments that are fully typed:
 
+The final call intentionally leaves a property unfinished to demonstrate editor completions. In executable code, replace it with `myCustomArg: 'example'`.
+
 ```typescript twoslash title="custom-api-args.ts"
+// @errors: 2353 18004 2552 1005
 import { initClient, tsRestFetchApi, ApiFetcherArgs } from '@ts-restless/core';
 import { initContract } from '@ts-restless/core';
 import { z } from 'zod';
@@ -893,7 +896,6 @@ const uploadResult = await client.uploadFile({
     console.log(`Upload progress: ${progress}%`);
   },
 });
-// @noErrors
 const postsResult = await client.getPosts({
   query: { skip: 0, take: 10 },
   my​C

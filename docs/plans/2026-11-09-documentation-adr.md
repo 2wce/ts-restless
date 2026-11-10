@@ -15,7 +15,7 @@
 - Preserve every existing plan/design and measured evidence, including JSON. Update relative links and distinguish historical checkpoints from current guidance.
 - ADR acceptance records an actual approved decision, not implementation/publication. Link original evidence; future composition/versioning remain proposals.
 - Published alpha.2 lacks the merged Query5 migration. Release PR #23 is pending at baseline; never infer npm availability from main.
-- No package dependency, peer, library runtime, release guard or version changes. No merge or publication.
+- The original consolidation adds no package dependencies, peers, library runtime, release guards or versions. The approved CI follow-up may declare existing documentation tooling/typechecking dependencies; library dependencies, peers, runtime, publication guards and versions remain unchanged. No merge or publication.
 
 ## Checkpoints
 
@@ -56,3 +56,19 @@ Final review: repository-relative file links pass; the relocation anchor scan fo
 The final consumer-link review reproduced six inherited `/docs/...` targets that no longer exist at the root-based site. Corrected the canonical Fetch, Nest and contract guides to their actual pages/anchors and added an all-page Markdown link/anchor regression; it failed on the old Fetch destination before the correction.
 
 Delivery refresh: the final docs build/prerender/typecheck passes51 tests, including every exported guide's local page/anchor links. The repository link check passes359 relative file links across102 documents. Main remains `bcf8bb24`; prerelease PR #23 remains open. Format and whitespace checks pass. The independent documentation review confirms no blocking findings and unchanged demand JSON; registry/PR availability was refreshed by the implementation agent.
+
+## Follow-up: documentation validation
+
+Approved on 2026-11-10: extend this draft PR with a named CI check for maintainer and public documentation. Reuse the existing docs build and Markdown tooling; historical records retain their dated facts. Compilation against source does not verify publication.
+
+- [x] Extend `scripts/check-doc-links.mjs` using the existing Remark/GitHub heading tooling. Test real Markdown fixtures with reference links, duplicate headings, anchors, images, encoded paths and fenced examples; broken fragments must fail. Check public links in every rendered guide and navigation.
+- [x] Add `scripts/check-docs.mjs` and focused fixture tests for support peers versus public manifests, public package imports/subpaths, contributor commands/tool versions and ADR IDs/status/date/evidence/supersession. Run `node --test apps/docs/tests/documentation.test.mjs`; malformed fixtures must fail before implementing their checks.
+- [x] Add `pnpm docs:lint`; run it alongside the static-site tests. Expose a Documentation validation job in `.github/workflows/build-test.yml`; Build & Test depends on it so existing release prerequisites still require documentation success. Do not add network probes or alter publication permissions.
+- [x] Compile the current Vue/Solid usage snippets and restore diagnostics in Nest examples. Any remaining completion-only diagnostic suppression needs a precise, enforced exception. Build against the workspace SDK; retain dated published-version fallback guidance separately.
+- [x] Run docs lint, checker fixture tests, full docs build/typecheck/static tests, format/lint and release workflow tests. Record actual counts and remaining snippet coverage limits, update contributor guidance and prepare the PR description. Deliver through the existing draft PR; no merge, versioning or publication.
+
+2026-11-10 validation: `pnpm check` passes 728 source tests (two existing todos) and all production/inference tasks; final `vp check` has zero errors and the same 353 existing warnings. `pnpm --filter @ts-restless/docs test` completes build/prerender/typecheck and passes 80 tests (15 real checker fixtures and 65 static-site checks). `pnpm docs:lint` verifies 370 repository links/anchors across 102 documents and current metadata/ADR consistency. The existing release suite passes 10 tests. Frozen installation succeeds; direct dev declarations reuse versions already in the lockfile, with no library manifest changes.
+
+Red proof: the first checker fixtures failed because the checks were absent. Restoring Nest diagnostics exposed three incorrect hidden console-stub signatures; native console use fixes them. The Fetch completion sample produces four specific intentional diagnostics (2353, 18004, 2552, 1005), now declared and explained instead of suppressed. The stricter link checker found five missing README contributor anchors. Subsequent regressions reproduced a filtered-command false positive, formatting-dependent supersession bypass and skipped root-relative repository anchors before their fixes. The independent review's supersession finding is fixed and its original nonexistent-ADR reproduction now fails; the reviewer reports no remaining blocking findings.
+
+Measured snippet coverage at this checkpoint is 56 of 161 JavaScript/TypeScript blocks using Twoslash. CI enforces continued compiler coverage for the Vue/Solid/Nest guides and rejects blanket suppression throughout current guides. Remaining blocks include illustrative fragments and migration before-examples; they are not all compiler-verified. Expanding runnable-snippet coverage and verifying exact published installation journeys remain distinct follow-ups, not claims made by this check. Factual prose, migration completeness and third-party/publication availability still need actual evidence review. Historical records retain dated facts.

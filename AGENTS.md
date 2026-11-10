@@ -20,11 +20,12 @@ Contract-first typed REST in TypeScript, maintained as a fork of ts-rest. Keep u
 
 ## Commands
 
-Use Node26.12.0 and pnpm12.14.0 (`.nvmrc`, root manifest). Install with `pnpm install --frozen-lockfile`.
+Use Node 26.12.0 and pnpm 12.14.0 (`.nvmrc`, root manifest). Install with `pnpm install --frozen-lockfile`.
 
 - `pnpm check`: format/lint/type checks, source tests and inference assertions.
 - `pnpm test:packages`: builds tarballs and checks real installed consumers; may access the registry.
-- `pnpm --filter @ts-restless/docs test`: builds/typechecks docs, checks exports and repository Markdown links.
+- `pnpm docs:lint`: checks repository links/anchors, current package/command facts and ADR structure.
+- `pnpm --filter @ts-restless/docs test`: builds/typechecks docs and examples, checks public links/exports and runs docs lint/checker fixtures.
 - `pnpm build:examples` and `pnpm test:hosts`: example/native host verification when those integrations change.
 - `pnpm exec vp test run --project core`: focused core tests; see CONTRIBUTING for other projects and prerequisites.
 
@@ -39,3 +40,5 @@ Consult the support inventory before changing peers. A version range is a promis
 Keep accepted rationale in short ADRs, current delivery status in the roadmap, steps in plans and dated measurements in evidence. Link between them instead of copying statuses. New decisions supersede old ADRs explicitly. Plans belong in `docs/plans`, including work prepared with external planning tools.
 
 The docs site describes development source. Verify a containing release before advising users to install a feature; merged code and passing checks do not prove publication. Generate consumer Markdown and `llms.txt` from the public guides rather than maintaining a second copy.
+
+Keep runnable Vue/Solid/Nest examples under Twoslash checking. Blanket `@noErrors` suppression is rejected; intentionally invalid examples require exact expected diagnostics and an explanation. Other code fragments are not all compiler-checked. Review prose, migration completeness and publication claims separately from automated checks.

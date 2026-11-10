@@ -19,6 +19,7 @@
     "check": "vp run check-workspace",
     "nest": "vp run example-nest#dev",
     "docs:build": "vp run @ts-restless/docs#build",
+    "docs:lint": "node scripts/check-docs.mjs",
     "docs:start": "vp run @ts-restless/docs#start",
     "example-microservice:serve": "vp run --parallel --filter \"example-microservice-*\" dev",
     "ts-rest:build-watch": "vp run --parallel --filter \"./libs/ts-rest/*\" pack -- --watch",
@@ -92,7 +93,11 @@
     "zod": "catalog:",
     "zod4": "catalog:",
     "esbuild": "catalog:",
-    "@ts-restless/build-config": "workspace:*"
+    "@ts-restless/build-config": "workspace:*",
+    "github-slugger": "2.0.0",
+    "remark": "15.0.1",
+    "remark-gfm": "4.0.1",
+    "remark-mdx": "3.1.1"
   },
   "volta": {
     "node": "26.12.0"

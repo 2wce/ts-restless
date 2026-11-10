@@ -37,6 +37,7 @@ independent dependency installations preserve consumer compatibility coverage.
   warnings; compiler errors fail the command.
 - `pnpm format` / `pnpm format:check`: Oxfmt.
 - `pnpm build:examples`: build framework examples with native commands.
+- `pnpm docs:lint`: check documentation links/anchors, current repository facts and ADR structure.
 - `pnpm nest`: generate the example database client, build, run and restart Nest.
 - `pnpm --filter example-next dev`: generate the client and start Next.
 - `pnpm --filter example-nest build` / `pnpm --filter example-next build`:
@@ -283,8 +284,23 @@ that static production output. Dev and preview tasks are uncached. Docs remains
 outside the main library lint/format scope and has its own build/type checks and
 static output regression tests, also run in CI.
 
-The docs test task also checks repository-relative Markdown file links after
-document relocation. Consumer exports come from the same MDX collection and
+The **Documentation validation** CI job runs on every PR and main push; Build & Test
+depends on it, preserving the existing release gate. `pnpm docs:lint` checks repository
+Markdown links and anchors (including reference links/images), the support inventory's
+public peers/optionality against manifests, documented public package imports/installs
+against source and configured publish export maps, contributor commands/tool versions, and ADR
+IDs/status/date/evidence/supersession links. Historical plans/evidence retain dated
+facts; only their links are checked against the current tree.
+
+The docs test task runs that lint, checker fixtures and the site build/typecheck,
+including public guide/navigation links and generated Markdown links/anchors.
+Vue/Solid/Nest snippets must retain Twoslash; blanket `@noErrors` is rejected.
+Intentionally invalid completion/before examples need exact expected diagnostics and
+an explanation. Not every illustrative fragment is compiled. These checks do not
+prove factual prose, complete migrations, external website availability or npm
+publication; review those against their actual evidence.
+
+Consumer exports come from the same MDX collection and
 retain installation commands, tab alternatives, warnings and code examples.
 They describe development source; check a containing release before recommending
 an installation for a newly merged feature.

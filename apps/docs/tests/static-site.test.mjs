@@ -92,7 +92,7 @@ test('Markdown guide links resolve to public pages and anchors', async () => {
       await readFile(resolve(output, `markdown/${slug}.md`), 'utf8')
     ).replace(/^\s*(```|~~~)[^\n]*\n[\s\S]*?^\s*\1\s*$/gm, '');
     for (const [, href] of markdown.matchAll(/\]\(([^\s)]+)\)/g)) {
-      if (!href.startsWith('/') && !href.startsWith('#')) continue;
+      if (/^[a-z][a-z\d+.-]*:/i.test(href) || href.startsWith('//')) continue;
       const target = new URL(
         href,
         `https://docs.example/${slug === 'index' ? '' : slug}`,
@@ -164,27 +164,14 @@ test('exports a static 404 page with a link back to documentation', async () => 
   assert.match(html, /Return to the docs/);
 });
 
-for (const slug of [
-  'ts-restless-migration',
-  'standard-schema-migration',
-  'query-v5-migration',
-  'client/react-query-v4',
-  'client/react-query-v5',
-  'client/vue-query-v4',
-  'client/vue-query-v5',
-  'client/solid-query-v5',
-  'server/next',
-  'server/serverless/next-serverless',
-  'quickstart',
-  'recipies/frontend-only',
-  'openapi',
-]) {
-  test(`/${slug} migration journey links resolve to rendered pages and anchors`, async () => {
+for (const path of pages) {
+  const slug = path.replace(/\.mdx?$/, '').replace(/(^|\/)index$/, '');
+  test(`/${slug} guide links resolve to rendered pages and anchors`, async () => {
     const html = await readFile(resolve(output, slug, 'index.html'), 'utf8');
     const article = html.match(/<article\b[^>]*>([\s\S]*?)<\/article>/)?.[1];
     assert.ok(article, `Missing article: /${slug}`);
-    for (const [, href] of article.matchAll(/href="([^"]+)"/g)) {
-      if (!href.startsWith('/') && !href.startsWith('#')) continue;
+    for (const [, href] of html.matchAll(/<a\b[^>]*\bhref="([^"]+)"/g)) {
+      if (/^[a-z][a-z\d+.-]*:/i.test(href) || href.startsWith('//')) continue;
       const target = new URL(href, `https://docs.example/${slug}`);
       const page = resolve(output, `.${target.pathname}`, 'index.html');
       const destination = await readFile(page, 'utf8').catch(() => null);

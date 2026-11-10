@@ -19,3 +19,5 @@ These initial records extract already approved decisions from existing documents
 Use the next available four-digit number. Include title, decision date, status (`proposed`, `accepted`, `rejected` or `superseded by ADR-NNNN`), the decision and its rationale, and links to original evidence. Add alternatives and consequences only when they clarify a real trade-off. An accepted decision may still be unimplemented or unpublished.
 
 When direction changes, add a new ADR and mark the old one superseded, linking both ways. Preserve the old rationale. Correct factual errors explicitly; avoid rewriting a past decision to look like the current one. Small routine fixes need no ADR.
+
+`pnpm docs:lint` checks the four-digit filename/ID, title, decision date, allowed status, decision/rationale paragraphs and evidence links. Put status and date in the first metadata paragraph, as in the existing records; bold formatting is optional. Superseded decisions require an existing replacement and reciprocal links. The checker validates structure and link targets; acceptance and rationale require human review.

@@ -61,8 +61,8 @@ export default defineConfig({
       'start-app': { command: 'vp preview', cache: false },
       'test-site': {
         command: [
-          'node ../../scripts/check-doc-links.mjs',
-          'node --test tests/static-site.test.mjs',
+          'pnpm -w docs:lint',
+          'node --test tests/*.test.mjs',
         ],
         dependsOn: ['build-app'],
         cache: false,
