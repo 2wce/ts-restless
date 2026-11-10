@@ -7,7 +7,26 @@ description: Contract-aware Solid queries and mutations using TanStack Query v5.
 
 Use the native `QueryClientProvider` and call primitives under its owner. The binding composes native accessor options; TanStack owns the cache and Solid owns reactivity and lifecycle. See the [native setup guide](https://tanstack.com/query/v5/docs/framework/solid/overview).
 
-```ts
+```typescript twoslash
+// @filename: contract.ts
+import { initContract } from '@ts-restless/core';
+const c = initContract();
+export const contract = c.router({
+  read: {
+    method: 'GET', path: '/items/:id',
+    responses: { 200: c.type<{ value: string }>() },
+  },
+  pages: {
+    method: 'GET', path: '/pages', query: c.type<{ cursor: number }>(),
+    responses: { 200: c.type<{ next: number | null }>() },
+  },
+  write: {
+    method: 'POST', path: '/items', body: c.type<{ value: string }>(),
+    responses: { 200: c.type<{ value: string }>() },
+  },
+});
+// @filename: client.ts
+// ---cut---
 import { initQueryClient } from '@ts-restless/solid-query';
 import { createSignal } from 'solid-js';
 import { contract } from './contract';
@@ -23,7 +42,29 @@ const query = client.read.createQuery(
 
 Pass accessors for changing request inputs and options; plain objects remain valid for static values. Include changing request identity in the key accessor. Read result properties directly so Solid can track them. Response data remains an envelope unless `select` changes it. HTTP errors reject the original envelope; request `fetchOptions.signal` overrides native cancellation, including an explicit `undefined`.
 
-```ts
+```typescript twoslash
+// @filename: contract.ts
+import { initContract } from '@ts-restless/core';
+const c = initContract();
+export const contract = c.router({
+  read: {
+    method: 'GET', path: '/items/:id',
+    responses: { 200: c.type<{ value: string }>() },
+  },
+  pages: {
+    method: 'GET', path: '/pages', query: c.type<{ cursor: number }>(),
+    responses: { 200: c.type<{ next: number | null }>() },
+  },
+  write: {
+    method: 'POST', path: '/items', body: c.type<{ value: string }>(),
+    responses: { 200: c.type<{ value: string }>() },
+  },
+});
+// @filename: client.ts
+import { initQueryClient } from '@ts-restless/solid-query';
+import { contract } from './contract';
+const client = initQueryClient(contract, { baseUrl: 'https://api.example' });
+// ---cut---
 const pages = client.pages.createInfiniteQuery(
   () => ['pages'],
   ({ pageParam }) => ({ query: { cursor: pageParam } }),

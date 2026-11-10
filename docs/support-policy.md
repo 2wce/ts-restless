@@ -1,6 +1,6 @@
 # Compatibility support and retirement policy
 
-**Recorded:** 2026-11-04; Next baseline updated 2026-11-06. **Status:** Adopted policy. The user approved excluding upstream-unsupported Next majors from the first stable v4 baseline on 2026-11-06. The [A01 inventory](support-inventory.md) records version floors, working lines, evidence gaps and package ownership. The initial Query5-only baseline is approved below; other compatibility reductions remain subject to A19 of the [adapter maintenance epic](superpowers/plans/2026-11-04-adapter-maintenance-epic.md).
+**Recorded:** 2026-11-04; Next baseline updated 2026-11-06. **Status:** Adopted policy. The user approved excluding upstream-unsupported Next majors from the first stable v4 baseline on 2026-11-06. The [A01 inventory](support-inventory.md) records version floors, working lines, evidence gaps and package ownership. The initial Query5-only baseline is approved below; other compatibility reductions remain subject to A19 of the [adapter maintenance epic](plans/2026-11-04-adapter-maintenance-epic.md).
 
 Support the newest verified dependency major actively, retain a previous supported major for a dated migration window, and remove compatibility in a ts-rest major release. This bounds maintenance work while giving consumers a predictable upgrade path.
 
@@ -86,7 +86,7 @@ work. Typecheck executable examples and run the docs build and rendered
 migration-link checks before release; an internal plan or a link to a generic
 upstream upgrade guide alone does not cover adapter-specific changes.
 
-The [2026-11-09 audit](superpowers/results/2026-11-09-migration-documentation.md)
+The [2026-11-09 audit](evidence/2026-11-09-migration-documentation.md)
 records the initial v4 coverage and verification. Review this checklist again
 when new removals or release contents change; it does not automatically certify
 future changes.
@@ -105,7 +105,7 @@ The following observations are a checkout snapshot from 2026-11-04, not an adopt
 | Vue and Solid Query | Initial stable baseline permits native Query5 only.                                        | Retain native reactivity/lifecycle and verified v5 migration coverage.                                                                         |
 | Zod 3               | Standard Schema is the default boundary; older schemas and historical helpers use `/zod3`. | Keep the bridge through the initial migration. Review bridge and helper retirements separately; modern Zod 3 can use Standard Schema directly. |
 
-Sources: library [package manifests](../libs/ts-rest/), the [isolated CI matrix](../.github/workflows/build-test.yml) and the [Standard Schema migration guide](../apps/docs/content/docs/standard-schema-migration.mdx).
+Sources: library [package manifests](../libs/ts-rest), the [isolated CI matrix](../.github/workflows/build-test.yml) and the [Standard Schema migration guide](../apps/docs/content/docs/standard-schema-migration.mdx).
 
 A01's [support inventory](support-inventory.md) records the manifest, lockfile, fixture, compiler, runtime and ownership snapshot, including the approved initial Next baseline. Other broad-range exceptions and missing evidence remain explicit. No retirement clock for a published stable fork promise has started.
 

@@ -18,7 +18,8 @@ NestJS has always been a tricky framework to integrate with ts-restless due to h
 The single handler approach provides a 1:1 migration strategy for existing controllers. You can replace individual Nest routes with ts-restless routes without affecting other routes in the same controller. This is perfect for gradual adoption or when you want different endpoints across multiple controllers.
 
 ```typescript twoslash title="single-handler.ts"
-// @noErrors
+// @experimentalDecorators
+// @emitDecoratorMetadata
 import { Controller } from '@nestjs/common';
 import { TsRestHandler, tsRestHandler } from '@ts-restless/nest';
 import { initContract } from '@ts-restless/core';
@@ -119,7 +120,8 @@ export class PostController {
 The multi handler approach is ideal for those who prefer functional programming patterns or want compile-time guarantees that every route in a contract is implemented. TypeScript will error if you forget to implement any route.
 
 ```typescript twoslash title="multi-handler.ts"
-// @noErrors
+// @experimentalDecorators
+// @emitDecoratorMetadata
 import { Controller } from '@nestjs/common';
 import { TsRestHandler, tsRestHandler } from '@ts-restless/nest';
 import { initContract } from '@ts-restless/core';
@@ -213,7 +215,8 @@ Pass the entire contract (or a subset) to both `@TsRestHandler` and `tsRestHandl
 You can still use all existing Nest decorators alongside `@TsRestHandler`. This gives you access to the underlying request/response objects and Nest's dependency injection system.
 
 ```typescript twoslash title="nest-decorators.ts"
-// @noErrors
+// @experimentalDecorators
+// @emitDecoratorMetadata
 import { Controller, Req, Headers, UseGuards } from '@nestjs/common';
 import { TsRestHandler, tsRestHandler } from '@ts-restless/nest';
 import { initContract } from '@ts-restless/core';
@@ -240,10 +243,6 @@ class AuthGuard {}
 interface AuthenticatedRequest extends Request {
   user: { id: string; name: string };
 }
-
-const console = {
-  log: (message: any) => {},
-};
 
 // ---cut---
 @Controller()
@@ -276,7 +275,8 @@ This isn't limited to parameter decorators - you can use guards, interceptors, p
 While we recommend returning errors as responses to maintain full type safety in your contract, sometimes throwing exceptions is cleaner. `TsRestException` lets you throw type-safe exceptions that ts-restless will catch and convert to properly typed responses.
 
 ```typescript twoslash title="error-handling.ts"
-// @noErrors
+// @experimentalDecorators
+// @emitDecoratorMetadata
 import { Controller } from '@nestjs/common';
 import { TsRestHandler, tsRestHandler, TsRestException } from '@ts-restless/nest';
 import { initContract } from '@ts-restless/core';
@@ -360,7 +360,8 @@ export class UserController {
 Configure ts-restless options using the `@TsRest` decorator on controllers or the `@TsRestHandler` decorator on methods. Controller options apply to all routes and override global options. Method options override controller options for that specific route.
 
 ```typescript twoslash title="configuration.ts"
-// @noErrors
+// @experimentalDecorators
+// @emitDecoratorMetadata
 import { Controller } from '@nestjs/common';
 import { TsRest, TsRestHandler, tsRestHandler } from '@ts-restless/nest';
 import { initContract } from '@ts-restless/core';
@@ -398,10 +399,6 @@ const contract = c.router({
   },
 });
 
-const console = {
-  log: (message: any) => {},
-};
-
 // ---cut---
 @Controller()
 @TsRest({ jsonQuery: true }) // Applied to all routes in this controller
@@ -427,7 +424,7 @@ export class SearchController {
 
 <Callout type="note">
   For global configuration options and more details, check the [configuration
-  documentation](/docs/nest/configuration).
+  documentation](/server/nest#configuration).
 </Callout>
 
 ## Important Considerations
@@ -435,6 +432,6 @@ export class SearchController {
 <Callout type="warning" title="Path Prefixes">
   **Known Limitation:** Nest's global prefixes, versioning, and controller prefixes are currently ignored by ts-restless. See [GitHub issue #70](https://github.com/ts-rest/ts-rest/issues/70) for details.
 
-**Workaround:** Use ts-restless's [path prefix feature](/docs/contract/overview#path-prefix) in your contract definition to achieve similar functionality.
+**Workaround:** Use ts-restless's [path prefix feature](/contract/overview#path-prefix) in your contract definition to achieve similar functionality.
 
 </Callout>

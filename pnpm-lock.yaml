@@ -535,6 +535,9 @@ importers:
       fastify:
         specifier: 'catalog:'
         version: 4.28.0
+      github-slugger:
+        specifier: 2.0.0
+        version: 2.0.0
       itty-router:
         specifier: 5.0.18
         version: 5.0.18
@@ -565,6 +568,15 @@ importers:
       reflect-metadata:
         specifier: 'catalog:'
         version: 0.1.14
+      remark:
+        specifier: 15.0.1
+        version: 15.0.1(supports-color@7.2.0)
+      remark-gfm:
+        specifier: 4.0.1
+        version: 4.0.1(supports-color@7.2.0)
+      remark-mdx:
+        specifier: 3.1.1
+        version: 3.1.1(supports-color@7.2.0)
       rxjs:
         specifier: 'catalog:'
         version: 7.8.2
@@ -674,6 +686,12 @@ importers:
       '@tailwindcss/vite':
         specifier: 4.3.3
         version: 4.3.3(@voidzero-dev/vite-plus-core@1.3.0(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))
+      '@ts-restless/solid-query':
+        specifier: workspace:*
+        version: link:../../libs/ts-rest/solid-query
+      '@ts-restless/vue-query':
+        specifier: workspace:*
+        version: link:../../libs/ts-rest/vue-query
       '@types/mdx':
         specifier: ^2.0.13
         version: 2.0.14
@@ -689,6 +707,9 @@ importers:
       '@vitejs/plugin-react':
         specifier: 6.1.2
         version: 6.1.2(@voidzero-dev/vite-plus-core@1.3.0(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))
+      solid-js:
+        specifier: 'catalog:'
+        version: 1.9.17
       tailwindcss:
         specifier: 4.3.3
         version: 4.3.3
@@ -701,6 +722,9 @@ importers:
       vite-plus:
         specifier: 'catalog:'
         version: 1.3.0(@types/node@26.6.5)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@22.1.0(supports-color@7.2.0))(typescript@7.0.2)(yaml@2.9.1)
+      vue:
+        specifier: 'catalog:'
+        version: 3.5.44(typescript@7.0.2)
 
   apps/example-azure-function:
     dependencies:

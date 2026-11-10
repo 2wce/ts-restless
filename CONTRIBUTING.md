@@ -1,5 +1,11 @@
 # Contributing
 
+Start with [the documentation map](docs/README.md), [architecture](docs/architecture.md)
+and [roadmap](docs/roadmap.md). Contributor agents should also read [AGENTS.md](AGENTS.md).
+Accepted rationale lives in [ADRs](docs/adr/README.md); detailed designs and execution
+steps live together in [plans](docs/plans/README.md). Update current delivery status
+in the roadmap and preserve dated verification in plans or [evidence](docs/evidence/README.md).
+
 Use Node 26.12.0 (see `.nvmrc`) and pnpm 12.14.0. Run `nvm use` and
 `pnpm install --frozen-lockfile`. Vite+ is pinned locally; no global CLI is needed.
 
@@ -22,7 +28,7 @@ independent dependency installations preserve consumer compatibility coverage.
 - `pnpm test` / `pnpm test:watch`: library and example unit tests.
 - `pnpm check`: format, type-aware lint and native TypeScript checks, then
   unit tests and inference assertions.
-- `pnpm typecheck`: run eight isolated strict/non-strict inference projects
+- `pnpm typecheck`: run package production and isolated strict/non-strict inference projects
   with the native TypeScript 7 compiler; these checks always run uncached.
 - `pnpm test:packages`: verify built ESM/CommonJS exports, declarations,
   Nest injection metadata, React client boundaries and Changesets versioning.
@@ -31,6 +37,7 @@ independent dependency installations preserve consumer compatibility coverage.
   warnings; compiler errors fail the command.
 - `pnpm format` / `pnpm format:check`: Oxfmt.
 - `pnpm build:examples`: build framework examples with native commands.
+- `pnpm docs:lint`: check documentation links/anchors, current repository facts and ADR structure.
 - `pnpm nest`: generate the example database client, build, run and restart Nest.
 - `pnpm --filter example-next dev`: generate the client and start Next.
 - `pnpm --filter example-nest build` / `pnpm --filter example-next build`:
@@ -269,12 +276,34 @@ pnpm --filter @ts-restless/docs test
 pnpm docs:start
 ```
 
-`docs:build` prerenders every content URL and `/api/search.json` into
+`docs:build` prerenders every content URL, `/api/search.json`, `/llms.txt` and
+`/markdown/<page>.md` into
 `apps/docs/dist/client`, then runs native type checking. The docs build/typecheck task is uncached, so
 new source type errors cannot be hidden by an incomplete native compiler cache. `docs:start` previews
 that static production output. Dev and preview tasks are uncached. Docs remains
 outside the main library lint/format scope and has its own build/type checks and
 static output regression tests, also run in CI.
+
+The **Documentation validation** CI job runs on every PR and main push; Build & Test
+depends on it, preserving the existing release gate. `pnpm docs:lint` checks repository
+Markdown links and anchors (including reference links/images), the support inventory's
+public peers/optionality against manifests, documented public package imports/installs
+against source and configured publish export maps, contributor commands/tool versions, and ADR
+IDs/status/date/evidence/supersession links. Historical plans/evidence retain dated
+facts; only their links are checked against the current tree.
+
+The docs test task runs that lint, checker fixtures and the site build/typecheck,
+including public guide/navigation links and generated Markdown links/anchors.
+Vue/Solid/Nest snippets must retain Twoslash; blanket `@noErrors` is rejected.
+Intentionally invalid completion/before examples need exact expected diagnostics and
+an explanation. Not every illustrative fragment is compiled. These checks do not
+prove factual prose, complete migrations, external website availability or npm
+publication; review those against their actual evidence.
+
+Consumer exports come from the same MDX collection and
+retain installation commands, tab alternatives, warnings and code examples.
+They describe development source; check a containing release before recommending
+an installation for a newly merged feature.
 
 Deploy the client output on a static host with directory index support; no
 search or application server is required. Set `VITE_POSTHOG_KEY` and optionally
