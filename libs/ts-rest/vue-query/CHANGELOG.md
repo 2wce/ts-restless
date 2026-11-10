@@ -1,5 +1,15 @@
 # @ts-rest/vue-query
 
+## 4.0.0-alpha.3
+
+### Major Changes
+
+- bcf8bb2: Target TanStack Query v5 only in the initial stable ts-restless v4 baseline. React v5 becomes the default (`/v5` remains an alias); remove the v4 React wrapper and React16/17 peers. Migrate Vue and Solid to native v5 options, typed pagination and native reactivity. Infinite queries require initialPageParam and getNextPageParam; mutation status follows v5 isPending. Follow the [Query v5 migration guide](https://github.com/2wce/ts-restless/blob/main/apps/docs/content/docs/query-v5-migration.mdx) before upgrading from previous prereleases or upstream v3. It covers React provider/hook/cache/SSR replacements, removed options/types, Vue/Solid reactivity and application verification; there is no Query4 legacy adapter.
+
+### Patch Changes
+
+- ab168d1: Share query-library request execution between existing React v5 and Vue wrappers while preserving response envelopes, error identity and cancellation precedence.
+
 ## 4.0.0-alpha.2
 
 ## 4.0.0-alpha.1

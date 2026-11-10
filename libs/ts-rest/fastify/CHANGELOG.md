@@ -1,5 +1,7 @@
 # @ts-rest/fastify
 
+## 4.0.0-alpha.3
+
 ## 4.0.0-alpha.2
 
 ## 4.0.0-alpha.1

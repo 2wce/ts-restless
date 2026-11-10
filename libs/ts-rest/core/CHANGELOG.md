@@ -1,5 +1,11 @@
 # @ts-rest/core
 
+## 4.0.0-alpha.3
+
+### Minor Changes
+
+- ab168d1: Share query-library request execution between existing React v5 and Vue wrappers while preserving response envelopes, error identity and cancellation precedence.
+
 ## 4.0.0-alpha.2
 
 ## 4.0.0-alpha.1

@@ -1,6 +1,6 @@
 {
   "name": "@ts-restless/vue-query",
-  "version": "4.0.0-alpha.2",
+  "version": "4.0.0-alpha.3",
   "private": false,
   "description": "ts-restless vue-query integration for contract-first, end-to-end typed REST.",
   "keywords": [
