@@ -7,9 +7,9 @@ description: A checklist for moving from ts-rest v3 or earlier fork prereleases 
 
 ## Choose the release first
 
-The first stable target is **ts-restless 4.0.0**. This guide describes the development baseline, including the approved TanStack Query v5-only migration merged in [PR #22](https://github.com/2wce/ts-restless/pull/22). Existing `4.0.0-alpha.2` artifacts do not contain it; merge does not establish publication. Check the [fork release notes](https://github.com/2wce/ts-restless/releases) for the first release that includes the changes you need. A source example or passing draft PR does not mean the change is available on npm.
+The first stable target is **ts-restless 4.0.0**. **`4.0.0-alpha.3` is published** and is the first release containing the TanStack Query v5-only migration from [PR #22](https://github.com/2wce/ts-restless/pull/22), along with F01 Query5 compatibility and A11 shared execution. Public npm manifests for all ten libraries were checked on 2026-11-10. Alpha.2 does not contain the v5-only migration; its historical fallback guidance remains below. These guides describe development source, so check the [fork release notes](https://github.com/2wce/ts-restless/releases) for any newer feature you need. React 19 compatibility and the Express raw-request typing correction are still in progress and are absent from alpha.3.
 
-Prereleases use explicit `alpha`, `beta` or `rc` npm tags. Stable `4.0.0` is not published. Do not infer stability from npm's `latest` tag or install the historical `0.0.0-stage` registration placeholders, which contain no library code. For a reproducible migration, pin the exact released version from its notes across all the ts-restless libraries you use. The moving `@alpha` tag is useful for evaluation, but may point to an earlier baseline than these docs.
+Prereleases use explicit `alpha`, `beta` or `rc` npm tags. Stable `4.0.0` is not published. On 2026-11-10, `alpha` points to alpha.3 while `latest` still points to alpha.0. Do not infer stability from `latest` or install the historical `0.0.0-stage` registration placeholders, which contain no library code. For a reproducible migration, pin the exact released version across all the ts-restless libraries you use. The moving `@alpha` tag is useful for evaluation; recheck its version when installing.
 
 ## Migration checklist
 

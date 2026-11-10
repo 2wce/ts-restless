@@ -3,7 +3,7 @@ title: 'TanStack Query v5 migration'
 description: Replace the Query v4 APIs in React, Vue and Solid with the initial stable fork baseline.
 ---
 
-The first stable **ts-restless v4** baseline supports **TanStack Query v5 only** for React, Vue and Solid. These are separate version numbers. This guide describes the development source in [draft PR #22](https://github.com/2wce/ts-restless/pull/22); existing alpha.2 and upstream v3 artifacts are unchanged. Select the first released version containing the migration from the [release notes](https://github.com/2wce/ts-restless/releases), then follow the [package replacement checklist](/ts-restless-migration#package-migration).
+The first stable **ts-restless v4** baseline supports **TanStack Query v5 only** for React, Vue and Solid. These are separate version numbers. **`4.0.0-alpha.3` is the first published release containing this migration**, delivered in [PR #22](https://github.com/2wce/ts-restless/pull/22) and release [PR #23](https://github.com/2wce/ts-restless/pull/23). Alpha.2 and upstream v3 artifacts are unchanged. Pin alpha.3 or a newer containing release from the [release notes](https://github.com/2wce/ts-restless/releases), then follow the [package replacement checklist](/ts-restless-migration#package-migration).
 
 ## Upgrade order
 
@@ -11,7 +11,7 @@ The first stable **ts-restless v4** baseline supports **TanStack Query v5 only**
 2. Install the framework's native Query v5 dependency explicitly. Use `@tanstack/react-query@5`, `@tanstack/vue-query@5` or `@tanstack/solid-query@5`, plus the matching native devtools v5 if you use them. Align native Query/Core versions and remove stale v4 installations. Solid's moving latest tag may select another major.
 3. Replace your used `@ts-rest/*` packages as a matched set, pinned to a release containing this migration. Convert calls using the examples below, then run the [application verification checklist](/ts-restless-migration#verify-your-application).
 
-For example, after choosing a containing release, a Vue evaluation installs `@ts-restless/core@alpha`, `@ts-restless/vue-query@alpha` and `@tanstack/vue-query@5`. The moving alpha tag alone does not guarantee it contains the migration.
+For a reproducible Vue evaluation, install `@ts-restless/core@4.0.0-alpha.3`, `@ts-restless/vue-query@4.0.0-alpha.3` and `@tanstack/vue-query@5`. On 2026-11-10, the moving `alpha` tag also points to alpha.3; check the selected version when using a tag.
 
 ## React API replacements
 
