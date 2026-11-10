@@ -219,6 +219,8 @@ describe('react-query', () => {
     expect(result.current.isPending).toStrictEqual(true);
     expect(result.current.contractEndpoint).toEqual(contract.health);
 
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
+
     expect(api).toHaveBeenCalledWith({
       validateResponse: false,
       method: 'GET',
@@ -396,6 +398,8 @@ describe('react-query', () => {
     expect(result.current.isPending).toStrictEqual(true);
     expect(result.current.contractEndpoint).toEqual(contract.posts.getPosts);
 
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
+
     expect(api).toHaveBeenCalledWith({
       validateResponse: false,
       method: 'GET',
@@ -565,6 +569,8 @@ describe('react-query', () => {
 
     expect(result.current.isPending).toStrictEqual(true);
 
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
+
     expect(api).toHaveBeenCalledWith({
       validateResponse: false,
       method: 'GET',
@@ -613,6 +619,8 @@ describe('react-query', () => {
 
     expect(result.current.isPending).toStrictEqual(true);
 
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
+
     expect(api).toHaveBeenCalledWith({
       validateResponse: false,
       method: 'GET',
@@ -658,6 +666,8 @@ describe('react-query', () => {
 
     expect(result.current.isPending).toStrictEqual(true);
 
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
+
     expect(api).toHaveBeenCalledWith({
       validateResponse: false,
       method: 'GET',
@@ -702,6 +712,8 @@ describe('react-query', () => {
 
     expect(result.current.isPending).toStrictEqual(true);
 
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
+
     expect(api).toHaveBeenCalledWith({
       validateResponse: false,
       method: 'GET',
@@ -718,7 +730,7 @@ describe('react-query', () => {
     });
   });
 
-  it('useQuery should accept non-json string response', () => {
+  it('useQuery should accept non-json string response', async () => {
     api.mockResolvedValue({
       status: 200,
       body: 'Hello World',
@@ -738,6 +750,8 @@ describe('react-query', () => {
     expect(result.current.data).toStrictEqual(undefined);
 
     expect(result.current.isPending).toStrictEqual(true);
+
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
 
     expect(api).toHaveBeenCalledWith({
       validateResponse: false,
@@ -779,6 +793,8 @@ describe('react-query', () => {
     expect(result.current.data).toStrictEqual(undefined);
 
     expect(result.current.isPending).toStrictEqual(true);
+
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
 
     expect(api).toHaveBeenCalledWith({
       validateResponse: false,
@@ -952,6 +968,8 @@ describe('react-query', () => {
 
     expect(result.current[1].data).toStrictEqual(undefined);
     expect(result.current[1].isPending).toStrictEqual(true);
+
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(2));
 
     expect(api).toHaveBeenCalledWith({
       validateResponse: false,
@@ -1255,6 +1273,8 @@ describe('react-query', () => {
 
     expect(result.current[1].isLoading).toStrictEqual(true);
 
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(2));
+
     expect(api).toHaveBeenCalledWith({
       validateResponse: false,
       method: 'GET',
@@ -1343,6 +1363,8 @@ describe('react-query', () => {
 
     expect(result.current[1].isLoading).toStrictEqual(true);
 
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(2));
+
     expect(api).toHaveBeenCalledWith({
       validateResponse: false,
       method: 'GET',
@@ -1406,6 +1428,8 @@ describe('react-query', () => {
         wrapper: ReactQueryProvider,
       },
     );
+
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
 
     expect(api).toHaveBeenCalledWith({
       validateResponse: false,
@@ -1484,6 +1508,8 @@ describe('react-query', () => {
         wrapper: ReactQueryProvider,
       },
     );
+
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
 
     expect(api).toHaveBeenCalledWith({
       validateResponse: false,

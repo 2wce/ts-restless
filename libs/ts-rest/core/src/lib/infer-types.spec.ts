@@ -20,7 +20,12 @@ import {
   HTTPStatusCode,
   SuccessfulHttpStatusCode,
 } from './status-codes';
-import { FetchOptions, OverrideableClientArgs, initClient } from './client';
+import {
+  ClientArgs,
+  FetchOptions,
+  OverrideableClientArgs,
+  initClient,
+} from './client';
 import { Prettify } from './type-utils';
 import * as v from 'valibot';
 
@@ -1035,5 +1040,42 @@ describe('client response outputs across media types', () => {
         undefined
       >
     >;
+  });
+});
+
+describe('async base header inference', () => {
+  it('makes required contract headers optional when supplied by async callbacks', () => {
+    const contract = c.router({
+      read: {
+        method: 'GET',
+        path: '/headers',
+        headers: c.type<{ authorization: string; 'x-optional'?: string }>(),
+        responses: { 200: c.type<{ value: string }>() },
+      },
+    });
+    const client = initClient(contract, {
+      baseUrl: 'https://headers.example',
+      baseHeaders: {
+        Authorization: async () => 'Bearer token',
+        'X-Optional': async (): Promise<string | undefined> => undefined,
+      },
+    });
+    type OptionalArgs = Expect<
+      Equal<[] extends Parameters<typeof client.read> ? true : false, true>
+    >;
+    type Headers = Expect<
+      Equal<
+        NonNullable<Parameters<typeof client.read>[0]>['headers'],
+        { authorization?: string; 'x-optional'?: string } | undefined
+      >
+    >;
+    const invalid: ClientArgs = {
+      baseUrl: 'https://headers.example',
+      baseHeaders: {
+        // @ts-expect-error use a callback for request-scoped asynchronous values
+        Authorization: Promise.resolve('Bearer token'),
+      },
+    };
+    void invalid;
   });
 });

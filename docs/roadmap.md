@@ -16,6 +16,10 @@
 | Query5 baseline and migration documentation   | Merged, [#22](https://github.com/2wce/ts-restless/pull/22)                           | [Decision](adr/0006-query-v5-baseline.md), [plan](plans/2026-11-09-query-v5-baseline.md), [audit](evidence/2026-11-09-migration-documentation.md). Published in `4.0.0-alpha.3` through merged release PR [#23](https://github.com/2wce/ts-restless/pull/23). Alpha.2 remains the pre-migration fallback.                                                                        |
 | Documentation consolidation and agent exports | Merged, [#24](https://github.com/2wce/ts-restless/pull/24)                           | [Plan](plans/2026-11-09-documentation-adr.md); contributor guidance, generated consumer Markdown and required documentation CI delivered; availability refresh [#25](https://github.com/2wce/ts-restless/pull/25) merged. All ten public alpha tags now point to `4.0.0-alpha.4`, released through [#28](https://github.com/2wce/ts-restless/pull/28); `latest` remains alpha.0. |
 
+## Follow-up from the upstream shortlist
+
+Async base headers [#832](https://github.com/ts-rest/ts-rest/issues/832) are in progress after F04, with per-request callback resolution, existing override/deletion behavior and concurrent-request isolation; see the [scoped plan](plans/2026-11-10-async-base-headers.md). Serverless empty-body fixes are separately verified in draft [#30](https://github.com/2wce/ts-restless/pull/30): #772 reproduces in JSON decoding and AWS serialization; #696's original parse exception did not reproduce, while F04 covers its client no-body normalization. Both follow-ups require a containing release after alpha.4.
+
 ## Adapter maintenance epic
 
 The [epic](plans/2026-11-04-adapter-maintenance-epic.md) retains detailed deliverables and dependencies. Approval of a completed slice does not approve every later removal or redesign.

@@ -203,6 +203,8 @@ describe('vue-query', () => {
 
     expect(unref(result.current.isLoading)).toStrictEqual(true);
 
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
+
     expect(api).toHaveBeenCalledWith({
       validateResponse: false,
       method: 'GET',
@@ -241,6 +243,8 @@ describe('vue-query', () => {
     expect(unref(result.current.data)).toStrictEqual(undefined);
 
     expect(unref(result.current.isLoading)).toStrictEqual(true);
+
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
 
     expect(api).toHaveBeenCalledWith({
       validateResponse: false,
@@ -286,6 +290,8 @@ describe('vue-query', () => {
 
     expect(unref(result.current.isLoading)).toStrictEqual(true);
 
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
+
     expect(api).toHaveBeenCalledWith({
       validateResponse: false,
       method: 'GET',
@@ -326,6 +332,8 @@ describe('vue-query', () => {
     expect(unref(result.current.data)).toStrictEqual(undefined);
 
     expect(unref(result.current.isLoading)).toStrictEqual(true);
+
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
 
     expect(api).toHaveBeenCalledWith({
       validateResponse: false,
@@ -368,6 +376,8 @@ describe('vue-query', () => {
 
     expect(unref(result.current.isLoading)).toStrictEqual(true);
 
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
+
     expect(api).toHaveBeenCalledWith({
       validateResponse: false,
       method: 'GET',
@@ -384,7 +394,7 @@ describe('vue-query', () => {
     });
   });
 
-  it('useQuery should accept non-json string response', () => {
+  it('useQuery should accept non-json string response', async () => {
     api.mockResolvedValue({
       status: 200,
       body: 'Hello World',
@@ -397,6 +407,8 @@ describe('vue-query', () => {
     expect(unref(result.current.data)).toStrictEqual(undefined);
 
     expect(unref(result.current.isLoading)).toStrictEqual(true);
+
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
 
     expect(api).toHaveBeenCalledWith({
       validateResponse: false,
@@ -434,6 +446,8 @@ describe('vue-query', () => {
     expect(unref(result.current.data)).toStrictEqual(undefined);
 
     expect(unref(result.current.isLoading)).toStrictEqual(true);
+
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
 
     expect(api).toHaveBeenCalledWith({
       validateResponse: false,

@@ -1358,6 +1358,248 @@ describe('getCompleteUrl', () => {
   >;
 }
 
+describe('async base headers', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const deferred = () => {
+    let resolve!: (value: string | undefined) => void;
+    const promise = new Promise<string | undefined>((fulfill) => {
+      resolve = fulfill;
+    });
+    return { promise, resolve };
+  };
+
+  it.each(['default', 'custom', 'delegated', 'query'] as const)(
+    'resolves headers before %s dispatch and validates exactly once',
+    async (mode) => {
+      let validations = 0;
+      const schema: StandardSchemaV1<string, string> = {
+        '~standard': {
+          version: 1,
+          vendor: 'async-headers',
+          validate: (value) => {
+            validations += 1;
+            return { value: String(value) + '!' };
+          },
+        },
+      };
+      const contract = c.router({
+        read: { method: 'GET', path: '/headers', responses: { 200: schema } },
+      });
+      const signal = new AbortController().signal;
+      const nativeFetch = vi.fn(
+        async (_url: string, _init?: RequestInit) =>
+          new Response('"input"', {
+            headers: { 'content-type': 'application/json' },
+          }),
+      );
+      vi.stubGlobal('fetch', nativeFetch);
+      const api = vi.fn(async (args: ApiFetcherArgs) =>
+        mode === 'delegated'
+          ? tsRestFetchApi(args)
+          : { status: 200, body: 'input', headers: new Headers() },
+      );
+      const clientArgs = {
+        baseUrl: 'https://headers.example',
+        validateResponse: true,
+        baseHeaders: {
+          Authorization: async (options: Parameters<typeof fetchApi>[0]) => {
+            expect(options.path).toBe('https://headers.example/headers');
+            expect(options.route).toBe(contract.read);
+            expect(options.fetchOptions?.signal).toBe(signal);
+            expect(options.clientArgs.baseUrl).toBe('https://headers.example');
+            return 'Bearer async';
+          },
+          'X-Static': 'static',
+          'X-Sync': () => 'sync',
+        },
+        ...(mode === 'custom' || mode === 'delegated' ? { api } : {}),
+      };
+      const result =
+        mode === 'query'
+          ? await executeQueryRequest(
+              {
+                ...evaluateFetchApiArgs(contract.read, clientArgs),
+                route: contract.read,
+              },
+              signal,
+            )
+          : await initClient(contract, clientArgs).read({
+              fetchOptions: { signal },
+            });
+      expect(result.body).toBe('input!');
+      expect(validations).toBe(1);
+      const expectedHeaders = {
+        authorization: 'Bearer async',
+        'x-static': 'static',
+        'x-sync': 'sync',
+      };
+      if (mode === 'custom' || mode === 'delegated') {
+        expect(api.mock.calls[0][0].headers).toEqual(expectedHeaders);
+        expect(api.mock.calls[0][0].validateResponse).toBe(false);
+        expect(api.mock.calls[0][0].fetchOptions?.signal).toBe(signal);
+      }
+      if (mode !== 'custom') {
+        expect(nativeFetch.mock.calls[0][1]?.headers).toEqual(expectedHeaders);
+        expect(nativeFetch.mock.calls[0][1]?.signal).toBe(signal);
+      }
+    },
+  );
+
+  it('keeps mixed-case overrides and removes undefined headers after resolution', async () => {
+    const route = c.router({
+      read: { method: 'GET', path: '/headers', responses: { 200: c.type() } },
+    }).read;
+    const api = vi.fn(async (_args: ApiFetcherArgs) => ({
+      status: 200,
+      body: 'ok',
+      headers: new Headers(),
+    }));
+    await fetchApi({
+      ...evaluateFetchApiArgs(route, {
+        baseUrl: 'https://headers.example',
+        api,
+        baseHeaders: {
+          Authorization: async () => 'base',
+          'X-Deleted': async () => 'base',
+          'X-Async-Optional': async () => undefined,
+          'X-Sync-Optional': () => undefined,
+          'X-Duplicate': async () => 'first',
+          'x-duplicate': async () => 'last',
+        },
+      }),
+      headers: { AUTHORIZATION: 'explicit', 'x-deleted': undefined },
+    });
+    expect(api.mock.calls[0][0].headers).toEqual({
+      authorization: 'explicit',
+      'x-duplicate': 'last',
+    });
+  });
+
+  it('starts callbacks concurrently and preserves entry order when they finish out of order', async () => {
+    const first = deferred();
+    const second = deferred();
+    const started: string[] = [];
+    const route = c.router({
+      read: { method: 'GET', path: '/headers', responses: { 200: c.type() } },
+    }).read;
+    const api = vi.fn(async (_args: ApiFetcherArgs) => ({
+      status: 200,
+      body: 'ok',
+      headers: new Headers(),
+    }));
+    const pending = fetchApi(
+      evaluateFetchApiArgs(route, {
+        baseUrl: 'https://headers.example',
+        api,
+        baseHeaders: {
+          'X-First': () => {
+            started.push('first');
+            return first.promise;
+          },
+          'x-first': () => {
+            started.push('second');
+            return second.promise;
+          },
+        },
+      }),
+    );
+    expect(started).toEqual(['first', 'second']);
+    expect(api).not.toHaveBeenCalled();
+    second.resolve('second');
+    await Promise.resolve();
+    expect(api).not.toHaveBeenCalled();
+    first.resolve('first');
+    await pending;
+    expect(api.mock.calls[0][0].headers).toEqual({ 'x-first': 'second' });
+  });
+
+  it('isolates concurrent requests resolved out of order without caching or mutation', async () => {
+    const first = deferred();
+    const second = deferred();
+    const callbacks: unknown[] = [];
+    const seen: Record<string, string>[] = [];
+    const contract = c.router({
+      read: {
+        method: 'GET',
+        path: '/headers',
+        query: c.type<{ id: string }>(),
+        responses: { 200: c.type() },
+      },
+    });
+    const baseHeaders = Object.freeze({
+      Authorization: (options: Parameters<typeof fetchApi>[0]) => {
+        callbacks.push(options.query);
+        return (options.query as { id: string }).id === 'first'
+          ? first.promise
+          : second.promise;
+      },
+    });
+    const client = initClient(contract, {
+      baseUrl: 'https://headers.example',
+      baseHeaders,
+      api: async (args) => {
+        seen.push(args.headers);
+        return {
+          status: 200,
+          body: args.headers['authorization'],
+          headers: new Headers(),
+        };
+      },
+    });
+    const firstRequest = client.read({ query: { id: 'first' } });
+    const secondRequest = client.read({ query: { id: 'second' } });
+    second.resolve('Bearer second');
+    const secondResult = await secondRequest;
+    first.resolve('Bearer first');
+    const firstResult = await firstRequest;
+    expect(secondResult.body).toBe('Bearer second');
+    expect(firstResult.body).toBe('Bearer first');
+    expect(callbacks).toEqual([{ id: 'first' }, { id: 'second' }]);
+    expect(seen).toEqual([
+      { authorization: 'Bearer second' },
+      { authorization: 'Bearer first' },
+    ]);
+    expect(seen[0]).not.toBe(seen[1]);
+    expect(typeof baseHeaders.Authorization).toBe('function');
+  });
+
+  it.each(['sync', 'async'] as const)(
+    'preserves %s header failure identity and prevents transport',
+    async (mode) => {
+      const failure = new Error('auth failed');
+      const rejected = Promise.reject<string>(failure);
+      // Mark the original promise handled even while exercising the old client.
+      void rejected.catch(() => undefined);
+      const contract = c.router({
+        read: { method: 'GET', path: '/headers', responses: { 200: c.type() } },
+      });
+      const api = vi.fn(async (_args: ApiFetcherArgs) => ({
+        status: 200,
+        body: 'ok',
+        headers: new Headers(),
+      }));
+      const nativeFetch = vi.fn(async () => new Response('ok'));
+      vi.stubGlobal('fetch', nativeFetch);
+      for (const custom of [false, true]) {
+        const client = initClient(contract, {
+          baseUrl: 'https://headers.example',
+          ...(custom ? { api } : {}),
+          baseHeaders: {
+            Authorization: () => {
+              if (mode === 'sync') throw failure;
+              return rejected;
+            },
+          },
+        });
+        await expect(client.read()).rejects.toBe(failure);
+      }
+      expect(api).not.toHaveBeenCalled();
+      expect(nativeFetch).not.toHaveBeenCalled();
+    },
+  );
+});
+
 describe('validated client response contracts', () => {
   beforeEach(() => {
     fetchMock.mockReset();
