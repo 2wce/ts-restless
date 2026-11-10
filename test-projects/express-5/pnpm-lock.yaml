@@ -190,8 +190,8 @@ importers:
         specifier: 1.19.5
         version: 1.19.5
       '@types/express':
-        specifier: 4.17.21
-        version: 4.17.21
+        specifier: 5.0.6
+        version: 5.0.6
       '@types/node':
         specifier: 22.13.1
         version: 22.13.1
@@ -547,8 +547,8 @@ packages:
       '@testing-library/dom': '>=7.21.4'
 
   '@ts-restless/core@file:../../dist/packages/ts-restless-core.tgz':
-    resolution: {integrity: sha512-chQGn85XyzrLES0gwVLdrz0ZAblOOs/l7YfWqfCDbBvcdTYtE1/rMlBnDJaStw0eS5FdXBNaodmy2aeKetnr/A==, tarball: file:../../dist/packages/ts-restless-core.tgz}
-    version: 3.52.1
+    resolution: {integrity: sha512-QjBbD5m2Y7RWA8GuaJN12AP49UPEVrXBkuRtC/1FdGkUK3u1OjV8hFFIx76TTk5elc/44+ga/viFKLt4VSPwdg==, tarball: file:../../dist/packages/ts-restless-core.tgz}
+    version: 4.0.0-alpha.3
     peerDependencies:
       '@types/node': ^18.18.7 || >=20.8.4
       zod: ^3.22.3 || ^4.0.0
@@ -559,10 +559,10 @@ packages:
         optional: true
 
   '@ts-restless/express@file:../../dist/packages/ts-restless-express.tgz':
-    resolution: {integrity: sha512-9VK/PaCQ9R6EoZPQITNFBmwLOSV79T26a4z0m+oLk2Z5auUV7Pkp7KnZh4WxW9wCksQn2Jn8A8p7SjnLfcXlwg==, tarball: file:../../dist/packages/ts-restless-express.tgz}
-    version: 3.52.1
+    resolution: {integrity: sha512-TWLmr7nBPEWPzA0TBWpWuEj+8bm+MTTu+A6npRcg6K0wcQJieS+jOB4TsG8mtVFJRHzM/dYTcGps5opPE5juCQ==, tarball: file:../../dist/packages/ts-restless-express.tgz}
+    version: 4.0.0-alpha.3
     peerDependencies:
-      '@ts-restless/core': ^3.52.1
+      '@ts-restless/core': ^4.0.0-alpha.3
       express: ^4.0.0 || ^5.0.0
       zod: ^3.22.3 || ^4.0.0
     peerDependenciesMeta:
@@ -590,11 +590,11 @@ packages:
   '@types/estree@1.0.9':
     resolution: {integrity: sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg==}
 
-  '@types/express-serve-static-core@4.19.9':
-    resolution: {integrity: sha512-QP2ESEe/ImWY0HDwNAnK9PvEffUyhLTnWkk7KXzHfyeWAnlrDe1fN77bXl6ia8KT3wPlmA7t9/VPRpnf4Ex9sg==}
+  '@types/express-serve-static-core@5.1.3':
+    resolution: {integrity: sha512-dPfW8NFiOF4wOHc7+N/QSxlY9cfSsenewGbAz8C8U/MULPd/YZ27LvJUIlzaXie7e6Ove9YunJGgC9tbHD2cKw==}
 
-  '@types/express@4.17.21':
-    resolution: {integrity: sha512-ejlPM315qwLpaQlQDTjPdsUFSc6ZsP4AN6AlWnogPjQ7CVi7PYF3YVz+CY3jE2pwYf7E/7HlDAN0rV2GxTG0HQ==}
+  '@types/express@5.0.6':
+    resolution: {integrity: sha512-sKYVuV7Sv9fbPIt/442koC7+IIwK5olP1KWeD88e/idgoJqDm3JV/YUiPwkoKK92ylff2MGxSz1CSjsXelx0YA==}
 
   '@types/http-errors@2.0.5':
     resolution: {integrity: sha512-r8Tayk8HJnX0FztbZN7oVqGccWgw98T/0neJphO91KkmOzug1KkofZURD4UaD5uH8AqcFLfdPErnBod0u71/qg==}
@@ -1798,18 +1798,17 @@ snapshots:
 
   '@types/estree@1.0.9': {}
 
-  '@types/express-serve-static-core@4.19.9':
+  '@types/express-serve-static-core@5.1.3':
     dependencies:
       '@types/node': 22.13.1
       '@types/qs': 6.15.1
       '@types/range-parser': 1.2.7
       '@types/send': 1.2.1
 
-  '@types/express@4.17.21':
+  '@types/express@5.0.6':
     dependencies:
       '@types/body-parser': 1.19.5
-      '@types/express-serve-static-core': 4.19.9
-      '@types/qs': 6.15.1
+      '@types/express-serve-static-core': 5.1.3
       '@types/serve-static': 2.2.0
 
   '@types/http-errors@2.0.5': {}

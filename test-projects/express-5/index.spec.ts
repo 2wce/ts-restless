@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { app } from './index';
+import { app, rawRequests } from './index';
 import request from 'supertest';
 
 const expectRes = (res: any) => {
@@ -60,4 +60,57 @@ describe('express 5', () => {
       },
     });
   });
+});
+
+it('preserves native raw channels through middleware and transformed handlers', async () => {
+  rawRequests.length = 0;
+  const result = await request(app)
+    .post('/raw/2026-11-10?count=3&repeat=one&repeat=two&nested[key]=value')
+    .set('X-Count', '7')
+    .send({ value: '12' });
+  expect(result.status).toBe(200);
+  expect(result.body).toEqual({
+    date: '2026-11-10T00:00:00.000Z',
+    optional: 5,
+    count: 3,
+    limit: 10,
+    headerCount: 7,
+    headerDefault: 'fallback',
+    value: 12,
+  });
+  expect(rawRequests.map((snapshot) => snapshot.stage)).toEqual([
+    'global',
+    'route',
+    'handler',
+  ]);
+  for (const snapshot of rawRequests) {
+    expect(snapshot.params).toMatchObject({ date: '2026-11-10' });
+    expect(snapshot.params).not.toHaveProperty('optional', '5');
+    expect(snapshot.query).toEqual({
+      count: '3',
+      repeat: ['one', 'two'],
+      nested: { key: 'value' },
+    });
+    expect(snapshot.headers).toMatchObject({ 'x-count': '7' });
+    expect(snapshot.headers).not.toHaveProperty('X-Count');
+    expect(snapshot.headers).not.toHaveProperty('x-default');
+    expect(snapshot.body).toEqual({ value: '12' });
+  }
+});
+
+it('runs raw middleware for invalid JSON fields before validation', async () => {
+  rawRequests.length = 0;
+  const result = await request(app)
+    .post('/raw/2026-11-10?count=3')
+    .set('X-Count', '7')
+    .send({ value: 12 });
+  expect(result.status).toBe(400);
+  expect(rawRequests.map((snapshot) => snapshot.stage)).toEqual([
+    'global',
+    'route',
+  ]);
+  expect(rawRequests.map((snapshot) => snapshot.body)).toEqual([
+    { value: 12 },
+    { value: 12 },
+  ]);
 });

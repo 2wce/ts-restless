@@ -267,8 +267,8 @@ const initializeExpressRoute = ({
   }
 };
 
-const requestValidationErrorHandler = (
-  handler: TsRestExpressOptions<any>['requestValidationErrorHandler'] = 'default',
+const requestValidationErrorHandler = <T extends AppRouter>(
+  handler: TsRestExpressOptions<T>['requestValidationErrorHandler'] = 'default',
 ) => {
   return (err: unknown, req: Request, res: Response, next: NextFunction) => {
     if (err instanceof RequestValidationError) {
@@ -333,5 +333,9 @@ export const createExpressEndpoints = <TRouter extends AppRouter>(
     },
   });
 
-  app.use(requestValidationErrorHandler(options.requestValidationErrorHandler));
+  app.use(
+    requestValidationErrorHandler<TRouter>(
+      options.requestValidationErrorHandler,
+    ),
+  );
 };
