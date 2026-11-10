@@ -13,6 +13,8 @@ import {
   getCompleteUrl,
   evaluateFetchApiArgs,
   executeQueryRequest,
+  fetchApi,
+  tsRestFetchApi,
 } from './client';
 import { Equal, Expect } from './test-helpers';
 import { z } from 'zod';
@@ -734,7 +736,7 @@ describe('client', () => {
         params: { id: '1' },
       });
 
-      expect((result.body as Blob).size).toStrictEqual(0);
+      expect(result.body).toBeUndefined();
       expect(result.status).toBe(204);
       expect(result.headers.has('Content-Length')).toBe(false);
       expect(result.headers.has('Content-Type')).toBe(false);
@@ -753,7 +755,7 @@ describe('client', () => {
         params: { id: '1' },
       });
 
-      expect((result.body as Blob).size).toStrictEqual(0);
+      expect(result.body).toBeUndefined();
       expect(result.status).toBe(204);
       expect(result.headers.has('Content-Length')).toBe(false);
       expect(result.headers.has('Content-Type')).toBe(false);
@@ -1388,6 +1390,371 @@ describe('validated client response contracts', () => {
       body: { value: 'hello' },
     });
   });
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.each(['json', 'text', 'custom', 'delegated', 'standalone'] as const)(
+    'validates %s responses exactly once, including declared errors',
+    async (mode) => {
+      for (const status of [200, 400]) {
+        let calls = 0;
+        const schema: StandardSchemaV1<string, string> = {
+          '~standard': {
+            version: 1,
+            vendor: 'F04',
+            validate: (value) => {
+              calls += 1;
+              return typeof value === 'string'
+                ? { value: value + '!' }
+                : { issues: [{ message: 'Expected string' }] };
+            },
+          },
+        };
+        const route = c.router({
+          read: {
+            method: 'GET',
+            path: '/f04',
+            responses: {
+              200: c.otherResponse({ contentType: 'text/plain', body: schema }),
+              400: schema,
+            },
+          },
+        }).read;
+        const native = new Response(mode === 'json' ? '"input"' : 'input', {
+          status,
+          headers: {
+            'content-type': mode === 'json' ? 'application/json' : 'text/plain',
+            'x-response': 'preserved',
+          },
+        });
+        vi.stubGlobal('fetch', async () => native);
+        const custom = { status, body: 'input', headers: native.headers };
+        const api =
+          mode === 'custom'
+            ? async () => custom
+            : mode === 'delegated'
+              ? async (args: ApiFetcherArgs) => tsRestFetchApi(args)
+              : undefined;
+        const result =
+          mode === 'standalone'
+            ? await tsRestFetchApi({
+                route,
+                path: 'http://localhost/f04',
+                method: 'GET',
+                headers: {},
+                body: undefined,
+                rawBody: undefined,
+                rawQuery: undefined,
+                contentType: undefined,
+                validateResponse: true,
+              })
+            : await initClient(
+                { read: route },
+                {
+                  baseUrl: 'http://localhost',
+                  validateResponse: true,
+                  api,
+                },
+              ).read();
+        expect(result.body).toBe('input!');
+        expect(calls).toBe(1);
+        expect(result.status).toBe(status);
+        expect(result.headers).toBe(native.headers);
+        expect(result.headers.get('x-response')).toBe('preserved');
+        if (mode !== 'custom') expect(native.bodyUsed).toBe(true);
+      }
+    },
+  );
+
+  it.each(['text', 'binary', 'custom', 'standalone'] as const)(
+    'rejects invalid %s responses',
+    async (mode) => {
+      const schema =
+        mode === 'binary'
+          ? z.instanceof(Blob).refine((value) => value.size > 5)
+          : z.string().min(5);
+      const route = c.router({
+        read: { method: 'GET', path: '/f04', responses: { 200: schema } },
+      }).read;
+      vi.stubGlobal(
+        'fetch',
+        async () =>
+          new Response('bad', {
+            headers: {
+              'content-type':
+                mode === 'binary' ? 'application/octet-stream' : 'text/plain',
+            },
+          }),
+      );
+      const pending =
+        mode === 'standalone'
+          ? tsRestFetchApi({
+              route,
+              path: 'http://localhost/f04',
+              method: 'GET',
+              headers: {},
+              body: undefined,
+              rawBody: undefined,
+              rawQuery: undefined,
+              contentType: undefined,
+              validateResponse: true,
+            })
+          : initClient(
+              { read: route },
+              {
+                baseUrl: 'http://localhost',
+                validateResponse: true,
+                api:
+                  mode === 'custom'
+                    ? async () => ({
+                        status: 200,
+                        body: 'bad',
+                        headers: new Headers(),
+                      })
+                    : undefined,
+              },
+            ).read();
+      await expect(pending).rejects.toBeInstanceOf(StandardSchemaError);
+    },
+  );
+
+  it('transforms a binary otherResponse and keeps schema-less responses unchanged', async () => {
+    const route = c.router({
+      read: {
+        method: 'GET',
+        path: '/f04',
+        responses: {
+          200: c.otherResponse({
+            contentType: 'application/octet-stream',
+            body: z.instanceof(Blob).transform((value) => value.size),
+          }),
+          201: c.type<Blob>(),
+        },
+      },
+    }).read;
+    for (const status of [200, 201]) {
+      vi.stubGlobal(
+        'fetch',
+        async () =>
+          new Response('abc', {
+            status,
+            headers: { 'content-type': 'application/octet-stream' },
+          }),
+      );
+      const result = await initClient(
+        { read: route },
+        {
+          baseUrl: 'http://localhost',
+          validateResponse: true,
+        },
+      ).read();
+      if (result.status === 200) expect(result.body).toBe(3);
+      else expect((result.body as Blob).size).toBe(3);
+    }
+  });
+
+  it.each([true, false, undefined])(
+    'applies client/route validation precedence for %s',
+    async (validateResponse) => {
+      let calls = 0;
+      const schema: StandardSchemaV1<string, string> = {
+        '~standard': {
+          version: 1,
+          vendor: 'F04',
+          validate: (value) => {
+            calls += 1;
+            return { value: String(value) + '!' };
+          },
+        },
+      };
+      const route = c.router({
+        read: {
+          method: 'GET',
+          path: '/f04',
+          responses: { 200: schema },
+          validateResponseOnClient: true,
+        },
+      }).read;
+      const original = { status: 200, body: 'input', headers: new Headers() };
+      const result = await initClient(
+        { read: route },
+        {
+          baseUrl: 'http://localhost',
+          validateResponse,
+          api: async () => original,
+        },
+      ).read();
+      expect(result.body).toBe(validateResponse === false ? 'input' : 'input!');
+      expect(calls).toBe(validateResponse === false ? 0 : 1);
+      if (validateResponse === false) expect(result).toBe(original);
+    },
+  );
+
+  it('prevents extra fetcher arguments from enabling delegate validation', async () => {
+    let calls = 0;
+    const schema: StandardSchemaV1<string, string> = {
+      '~standard': {
+        version: 1,
+        vendor: 'F04',
+        validate: (value) => {
+          calls += 1;
+          return { value: String(value) + '!' };
+        },
+      },
+    };
+    const route = c.router({
+      read: {
+        method: 'GET',
+        path: '/f04',
+        responses: { 200: schema },
+        validateResponseOnClient: true,
+      },
+    }).read;
+    vi.stubGlobal(
+      'fetch',
+      async () =>
+        new Response('input', { headers: { 'content-type': 'text/plain' } }),
+    );
+    const result = await fetchApi({
+      ...evaluateFetchApiArgs(route, {
+        baseUrl: 'http://localhost',
+        validateResponse: true,
+        api: async (args) => tsRestFetchApi(args),
+      }),
+      route,
+      extraInputArgs: { validateResponse: true },
+    });
+    expect(result.body).toBe('input!');
+    expect(calls).toBe(1);
+  });
+
+  it.each([
+    undefined,
+    'application/json',
+    'text/plain',
+    'application/octet-stream',
+  ])(
+    'normalizes declared no-body with content type %s, even when validation is disabled',
+    async (contentType) => {
+      const contract = c.router({
+        read: { method: 'GET', path: '/f04', responses: { 200: c.noBody() } },
+      });
+      const native = new Response('ignored', {
+        headers: contentType ? { 'content-type': contentType } : {},
+      });
+      vi.stubGlobal('fetch', async () => native);
+      const result = await initClient(contract, {
+        baseUrl: 'http://localhost',
+        validateResponse: false,
+      }).read();
+      expect(result.body).toBeUndefined();
+      expect(result.headers).toBe(native.headers);
+      expect(native.bodyUsed).toBe(false);
+      const custom = { status: 200, body: 'ignored', headers: native.headers };
+      const customResult = await initClient(contract, {
+        baseUrl: 'http://localhost',
+        validateResponse: false,
+        api: async () => custom,
+      }).read();
+      expect(customResult.body).toBeUndefined();
+      expect(customResult.headers).toBe(custom.headers);
+    },
+  );
+
+  it.each(['', '{broken'])(
+    'preserves JSON parse failure for required JSON body %j',
+    async (body) => {
+      const contract = c.router({
+        read: {
+          method: 'GET',
+          path: '/f04',
+          responses: { 200: z.object({ value: z.string() }) },
+        },
+      });
+      vi.stubGlobal(
+        'fetch',
+        async () =>
+          new Response(body, {
+            headers: { 'content-type': 'application/json' },
+          }),
+      );
+      await expect(
+        initClient(contract, {
+          baseUrl: 'http://localhost',
+          validateResponse: true,
+        }).read(),
+      ).rejects.toBeInstanceOf(SyntaxError);
+    },
+  );
+
+  it.each([true, false])(
+    'honors request-time validation override %s',
+    async (validateResponse) => {
+      let calls = 0;
+      const schema: StandardSchemaV1<string, string> = {
+        '~standard': {
+          version: 1,
+          vendor: 'F04',
+          validate: (value) => {
+            calls += 1;
+            return { value: String(value) + '!' };
+          },
+        },
+      };
+      const route = c.router({
+        read: { method: 'GET', path: '/f04', responses: { 200: schema } },
+      }).read;
+      const client = initClient(
+        { read: route },
+        {
+          baseUrl: 'http://localhost',
+          validateResponse: !validateResponse,
+          api: async () => ({
+            status: 200,
+            body: 'input',
+            headers: new Headers(),
+          }),
+        },
+      );
+      const result = await client.read({
+        overrideClientOptions: { validateResponse },
+      });
+      expect(result.body).toBe(validateResponse ? 'input!' : 'input');
+      expect(calls).toBe(validateResponse ? 1 : 0);
+    },
+  );
+
+  it('validates custom query error bodies once before rejecting the resulting envelope', async () => {
+    let calls = 0;
+    const schema: StandardSchemaV1<string, string> = {
+      '~standard': {
+        version: 1,
+        vendor: 'F04',
+        validate: (value) => {
+          calls += 1;
+          return { value: String(value) + '!' };
+        },
+      },
+    };
+    const route = c.router({
+      read: { method: 'GET', path: '/f04', responses: { 400: schema } },
+    }).read;
+    const headers = new Headers({ 'x-response': 'preserved' });
+    const options = {
+      ...evaluateFetchApiArgs(route, {
+        baseUrl: 'http://localhost',
+        validateResponse: true,
+        api: async () => ({ status: 400, body: 'input', headers }),
+      }),
+      route,
+    };
+    const failure = await executeQueryRequest(options).catch(
+      (error: unknown) => error,
+    );
+    expect(failure).toEqual({ status: 400, body: 'input!', headers });
+    expect((failure as { headers: Headers }).headers).toBe(headers);
+    expect(calls).toBe(1);
+  });
 });
 
 describe('executeQueryRequest', () => {
@@ -1471,7 +1838,7 @@ describe('executeQueryRequest', () => {
     };
     await expect(executeQueryRequest(options)).rejects.toBe(failure);
     expect(api.mock.calls[0][0].path).toBe('https://override.example/a11');
-    expect(api.mock.calls[0][0].validateResponse).toBe(true);
+    expect(api.mock.calls[0][0].validateResponse).toBe(false);
   });
 });
 

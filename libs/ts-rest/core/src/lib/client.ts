@@ -17,8 +17,7 @@ import {
   PartialClientInferRequest,
 } from './infer-types';
 import { Equal, Expect } from './test-helpers';
-import { isStandardSchema, validateIfSchema } from './standard-schema-utils';
-import { isAppRouteOtherResponse } from './response';
+import { evaluateResponse } from './response';
 
 type RecursiveProxyObj<T extends AppRouter, TClientArgs extends ClientArgs> = {
   [TKey in keyof T]: T[TKey] extends AppRoute
@@ -88,6 +87,10 @@ export type ApiFetcherArgs<TFetchOptions extends FetchOptions = FetchOptions> =
     rawQuery: unknown;
     contentType: AppRouteMutation['contentType'];
     fetchOptions?: FetchOptions;
+    /**
+     * Standalone fetcher validation policy. Client execution passes false and
+     * validates the decoded response itself; custom fetchers should honor it.
+     */
     validateResponse?: boolean;
 
     /**
@@ -116,6 +119,24 @@ export type ApiFetcher = (args: ApiFetcherArgs) => Promise<{
   headers: Headers;
 }>;
 
+const finalizeClientResponse = (
+  route: AppRoute,
+  response: Awaited<ReturnType<ApiFetcher>>,
+  validateResponse?: boolean,
+): Awaited<ReturnType<ApiFetcher>> => {
+  const evaluated = evaluateResponse({
+    appRoute: route,
+    response,
+    validateBody: validateResponse ?? route.validateResponseOnClient ?? false,
+  });
+  if (!evaluated.success) {
+    throw evaluated.error;
+  }
+  const body =
+    evaluated.metadata.bodyKind === 'none' ? undefined : evaluated.body;
+  return Object.is(body, response.body) ? response : { ...response, body };
+};
+
 /**
  * Default fetch api implementation:
  *
@@ -140,48 +161,29 @@ export const tsRestFetchApi: ApiFetcher = async ({
   });
 
   const contentType = result.headers.get('content-type');
-
-  if (contentType?.includes('application/') && contentType?.includes('json')) {
-    const responseSchema = route.responses[result.status];
-
-    const response = {
-      status: result.status,
-      body: responseSchema === ContractNoBody ? undefined : await result.json(),
-      headers: result.headers,
-    };
-
-    if (validateResponse ?? route.validateResponseOnClient) {
-      const bodySchema = isAppRouteOtherResponse(responseSchema)
-        ? responseSchema.body
-        : responseSchema;
-      const result = validateIfSchema(response.body, bodySchema);
-
-      if (result.error) {
-        throw result.error;
-      }
-
-      return {
-        ...response,
-        body: result.value,
-      };
-    }
-
-    return response;
+  let responseBody: unknown;
+  if (route.responses[result.status] === ContractNoBody) {
+    responseBody = undefined;
+  } else if (
+    contentType?.includes('application/') &&
+    contentType?.includes('json')
+  ) {
+    responseBody = await result.json();
+  } else if (contentType?.includes('text/')) {
+    responseBody = await result.text();
+  } else {
+    responseBody = await result.blob();
   }
 
-  if (contentType?.includes('text/')) {
-    return {
+  return finalizeClientResponse(
+    route,
+    {
       status: result.status,
-      body: await result.text(),
+      body: responseBody,
       headers: result.headers,
-    };
-  }
-
-  return {
-    status: result.status,
-    body: await result.blob(),
-    headers: result.headers,
-  };
+    },
+    validateResponse,
+  );
 };
 
 const createFormData = (body: unknown) => {
@@ -225,7 +227,7 @@ export type FetchApiOptions = {
   fetchOptions?: FetchOptions;
 };
 
-export const fetchApi = (options: FetchApiOptions) => {
+export const fetchApi = async (options: FetchApiOptions) => {
   const {
     path,
     clientArgs,
@@ -271,7 +273,6 @@ export const fetchApi = (options: FetchApiOptions) => {
     rawBody: body,
     rawQuery: query,
     contentType: undefined,
-    validateResponse: clientArgs.validateResponse,
     fetchOptions: {
       ...(clientArgs.credentials && { credentials: clientArgs.credentials }),
       ...fetchOptions,
@@ -321,10 +322,12 @@ export const fetchApi = (options: FetchApiOptions) => {
     }
   }
 
-  return apiFetcher({
+  const response = await apiFetcher({
     ...fetcherArgs,
     ...extraInputArgs,
+    validateResponse: false,
   });
+  return finalizeClientResponse(route, response, clientArgs.validateResponse);
 };
 
 export const executeQueryRequest = async <TAppRoute extends AppRoute>(

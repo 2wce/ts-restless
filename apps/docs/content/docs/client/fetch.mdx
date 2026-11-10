@@ -686,6 +686,26 @@ if (result.status === 200) {
   Plain TypeScript types (`c.type<>()`) are not validated at runtime.
 </Callout>
 
+Validation applies to decoded JSON, text and binary bodies, including declared
+error statuses and `c.otherResponse(...)` declarations. The native response's
+content type still selects JSON, text or Blob decoding; a declaration does not
+force a different decoder. Invalid schema bodies reject with `StandardSchemaError`.
+The effective policy is `clientArgs.validateResponse ?? route.validateResponseOnClient`:
+an explicit client `false`, including a request-time `overrideClientOptions`,
+overrides the deprecated route setting. Async schema validators remain unsupported.
+
+A response declared with `c.noBody()` always returns `body: undefined`, whether
+validation is enabled or disabled, with any content type or none. The default
+fetcher skips body decoding for that declaration. Custom fetcher bodies are also
+normalized to `undefined`. A response declared with a JSON schema still needs
+valid JSON bytes: empty and malformed JSON reject with the native parse error.
+Use `c.noBody()` for empty responses rather than a type-only `c.type<undefined>()`.
+
+These consistent text/binary/custom-fetcher checks and no-body normalization are
+F04 development changes, absent from `4.0.0-alpha.4`. Select a containing release
+before relying on them. When upgrading, update code that expected an empty Blob
+from a no-body response to handle `undefined`.
+
 ### Strict Status Codes
 
 Enforce that only status codes defined in your contract are allowed:
@@ -792,6 +812,21 @@ const result = await client.getPokemon({
 ## Custom API Implementation
 
 While the default fetch implementation covers most use cases, you can provide a custom `api` function for advanced scenarios like request/response interceptors, custom error handling, or using alternative HTTP clients.
+
+Custom fetchers own transport and decoding and return `{ status, body, headers }`.
+Shared client execution applies contract validation afterward, once, for both
+`initClient` and query adapters. Remove manual contract validation from custom
+fetchers when adopting F04; return the decoded schema input instead of a value
+already transformed by that schema. Validation failures now reject even if your
+custom fetcher previously ignored `validateResponse`.
+
+Client execution passes `args.validateResponse: false` to the fetcher. Forward
+that flag unchanged when delegating to `tsRestFetchApi`; setting it back to `true`
+or manually validating would run transforms twice. Fetcher response interceptors
+observe the decoded body before shared validation. Direct standalone calls to
+`tsRestFetchApi` retain validation support: pass `validateResponse: true` to
+validate, or `false` to override a route-level setting. The client cannot prevent
+custom code from ignoring this ownership contract.
 
 ### Basic Custom API
 

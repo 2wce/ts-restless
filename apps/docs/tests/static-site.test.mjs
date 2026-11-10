@@ -73,10 +73,10 @@ test('Markdown retains migration availability and warning guidance', async () =>
     resolve(output, 'markdown/ts-restless-migration.md'),
     'utf8',
   );
-  assert.match(migration, /alpha\.3` is published/);
+  assert.match(migration, /alpha\.4` is published/);
   assert.match(migration, /Alpha\.2 does not contain/);
   assert.match(migration, /Stable `4\.0\.0` is not published/);
-  assert.match(migration, /absent from alpha\.3/);
+  assert.match(migration, /absent from alpha\.4/);
   const queryMigration = await readFile(
     resolve(output, 'markdown/query-v5-migration.md'),
     'utf8',

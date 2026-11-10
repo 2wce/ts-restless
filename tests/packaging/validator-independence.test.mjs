@@ -277,7 +277,7 @@ for (const { profile, definition, nextVersion } of consumers) {
           'no-Zod consumer must not install Zod transitively',
         );
       }
-      const source = `import { initContract, executeQueryRequest, evaluateFetchApiArgs, evaluateResponse, ResponseMetadata, ResponseEvaluation, StandardSchemaV1, SchemaInputOrType, SchemaOutputOrType, ServerInferRequest, ClientInferRequest, ClientInferResponseBody } from '@ts-restless/core';
+      const source = `import { initClient, initContract, executeQueryRequest, evaluateFetchApiArgs, evaluateResponse, ResponseMetadata, ResponseEvaluation, StandardSchemaV1, SchemaInputOrType, SchemaOutputOrType, ServerInferRequest, ClientInferRequest, ClientInferResponseBody } from '@ts-restless/core';
 import { createExpressEndpoints, initServer } from '@ts-restless/express';
 import * as fastify from '@ts-restless/fastify';
 import * as nest from '@ts-restless/nest';
@@ -296,6 +296,13 @@ type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B 
 type Expect<T extends true> = T;
 type Input = Expect<Equal<SchemaInputOrType<typeof schema>, string>>;
 type Output = Expect<Equal<SchemaOutputOrType<typeof schema>, number>>;
+const responseContract = initContract().router({
+  text: { method: 'GET', path: '/text', responses: { 200: initContract().otherResponse({ contentType: 'text/plain', body: schema }) } },
+  empty: { method: 'GET', path: '/empty', responses: { 204: initContract().noBody() } },
+});
+const responseClient = initClient(responseContract, { baseUrl: 'https://consumer.example', validateResponse: true });
+type TextOutput = Expect<Equal<Extract<Awaited<ReturnType<typeof responseClient.text>>, { status: 200 }>['body'], number>>;
+type EmptyOutput = Expect<Equal<Extract<Awaited<ReturnType<typeof responseClient.empty>>, { status: 204 }>['body'], undefined>>;
 const contract = initContract().router({ convert: { method: 'POST', path: '/convert', body: schema, headers: { 'X-Count': schema, 'X-Note': optionalHeader }, responses: { 200: schema } } });
 const evaluated: ResponseEvaluation = evaluateResponse({
   appRoute: contract.convert,
@@ -449,7 +456,77 @@ for (const name of ['@ts-restless/core', '@ts-restless/express', '@ts-restless/f
   assert.deepEqual(Object.keys(esm).filter((key) => key !== 'default').sort(), Object.keys(cjs).sort());
 }
 ${definition.replace('schema: StandardSchemaV1<string, number>', 'schema')}
-for (const { validateIfSchema, validateMultiSchemaObject, initContract, StandardSchemaError, evaluateResponse, executeQueryRequest, evaluateFetchApiArgs } of [await import('@ts-restless/core'), require('@ts-restless/core')]) {
+for (const { validateIfSchema, validateMultiSchemaObject, initClient, tsRestFetchApi, initContract, StandardSchemaError, evaluateResponse, executeQueryRequest, evaluateFetchApiArgs } of [await import('@ts-restless/core'), require('@ts-restless/core')]) {
+{
+  let calls = 0;
+  const countedSchema = { '~standard': {
+    ...schema['~standard'], validate(value) {
+      calls += 1;
+      return schema['~standard'].validate(value);
+    },
+  } };
+  const c = initContract();
+  const contract = c.router({
+    json: { method: 'GET', path: '/json', responses: { 200: countedSchema } },
+    text: { method: 'GET', path: '/text', responses: { 200: c.otherResponse({ contentType: 'text/plain', body: countedSchema }) } },
+    error: { method: 'GET', path: '/error', responses: { 400: countedSchema } },
+    empty: { method: 'GET', path: '/empty', responses: { 204: c.noBody() } },
+    binary: { method: 'GET', path: '/binary', responses: { 200: c.otherResponse({
+      contentType: 'application/octet-stream', body: { '~standard': {
+        version: 1, vendor: 'packed-binary', validate(value) {
+          calls += 1;
+          return value instanceof Blob ? { value: value.size } : { issues: [{ message: 'Expected Blob' }] };
+        },
+      } },
+    }) } },
+  });
+  const app = createServer((req, res) => {
+    res.setHeader('x-response', 'preserved');
+    res.setHeader('content-type', req.url === '/json' || req.url === '/empty' ? 'application/json' : req.url === '/binary' ? 'application/octet-stream' : 'text/plain');
+    if (req.url === '/empty') { res.statusCode = 204; res.end(); }
+    else if (req.url === '/error') { res.statusCode = 400; res.end('42'); }
+    else res.end(req.url === '/json' ? '"42"' : req.url === '/binary' ? 'abc' : '42');
+  });
+  await new Promise(resolve => app.listen(0, '127.0.0.1', resolve));
+  const baseUrl = 'http://127.0.0.1:' + app.address().port;
+  try {
+    for (const mode of ['default', 'query', 'delegated', 'custom', 'standalone']) {
+      const api = mode === 'delegated' ? args => tsRestFetchApi(args) : mode === 'custom'
+        ? async args => ({ status: args.path.endsWith('/error') ? 400 : 200, body: '42', headers: new Headers({ 'x-response': 'preserved' }) }) : undefined;
+      const clientArgs = { baseUrl, validateResponse: true, api };
+      const client = initClient(contract, clientArgs);
+      for (const name of ['json', 'text']) {
+        calls = 0;
+        const result = mode === 'query'
+          ? await executeQueryRequest({ ...evaluateFetchApiArgs(contract[name], clientArgs), route: contract[name] })
+          : mode === 'standalone'
+            ? await tsRestFetchApi({ route: contract[name], path: baseUrl + contract[name].path, method: 'GET', headers: {}, body: undefined, rawBody: undefined, rawQuery: undefined, contentType: undefined, validateResponse: true })
+            : await client[name]();
+        assert.equal(result.body, 42);
+        assert.equal(calls, 1);
+        assert.equal(result.headers.get('x-response'), 'preserved');
+      }
+    }
+    const clientArgs = { baseUrl, validateResponse: true };
+    const client = initClient(contract, clientArgs);
+    calls = 0;
+    const binary = await client.binary();
+    assert.equal(binary.body, 3);
+    assert.equal(calls, 1);
+    calls = 0;
+    await assert.rejects(executeQueryRequest({ ...evaluateFetchApiArgs(contract.error, clientArgs), route: contract.error }), error => error.status === 400 && error.body === 42 && error.headers.get('x-response') === 'preserved');
+    assert.equal(calls, 1);
+    calls = 0;
+    assert.equal((await client.empty()).body, undefined);
+    assert.equal(calls, 0);
+    assert.equal((await initClient(contract, { baseUrl, validateResponse: false }).text()).body, '42');
+    assert.equal(calls, 0);
+    const invalid = initClient(contract, { baseUrl, validateResponse: true, api: async () => ({ status: 200, body: {}, headers: new Headers() }) });
+    await assert.rejects(invalid.text(), StandardSchemaError);
+  } finally {
+    await new Promise(resolve => app.close(resolve));
+  }
+}
 {
 const queryRoute = initContract().router({
   read: {
