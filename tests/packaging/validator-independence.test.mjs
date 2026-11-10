@@ -677,13 +677,17 @@ for (const compat of [await import('@ts-restless/core/zod3'), require('@ts-restl
 // Native option interfaces changed arity in Query 5.80; exercise both sides
 // through installed public archives rather than the private workspace helper.
 const queryV5Consumers = [
-  ['5.51.11', '5.51.9'],
-  ['5.80.6', '5.80.6'],
-  ['5.107.1', '5.107.1'],
+  ['5.51.11', '5.51.9', '18.3.1', '18.3.1', '18.3.0'],
+  ['5.80.6', '5.80.6', '18.3.1', '18.3.1', '18.3.0'],
+  ['5.107.1', '5.107.1', '18.3.1', '18.3.1', '18.3.0'],
+  // 5.51.11's native peer allows React18 only. Keep that checkpoint without
+  // pretending every version in the Query5 range admits React19.
+  ['5.80.6', '5.80.6', '19.3.1', '19.3.0', '19.3.0'],
+  ['5.107.1', '5.107.1', '19.3.1', '19.3.0', '19.3.0'],
 ];
 test.each(queryV5Consumers)(
-  'packed React Query %s preserves strict infinite inference and native execution',
-  async (queryVersion, coreVersion) => {
+  'packed React Query %s/Core %s on React %s preserves strict inference and native execution',
+  async (queryVersion, coreVersion, reactVersion, reactTypes, domTypes) => {
     const consumer = await mkdtemp(join(tmpdir(), 'ts-restless-query-v5-'));
     try {
       await writeFile(
@@ -699,21 +703,27 @@ test.each(queryV5Consumers)(
               'file:' + join(archives, 'ts-restless-react-query.tgz'),
             '@tanstack/react-query': queryVersion,
             '@tanstack/query-core': coreVersion,
-            react: '18.3.1',
-            'react-dom': '18.3.1',
-            '@types/react': '18.3.1',
-            '@types/react-dom': '18.3.0',
+            react: reactVersion,
+            'react-dom': reactVersion,
+            '@types/react': reactTypes,
+            '@types/react-dom': domTypes,
             '@types/node': '26.6.5',
+            jsdom: '22.1.0',
           },
         }),
       );
-      execFileSync('pnpm', ['install', '--ignore-scripts'], {
-        cwd: consumer,
-        stdio: 'pipe',
-        env: process.env,
-      });
+      execFileSync(
+        'pnpm',
+        ['install', '--ignore-scripts', '--strict-peer-dependencies'],
+        {
+          cwd: consumer,
+          stdio: 'pipe',
+          env: process.env,
+        },
+      );
       const source = `import { initContract } from '@ts-restless/core';
 import { initTsrReactQuery } from '@ts-restless/react-query';
+import { createElement, type PropsWithChildren } from 'react';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends
   (<T>() => T extends B ? 1 : 2) ? true : false;
@@ -729,6 +739,15 @@ const contract = c.router({
       404: c.type<{ missing: true }>(),
     },
   },
+  write: {
+    method: 'POST',
+    path: '/pages',
+    body: c.type<{ value: string }>(),
+    responses: {
+      200: c.type<{ saved: string }>(),
+      404: c.type<{ missing: true }>(),
+    },
+  },
 });
 const api = initTsrReactQuery(contract, { baseUrl: 'https://example.test' });
 const normal = api.pages.useQuery({
@@ -737,6 +756,29 @@ const normal = api.pages.useQuery({
   select: response => response.body.value,
 });
 type Normal = Expect<Equal<typeof normal.data, string | undefined>>;
+type DeclaredError = Expect<Equal<
+  Extract<NonNullable<typeof normal.error>, { status: 404 }>['body'],
+  { missing: true }
+>>;
+const mutation = api.write.useMutation();
+type MutationBody = Expect<Equal<
+  Parameters<typeof mutation.mutate>[0]['body'], { value: string }
+>>;
+type MutationData = Expect<Equal<
+  NonNullable<typeof mutation.data>['body'], { saved: string }
+>>;
+mutation.mutate({ body: { value: 'saved' } });
+// @ts-expect-error mutation body is contract typed
+mutation.mutate({ body: { value: 1 } });
+// @ts-expect-error mutation variables are not wrapped in queryData
+mutation.mutate({ queryData: { body: { value: 'saved' } } });
+const Provider = ({ children }: PropsWithChildren) =>
+  createElement(api.ReactQueryProvider, null, children);
+const cache = api.useQueryClient();
+const cached = cache.pages.getQueryData(['normal']);
+type CachedBody = Expect<Equal<
+  NonNullable<typeof cached>['body'], { next: number; value: string }
+>>;
 const infinite = api.pages.useInfiniteQuery({
   queryKey: ['infinite'],
   initialPageParam: 0,
@@ -769,34 +811,50 @@ const initial = api.pages.useInfiniteQuery({
 });
 type Initial = Expect<Equal<typeof initial.data, string[]>>;
 `;
-      for (const extension of ['mts', 'cts']) {
-        const file = 'consumer.' + extension;
-        await writeFile(join(consumer, file), source);
-        execFileSync(
-          process.execPath,
-          [
-            resolve(root, 'node_modules/typescript/bin/tsc'),
-            '--noEmit',
-            '--strict',
-            '--pretty',
-            'false',
-            '--target',
-            'es2024',
-            '--module',
-            'nodenext',
-            '--moduleResolution',
-            'nodenext',
-            '--esModuleInterop',
-            file,
-          ],
-          { cwd: consumer, stdio: 'pipe' },
-        );
+      for (const entry of ['', '/v5']) {
+        for (const extension of ['mts', 'cts']) {
+          const file = 'consumer' + (entry ? '-v5' : '') + '.' + extension;
+          await writeFile(
+            join(consumer, file),
+            source.replace(
+              "from '@ts-restless/react-query'",
+              "from '@ts-restless/react-query" + entry + "'",
+            ),
+          );
+          execFileSync(
+            process.execPath,
+            [
+              resolve(root, 'node_modules/typescript/bin/tsc'),
+              '--noEmit',
+              '--strict',
+              '--pretty',
+              'false',
+              '--target',
+              'es2024',
+              '--module',
+              'nodenext',
+              '--moduleResolution',
+              'nodenext',
+              '--esModuleInterop',
+              file,
+            ],
+            { cwd: consumer, stdio: 'pipe' },
+          );
+        }
       }
       await writeFile(
         join(consumer, 'runtime.mjs'),
         `
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { JSDOM } from 'jsdom';
+const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+  url: 'https://react.example',
+});
+globalThis.window = dom.window;
+globalThis.document = dom.window.document;
+globalThis.HTMLElement = dom.window.HTMLElement;
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const require = createRequire(import.meta.url);
 for (const load of [specifier => import(specifier), async specifier => require(specifier)]) {
   const { initContract } = await load('@ts-restless/core');
@@ -807,7 +865,7 @@ for (const load of [specifier => import(specifier), async specifier => require(s
     pages: { method: 'GET', path: '/pages', query: c.type(),
       responses: { 200: c.type(), 404: c.type() } },
   });
-  const native = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const native = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
   const cursors = [];
   const failure = { status: 404, body: { missing: true }, headers: new Headers() };
   let failLater = false;
@@ -865,7 +923,106 @@ for (const load of [specifier => import(specifier), async specifier => require(s
   } finally {
     native.clear();
   }
+
+  const { createElement, act } = await load('react');
+  const { createRoot } = await load('react-dom/client');
+  const { QueryClientProvider } = await load('@tanstack/react-query');
+  async function waitForState(predicate) {
+    const deadline = Date.now() + 5000;
+    while (!predicate()) {
+      assert.ok(Date.now() < deadline, 'rendered hook state did not settle');
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
+    }
+  }
+  for (const entry of ['@ts-restless/react-query', '@ts-restless/react-query/v5']) {
+    const { initTsrReactQuery: init } = await load(entry);
+    const hookClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false, gcTime: Infinity },
+        mutations: { retry: false, gcTime: Infinity },
+      },
+    });
+    const hookContract = c.router({
+      read: { method: 'GET', path: '/item/:id',
+        responses: { 200: c.type(), 404: c.type() } },
+      write: { method: 'POST', path: '/item', body: c.type(),
+        responses: { 200: c.type(), 404: c.type() } },
+    });
+    const missing = { status: 404, body: { missing: true }, headers: new Headers() };
+    const transportError = new Error('transport unavailable');
+    let value = 'first';
+    const tsr = init(hookContract, {
+      baseUrl: 'https://react.example',
+      api: async args => {
+        if (args.method === 'POST') {
+          assert.equal(args.headers['content-type'], 'application/json');
+          assert.equal(args.body, JSON.stringify(args.rawBody));
+          assert.equal(args.fetchOptions.signal, undefined);
+          if (args.rawBody.value === 'missing') return missing;
+          value = args.rawBody.value;
+          return { status: 200, body: { saved: value }, headers: new Headers() };
+        }
+        if (args.path.endsWith('/missing')) return missing;
+        if (args.path.endsWith('/transport')) throw transportError;
+        assert.equal(args.path, 'https://react.example/item/1');
+        return { status: 200, body: { value }, headers: new Headers() };
+      },
+    });
+    const state = {};
+    function Probe() {
+      state.query = tsr.read.useQuery({
+        queryKey: ['item'], queryData: { params: { id: '1' } },
+        select: response => response.body.value,
+      });
+      state.missing = tsr.read.useQuery({
+        queryKey: ['missing'], queryData: { params: { id: 'missing' } },
+      });
+      state.transport = tsr.read.useQuery({
+        queryKey: ['transport'], queryData: { params: { id: 'transport' } },
+      });
+      state.mutation = tsr.write.useMutation({
+        onSuccess: () => state.cache.invalidateQueries({ queryKey: ['item'] }),
+      });
+      state.cache = tsr.useQueryClient();
+      return createElement('output', null, state.query.data);
+    }
+    const container = document.createElement('div');
+    document.body.append(container);
+    const rendered = createRoot(container);
+    try {
+      await act(async () => {
+        rendered.render(createElement(QueryClientProvider, { client: hookClient },
+          createElement(tsr.ReactQueryProvider, null, createElement(Probe))));
+      });
+      await waitForState(() => state.query.isSuccess && state.missing.isError && state.transport.isError);
+      assert.equal(container.textContent, 'first');
+      assert.equal(state.missing.error, missing);
+      assert.equal(state.transport.error, transportError);
+      assert.deepEqual(state.cache.read.getQueryData(['item']).body, { value: 'first' });
+      assert.equal(state.cache.read.getQueryData(['item']), hookClient.getQueryData(['item']));
+      let saved;
+      await act(async () => {
+        saved = await state.mutation.mutateAsync({ body: { value: 'updated' } });
+      });
+      await waitForState(() => state.query.data === 'updated' && state.mutation.isSuccess);
+      assert.deepEqual(saved.body, { saved: 'updated' });
+      assert.equal(container.textContent, 'updated');
+      assert.deepEqual(hookClient.getQueryData(['item']).body, { value: 'updated' });
+      await act(async () => {
+        await assert.rejects(state.mutation.mutateAsync({ body: { value: 'missing' } }),
+          error => error === missing);
+      });
+      await waitForState(() => state.mutation.isError);
+      assert.equal(state.mutation.error, missing);
+      assert.equal(container.textContent, 'updated');
+    } finally {
+      await act(async () => { rendered.unmount(); });
+      hookClient.clear();
+      container.remove();
+    }
+  }
 }
+dom.window.close();
 `,
       );
       execFileSync(process.execPath, ['runtime.mjs'], {

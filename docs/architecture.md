@@ -26,6 +26,6 @@ Library source lives under `libs/ts-rest`. `react-query-v5` is an implementation
 
 ## Support and release boundaries
 
-Consult [the inventory](support-inventory.md) for exact peers, pinned consumers and known gaps. Initial stable support includes Query5 and Next15/16; React19 verification is still separate. [The retirement policy](support-policy.md) distinguishes the initial stable baseline from retiring an already published stable promise.
+Consult [the inventory](support-inventory.md) for exact peers, pinned consumers and known gaps. Initial stable support includes Query5 and Next15/16. React18/19 compatibility is verified with compatible native Query versions; check the containing release before installing React19 support. [The retirement policy](support-policy.md) distinguishes the initial stable baseline from retiring an already published stable promise.
 
 Coordinated Changesets prereleases use reviewed version PRs and explicit prerelease tags. Stable activation is separate. Read [ADR 0007](adr/0007-public-coordinated-releases.md) and the [release checklist](prerelease-checklist.md). Source, locally verified artifacts, merged code and published packages are different evidence states.
