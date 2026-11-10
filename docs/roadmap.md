@@ -36,6 +36,10 @@ The [epic](plans/2026-11-04-adapter-maintenance-epic.md) retains detailed delive
 | A18 Upgrade rehearsal                                 | Partial: migration guides and native consumer checks delivered; broader composition/upgrade rehearsal remains.                                                                 |
 | A19 Legacy retirement                                 | Partial: initial Next/Query baselines adopted; other retirements require their own decision and policy process.                                                                |
 
+## Upstream empty-body follow-up
+
+Draft [#30](https://github.com/2wce/ts-restless/pull/30), verified against main `1fcd7a61`: [#772](https://github.com/ts-rest/ts-rest/issues/772) reproduces in serverless JSON request decoding and AWS undefined-response serialization. The bounded fixes and [evidence](evidence/2026-11-10-empty-body-reproduction.md) have a [scoped plan](plans/2026-11-10-serverless-empty-body.md). The original #696 parse exception was not reproduced; its no-body client type/runtime mismatch belongs to F04. These changes require a containing release after alpha.4.
+
 ## Resuming work
 
 Select one slice, verify prerequisites against current source and read its ADRs, historical design and acceptance criteria. Update this index with the actual PR/commit when implementation lands. Record publication separately with the containing version and registry evidence; no retirement clock starts from a plan or unreleased replacement.

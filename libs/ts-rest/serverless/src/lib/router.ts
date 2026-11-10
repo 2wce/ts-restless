@@ -182,7 +182,11 @@ const tsRestMiddleware = <TPlatformArgs, TRequestExtension>(
   const evaluateContent = async (request: TsRestRequest) => {
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       if (request.headers.get('content-type')?.includes('json')) {
-        request['content'] = await request.json();
+        const bytes = await request.arrayBuffer();
+        request['content'] =
+          bytes.byteLength === 0
+            ? undefined
+            : JSON.parse(new TextDecoder().decode(bytes));
       } else if (request.headers.get('content-type')?.startsWith('text/')) {
         request['content'] = await request.text();
       }

@@ -819,3 +819,139 @@ describe('tsRestLambda', () => {
     });
   });
 });
+
+describe('empty JSON AWS gateway bodies', () => {
+  const emptyContract = c.router({
+    empty: {
+      method: 'POST',
+      path: '/empty-json',
+      body: z.undefined(),
+      responses: { 200: z.undefined() },
+    },
+    responseOnly: {
+      method: 'GET',
+      path: '/undefined-response',
+      responses: { 200: z.undefined() },
+    },
+    noBody: {
+      method: 'POST',
+      path: '/no-body-json',
+      body: c.noBody(),
+      responses: { 204: c.noBody() },
+    },
+    required: {
+      method: 'POST',
+      path: '/required-json',
+      body: z.object({ value: z.string() }),
+      responses: { 200: z.object({ value: z.string() }) },
+    },
+  });
+  const handler = createLambdaHandler(
+    emptyContract,
+    {
+      empty: async () => ({ status: 200, body: undefined }),
+      responseOnly: async () => ({ status: 200, body: undefined }),
+      noBody: async () => ({ status: 204, body: undefined }),
+      required: async ({ body }) => ({ status: 200, body }),
+    },
+    { responseValidation: true },
+  );
+  const eventFor = (
+    version: number,
+    path: string,
+    method: string,
+    body: string | null,
+  ) =>
+    version === 1
+      ? createV1LambdaRequest({
+          path,
+          httpMethod: method,
+          headers: { 'content-type': 'application/json' },
+          multiValueHeaders: { 'content-type': ['application/json'] },
+          body,
+          isBase64Encoded: false,
+        })
+      : createV2LambdaRequest({
+          rawPath: path,
+          requestContext: { http: { method } },
+          headers: { 'content-type': 'application/json' },
+          body: body ?? undefined,
+          isBase64Encoded: false,
+        });
+
+  it.each([1, 2])(
+    'serializes undefined response as empty nonbinary AWS v%s body',
+    async (version) => {
+      const response = await handler(
+        eventFor(
+          version,
+          '/undefined-response',
+          'GET',
+          null,
+        ) as ApiGatewayEvent,
+        {} as Context,
+      );
+      expect(response).toMatchObject({
+        statusCode: 200,
+        body: '',
+        isBase64Encoded: false,
+      });
+      if (typeof response === 'string')
+        throw new Error('Expected gateway envelope');
+      expect(response.headers?.['content-type']).toBe('application/json');
+    },
+  );
+  it.each([1, 2])(
+    'accepts absent and empty JSON request bytes in AWS v%s',
+    async (version) => {
+      for (const body of [null, '']) {
+        const response = await handler(
+          eventFor(version, '/empty-json', 'POST', body) as ApiGatewayEvent,
+          {} as Context,
+        );
+        expect(response).toMatchObject({
+          statusCode: 200,
+          body: '',
+          isBase64Encoded: false,
+        });
+      }
+      const noBody = await handler(
+        eventFor(version, '/no-body-json', 'POST', null) as ApiGatewayEvent,
+        {} as Context,
+      );
+      expect(noBody).toMatchObject({
+        statusCode: 204,
+        body: '',
+        isBase64Encoded: false,
+      });
+    },
+  );
+  it.each([1, 2])(
+    'validates missing required JSON and retains valid JSON in AWS v%s',
+    async (version) => {
+      const invalid = await handler(
+        eventFor(version, '/required-json', 'POST', null) as ApiGatewayEvent,
+        {} as Context,
+      );
+      if (typeof invalid === 'string')
+        throw new Error('Expected gateway envelope');
+      expect(invalid.statusCode).toBe(400);
+      expect(JSON.parse(invalid.body as string).bodyErrors.name).toBe(
+        'ValidationError',
+      );
+      const valid = await handler(
+        eventFor(
+          version,
+          '/required-json',
+          'POST',
+          '{"value":"input"}',
+        ) as ApiGatewayEvent,
+        {} as Context,
+      );
+      if (typeof valid === 'string')
+        throw new Error('Expected gateway envelope');
+      expect(valid.statusCode).toBe(200);
+      expect(JSON.parse(valid.body as string)).toEqual({ value: 'input' });
+    },
+  );
+});

@@ -3,6 +3,7 @@ import { initContract, TsRestResponseError } from '@ts-restless/core';
 import { parse as parseMultipart, getBoundary } from 'parse-multipart-data';
 import { z } from 'zod';
 import { vi } from 'vitest';
+import { TsRestResponse } from '../response';
 import {
   createFetchHandler,
   FetchHandlerOptions,
@@ -493,4 +494,101 @@ describe('fetchRequestHandler', () => {
     expect(response.headers).toEqual(expectedResponse.headers);
     expect(await response.json()).toEqual(await expectedResponse.json());
   });
+});
+
+describe('empty JSON request bodies', () => {
+  const emptyContract = c.router({
+    empty: {
+      method: 'POST',
+      path: '/empty-json',
+      body: z.undefined(),
+      responses: { 200: z.undefined() },
+    },
+    noBody: {
+      method: 'POST',
+      path: '/no-body-json',
+      body: c.noBody(),
+      responses: { 204: c.noBody() },
+    },
+    required: {
+      method: 'POST',
+      path: '/required-json',
+      body: z.object({ value: z.string() }),
+      responses: { 200: z.object({ value: z.string() }) },
+    },
+  });
+  const handler = createFetchHandler(
+    emptyContract,
+    {
+      empty: async () => ({ status: 200, body: undefined }),
+      noBody: async () => ({ status: 204, body: undefined }),
+      required: async ({ body }) => ({ status: 200, body }),
+    },
+    { responseValidation: true },
+  );
+  const request = (path: string, body?: string) =>
+    new Request('http://localhost' + path, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body,
+    });
+
+  it.each([undefined, ''])(
+    'passes zero-length JSON bytes (%s) to undefined validation',
+    async (body) => {
+      const response = await handler(request('/empty-json', body));
+      expect(response.status).toBe(200);
+      expect(response.rawBody).toBeNull();
+      expect(response.clone().rawBody).toBeNull();
+      expect(await response.text()).toBe('');
+      expect(response.headers.get('content-type')).toBe('application/json');
+    },
+  );
+  it('accepts explicit no-body with JSON content type', async () => {
+    const response = await handler(request('/no-body-json'));
+    expect(response.status).toBe(204);
+    expect(await response.text()).toBe('');
+  });
+  it('rejects a missing required body through contract validation', async () => {
+    const response = await handler(request('/required-json'));
+    expect(response.status).toBe(400);
+    expect((await response.json()).bodyErrors.name).toBe('ValidationError');
+  });
+  it.each(['', String.fromCharCode(0xfeff)])(
+    'preserves nonempty JSON with prefix %s and does not trust content-length',
+    async (prefix) => {
+      const req = request('/required-json', prefix + '{"value":"input"}');
+      req.headers.set('content-length', '0');
+      const response = await handler(req);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ value: 'input' });
+    },
+  );
+  it.each(['{', '   ', String.fromCharCode(0xfeff)])(
+    'retains nonempty malformed JSON (%s) error handling',
+    async (body) => {
+      const caught: unknown[] = [];
+      const routeHandler = vi.fn(async () => ({
+        status: 200 as const,
+        body: undefined,
+      }));
+      const handled = TsRestResponse.fromText('parse failure', { status: 422 });
+      const fetchHandler = createFetchHandler(
+        c.router({ empty: emptyContract.empty }),
+        { empty: routeHandler },
+        {
+          errorHandler: (error) => {
+            caught.push(error);
+            return handled;
+          },
+        },
+      );
+      const response = await fetchHandler(request('/empty-json', body));
+      expect(caught).toHaveLength(1);
+      expect(caught[0]).toBeInstanceOf(SyntaxError);
+      expect(routeHandler).not.toHaveBeenCalled();
+      expect(response).toBe(handled);
+      expect(await response.text()).toBe('parse failure');
+    },
+  );
 });
