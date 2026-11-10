@@ -2,9 +2,9 @@
 
 [The roadmap](../roadmap.md) owns current delivery status; [ADRs](../adr/README.md) own accepted rationale. Dated documents preserve their original baselines and executable acceptance criteria.
 
-## Current documentation work
+## Documentation delivery record
 
-- [Documentation and agent guidance](2026-11-09-documentation-adr.md).
+- [Documentation and agent guidance](2026-11-09-documentation-adr.md), delivered in [PR #24](https://github.com/2wce/ts-restless/pull/24).
 
 ## Retained implementation and design records
 

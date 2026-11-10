@@ -73,8 +73,17 @@ test('Markdown retains migration availability and warning guidance', async () =>
     resolve(output, 'markdown/ts-restless-migration.md'),
     'utf8',
   );
-  assert.match(migration, /alpha\.2/);
-  assert.match(migration, /do not contain|does not contain/);
+  assert.match(migration, /alpha\.3` is published/);
+  assert.match(migration, /Alpha\.2 does not contain/);
+  assert.match(migration, /Stable `4\.0\.0` is not published/);
+  assert.match(migration, /absent from alpha\.3/);
+  const queryMigration = await readFile(
+    resolve(output, 'markdown/query-v5-migration.md'),
+    'utf8',
+  );
+  assert.match(queryMigration, /alpha\.3` is the first published release/);
+  assert.doesNotMatch(queryMigration, /draft PR #22/);
+  assert.match(migration, /alpha\.2.*native Query4/);
   assert.match(migration, /release notes/);
   const fetch = await readFile(
     resolve(output, 'markdown/client/fetch.md'),
