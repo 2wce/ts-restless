@@ -1,5 +1,7 @@
 # @ts-rest/next
 
+## 4.0.0-alpha.3
+
 ## 4.0.0-alpha.2
 
 ### Major Changes

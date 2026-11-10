@@ -34,6 +34,7 @@
   },
   "changesets": [
     "big-camels-complain",
+    "common-query-execution",
     "cuddly-lions-buy",
     "fastify-response-evaluation",
     "giant-dragons-burn",
@@ -44,6 +45,8 @@
     "next-supported-majors",
     "odd-papayas-happen",
     "plenty-seahorses-wait",
+    "query-v5-infinite-compatibility",
+    "query-v5-only",
     "rare-elephants-itch",
     "response-contract-evaluation",
     "rich-coins-move",
