@@ -3,7 +3,11 @@ import { loader } from 'fumadocs-core/source';
 
 export const docs = defineDocs({
   dir: 'content/docs',
-  docs: { async: true, files: ['**/*.mdx', '**/*.md'] },
+  docs: {
+    async: true,
+    files: ['**/*.mdx', '**/*.md'],
+    postprocess: { includeProcessedMarkdown: { output: 'function' } },
+  },
 });
 
 export const source = loader({

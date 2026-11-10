@@ -13,7 +13,7 @@ Contract-first, end-to-end typed REST for TypeScript. A maintained fork of [ts-r
 
 ## Release status
 
-The first stable ts-restless release will be **4.0.0**, with interim `4.0.0-alpha.*` prereleases while compatibility fixes continue. All ten public libraries have published `4.0.0-alpha.1`, available through the explicit `@alpha` npm channel (registry verified 2026-11-06). Stable `4.0.0` is not published. Historical `0.0.0-stage` registration placeholders remain on npm. These placeholders contain no library code and must not be installed.
+The first stable ts-restless release will be **4.0.0**, with interim `4.0.0-alpha.*` prereleases while compatibility fixes continue. Published alpha.0–alpha.2 prereleases are available; the merged Query v5 migration is development source until a containing release is published. Consult the [migration guide](apps/docs/content/docs/ts-restless-migration.mdx) and [release notes](https://github.com/2wce/ts-restless/releases) before selecting a version. Stable `4.0.0` is not published. Historical `0.0.0-stage` registration placeholders remain on npm. These placeholders contain no library code and must not be installed.
 
 This development checkout uses `@ts-restless/*` package names. Its examples describe this fork's source, which includes breaking changes from published upstream v3. Start with the [fork migration checklist](apps/docs/content/docs/ts-restless-migration.mdx) for every removed support line and API, then follow the [Query v5](apps/docs/content/docs/query-v5-migration.mdx) and [Standard Schema](apps/docs/content/docs/standard-schema-migration.mdx) guides as applicable.
 
@@ -100,8 +100,7 @@ The full framework and validator compatibility matrix runs in CI using fresh
 consumer checkouts and the built tarballs. Local development does not need Make
 or the full compatibility matrix.
 
-Releases remain paused. See [CONTRIBUTING.md](CONTRIBUTING.md) for workspace,
-compatibility and release commands.
+Stable publication remains paused; prereleases follow the reviewed release-PR workflow. See [CONTRIBUTING.md](CONTRIBUTING.md) for commands, [the documentation map](docs/README.md) for architecture and ADRs, and [the roadmap](docs/roadmap.md) for delivery status.
 
 ## Contributors ✨
 

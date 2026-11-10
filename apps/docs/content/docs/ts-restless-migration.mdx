@@ -7,7 +7,7 @@ description: A checklist for moving from ts-rest v3 or earlier fork prereleases 
 
 ## Choose the release first
 
-The first stable target is **ts-restless 4.0.0**. This guide describes the development baseline, including the proposed TanStack Query v5-only migration. That migration is in [draft PR #22](https://github.com/2wce/ts-restless/pull/22); existing `4.0.0-alpha.2` artifacts do not contain it. Check the [fork release notes](https://github.com/2wce/ts-restless/releases) for the first release that includes the changes you need. A source example or passing draft PR does not mean the change is available on npm.
+The first stable target is **ts-restless 4.0.0**. This guide describes the development baseline, including the approved TanStack Query v5-only migration merged in [PR #22](https://github.com/2wce/ts-restless/pull/22). Existing `4.0.0-alpha.2` artifacts do not contain it; merge does not establish publication. Check the [fork release notes](https://github.com/2wce/ts-restless/releases) for the first release that includes the changes you need. A source example or passing draft PR does not mean the change is available on npm.
 
 Prereleases use explicit `alpha`, `beta` or `rc` npm tags. Stable `4.0.0` is not published. Do not infer stability from npm's `latest` tag or install the historical `0.0.0-stage` registration placeholders, which contain no library code. For a reproducible migration, pin the exact released version from its notes across all the ts-restless libraries you use. The moving `@alpha` tag is useful for evaluation, but may point to an earlier baseline than these docs.
 

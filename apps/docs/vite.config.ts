@@ -20,6 +20,20 @@ export default defineConfig({
     tanstackStart({
       pages: [
         ...pages,
+        ...pages.map(({ path }) => {
+          const markdownPath = `/markdown/${path.slice(1) || 'index'}.md`;
+          return {
+            path: markdownPath,
+            prerender: {
+              outputPath: markdownPath.slice(1),
+              autoSubfolderIndex: false,
+            },
+          };
+        }),
+        {
+          path: '/llms.txt',
+          prerender: { outputPath: 'llms.txt', autoSubfolderIndex: false },
+        },
         {
           path: '/404',
           prerender: { outputPath: '404.html', autoSubfolderIndex: false },
@@ -46,7 +60,10 @@ export default defineConfig({
       'dev-app': { command: 'vp dev', cache: false },
       'start-app': { command: 'vp preview', cache: false },
       'test-site': {
-        command: 'node --test tests/static-site.test.mjs',
+        command: [
+          'node ../../scripts/check-doc-links.mjs',
+          'node --test tests/static-site.test.mjs',
+        ],
         dependsOn: ['build-app'],
         cache: false,
       },
