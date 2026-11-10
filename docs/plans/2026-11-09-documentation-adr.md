@@ -7,7 +7,7 @@
 **Tech stack:** Existing Node26.12.0/pnpm12.14.0, TanStack Start, Fumadocs MDX15.4.8/Core16.17.7 and node:test. No new dependencies.
 **Design:** The user approved the compact structure on 2026-11-09, with AI guidance for both contributors and package consumers.
 **Baseline:** main `bcf8bb24`; isolated branch `feat/documentation-adr`.
-**Status:** Implemented locally; this plan's checkpoints track this change. Subsequent delivery status belongs in [the roadmap](../roadmap.md).
+**Status:** Delivered for review in [draft PR #24](https://github.com/2wce/ts-restless/pull/24); this plan's checkpoints track this change. Subsequent delivery status belongs in [the roadmap](../roadmap.md).
 
 ## Constraints
 
@@ -37,7 +37,7 @@
 
 - [x] Document editing rules and export routes in the existing contributor/docs app guidance. Add a lightweight repository Markdown file-link checker to the existing docs test task; extend tests only for meaningful export behavior.
 - [x] Run `pnpm check`, `pnpm --filter @ts-restless/docs test`, the Markdown link checker and `git diff --check`. Confirm library sources, manifests, lockfile and Changesets are unchanged.
-- [ ] Review the final diff for preserved history, source/release separation and duplicated current statuses. Record counts and commands below, commit, push and open/attach a draft PR.
+- [x] Review the final diff for preserved history, source/release separation and duplicated current statuses. Record counts and commands below, commit, push and open/attach a draft PR.
 
 ## Execution evidence
 
