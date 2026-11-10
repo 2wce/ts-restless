@@ -37,6 +37,49 @@ createExpressEndpoints(contract, router, app);
 `createExpressEndpoints` is a function that takes a contract, a corresponding router with implementations and middleware for each endpoint, and an express app, and it will
 create the corresponding express routes for each endpoint with the correct method, paths, and middleware and attach them to your express app.
 
+## Validated arguments and the native request
+
+Handler arguments `params`, `query`, `body` and `headers` contain the contract's validated outputs, including transforms and defaults. The original Express `req` is passed through unchanged. Global and route middleware run before contract validation, including for invalid requests.
+
+| Native field | Type and behavior |
+| --- | --- |
+| `req.params` | String path parameters inferred from the URL; optional segments can be absent. Schema transforms and defaults do not change them. |
+| `req.query` | Express's parser-owned query type, including strings, arrays, nested objects or missing values. `jsonQuery` decodes only the validated handler argument. |
+| `req.headers` | Native `IncomingHttpHeaders`; Node normalizes names to lowercase. Contract header transforms/defaults do not alter the raw values. |
+| `req.body` | `unknown`, because it depends on the installed parser and may be absent or invalid in middleware. Narrow or validate it explicitly when raw access is required. |
+
+Prefer the validated arguments in handlers:
+
+```typescript twoslash
+import { initContract } from '@ts-restless/core';
+import { initServer } from '@ts-restless/express';
+import { z } from 'zod';
+const c = initContract();
+const contract = c.router({
+  update: {
+    method: 'POST', path: '/items/:id',
+    pathParams: z.object({ id: z.string().transform(Number) }),
+    body: z.object({ value: z.string().transform(Number) }),
+    responses: { 200: c.type<{ id: number; value: number }>() },
+  },
+});
+const s = initServer();
+// ---cut---
+const router = s.router(contract, {
+  update: async ({ params, body, req }) => {
+    const rawId: string = req.params.id;
+    const rawBody: unknown = req.body;
+    return { status: 200, body: { id: params.id, value: body.value } };
+  },
+});
+```
+
+When upgrading from the old raw-request typing, replace transformed reads such as `req.body.value` with `body.value`, `req.query.count` with `query.count`, and transformed path/header reads with `params`/`headers`. Middleware cannot use these validated arguments; validate its raw inputs explicitly and handle missing/defaulted fields there. Revalidate only when that middleware needs its own policy, since non-idempotent transforms must not be mistaken for raw values.
+
+Custom `requestValidationErrorHandler` callbacks run in Express error middleware, where Express can clear the matched route parameters. Their `req.params` values are therefore optional even for required URL segments; check for absence before using them. Query, headers and body stay native, and `req.tsRestRoute` identifies the contract route. Route/global middleware and successful handlers still receive their matched URL parameters.
+
+The former third `TsRestRequest<T, F, S>` inference generic is removed. Prefer `TsRestRequest<typeof contract>` or `TsRestRequest<typeof contract.update>`; use the native Express `Request` generics for separately parsed requests outside this adapter. This typing correction is in development source; published alpha.3 still has the old raw-request types. Select a release containing F02 before relying on it.
+
 ## Options
 
 You can pass an optional options object as the last argument for `createExpressEndpoints`.

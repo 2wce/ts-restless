@@ -2,7 +2,7 @@
   "compilerOptions": {
     // Enable latest features
     "lib": ["ESNext", "DOM"],
-    "target": "ESNext",
+    "target": "ES2024",
     "module": "ESNext",
     "moduleDetection": "force",
     "jsx": "react-jsx",
@@ -16,7 +16,7 @@
 
     // Best practices
     "strict": true,
-    "skipLibCheck": true,
+    "skipLibCheck": false,
     "noFallthroughCasesInSwitch": true,
 
     // Some stricter flags (disabled by default)

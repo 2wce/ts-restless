@@ -46,6 +46,7 @@
 - [Fork migration documentation audit](2026-11-09-migration-documentation.md).
 - [TanStack Query v5-only baseline](2026-11-09-query-v5-baseline-design.md).
 - [Query v5 baseline implementation plan](2026-11-09-query-v5-baseline.md).
+- [Express raw request typing implementation plan](2026-11-10-express-raw-request.md).
 - [Current Query v5 compatibility implementation plan](2026-11-09-query-v5-compatibility.md).
 - [Fork adoption and first-release backlog](release-readiness-backlog.md).
 

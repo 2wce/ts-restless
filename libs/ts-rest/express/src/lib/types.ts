@@ -5,6 +5,7 @@ import {
   AppRouteQuery,
   AppRouter,
   FlattenAppRouter,
+  ParamsFromUrl,
   ServerInferRequest,
   ServerInferResponseBody,
   ServerInferResponses,
@@ -37,21 +38,19 @@ export type AppRouteImplementation<T extends AppRoute> =
       ? AppRouteQueryImplementation<T>
       : never;
 
+/**
+ * The untouched native request. Only the handler's top-level arguments have
+ * passed contract validation. Parsers and middleware own the raw body/query.
+ */
 export type TsRestRequest<
   T extends AppRouter | AppRoute,
   F extends FlattenAppRouter<T> = FlattenAppRouter<T>,
-  S extends ServerInferRequest<F> = ServerInferRequest<F>,
 > = Request<
-  'params' extends keyof S ? S['params'] : Express['request']['params'],
-  ServerInferResponseBody<F>,
-  'body' extends keyof S ? S['body'] : Express['request']['body'],
-  'query' extends keyof S ? S['query'] : Express['request']['query']
-> & {
-  tsRestRoute: F;
-  headers: 'headers' extends keyof S
-    ? S['headers']
-    : Express['request']['headers'];
-};
+  ParamsFromUrl<F['path']>,
+  F extends AppRoute ? ServerInferResponseBody<F> : never,
+  unknown,
+  Express['request']['query']
+> & { tsRestRoute: F };
 
 export type TsRestRequestHandler<T extends AppRouter | AppRoute> = (
   req: TsRestRequest<T>,
@@ -86,6 +85,14 @@ export type RouterImplementation<T extends AppRouter> = {
       : never;
 };
 
+type TsRestValidationErrorRequest<T extends AppRouter> = Omit<
+  TsRestRequest<FlattenAppRouter<T>>,
+  'params'
+> & {
+  // Express can rematch the error middleware layer and clear route params.
+  params: Partial<TsRestRequest<FlattenAppRouter<T>>['params']>;
+};
+
 export type TsRestExpressOptions<T extends AppRouter> = {
   logInitialization?: boolean;
   jsonQuery?: boolean;
@@ -96,7 +103,7 @@ export type TsRestExpressOptions<T extends AppRouter> = {
     | 'combined'
     | ((
         err: RequestValidationError,
-        req: TsRestRequest<FlattenAppRouter<T>>,
+        req: TsRestValidationErrorRequest<T>,
         res: Response,
         next: NextFunction,
       ) => void);
