@@ -38,7 +38,7 @@ The [epic](plans/2026-11-04-adapter-maintenance-epic.md) retains detailed delive
 
 ## Upstream empty-body follow-up
 
-In progress against main `1fcd7a61`: [#772](https://github.com/ts-rest/ts-rest/issues/772) reproduces in serverless JSON request decoding and AWS undefined-response serialization. The bounded fixes and [evidence](evidence/2026-11-10-empty-body-reproduction.md) have a [scoped plan](plans/2026-11-10-serverless-empty-body.md). The original #696 parse exception was not reproduced; its no-body client type/runtime mismatch belongs to F04. These changes require a containing release after alpha.4.
+Draft [#30](https://github.com/2wce/ts-restless/pull/30), verified against main `1fcd7a61`: [#772](https://github.com/ts-rest/ts-rest/issues/772) reproduces in serverless JSON request decoding and AWS undefined-response serialization. The bounded fixes and [evidence](evidence/2026-11-10-empty-body-reproduction.md) have a [scoped plan](plans/2026-11-10-serverless-empty-body.md). The original #696 parse exception was not reproduced; its no-body client type/runtime mismatch belongs to F04. These changes require a containing release after alpha.4.
 
 ## Resuming work
 
