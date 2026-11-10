@@ -19,7 +19,7 @@ Each row identifies a removed support line, moved API or changed behavior and it
 | --- | --- | --- |
 | `@ts-rest/*` dependencies and imports | The matching `@ts-restless/*` packages | [Replace the complete package set](#package-migration), including shared contracts and public subpaths. |
 | Next.js 12, 13 or 14 | A current patched Next.js 15 or 16 release | [Upgrade Next first](#nextjs-1214), retaining your existing router integration. |
-| React 16 or 17 with the React Query adapter | React 18 and matching React/DOM types | [Upgrade React before Query](/query-v5-migration#upgrade-order). React 19 remains a separate compatibility gate. |
+| React 16 or 17 with the React Query adapter | React 18 or 19 and matching React/DOM types | [Upgrade React before Query](/query-v5-migration#upgrade-order). React 19 also needs a containing adapter release and compatible native Query peers. |
 | TanStack Query v4 in React, Vue or Solid | The framework's native Query v5 package | [Query v5 migration](/query-v5-migration), including native options, providers, status flags and pagination. |
 | React root `initQueryClient`, `useTsRestQueryClient` and positional hooks | `initTsrReactQuery`, its providers, object options and `tsr.useQueryClient()` | [React API replacements](/query-v5-migration#react-api-replacements), including mutations, cache access and SSR. |
 | React v4 wrapper types, `includeThrownErrorsInErrorType`, and top-level request `cache` / `next` | Inferred v5 hook/client types, an error union including `Error`, and `queryData.fetchOptions` | [Options and types](/query-v5-migration#react-options-and-types). |
@@ -77,7 +77,7 @@ The first stable v4 baseline supports Next.js **15 and 16** through `@ts-restles
 
 You do not need to change router style to adopt the supported Next major. Apply native framework changes from the upgrade guide, such as asynchronous request APIs where required. On Next 15 and newer, replace the removed `NextRequest.geo` / `ip` properties with the deployment provider's documented headers or helpers. For example, `nextRequest.headers.get('x-vercel-ip-country')` supplies country on deployments that provide that header; it can be absent elsewhere. Use only trusted provider headers for IP-based decisions.
 
-Next and React Query have separate compatibility ranges. The public React Query adapter currently declares React 18, while Next 16 may require React 19. A passing Next adapter example does not certify that combined React Query application. Verify the selected release's public React peer before combining these integrations; React 19 support remains pending.
+Next and React Query have separate compatibility ranges. This source supports React 18 and 19 in the public Query adapter; published alpha.3 still supports React 18 only. Next 16.4.2 permits React 18.2 or 19 through its native peer range. A passing Next adapter example does not certify a combined React Query application. For React 19, select a ts-restless release containing F03a and a native Query version that also admits React 19; see [verified combinations](/query-v5-migration#upgrade-order).
 
 ## If you cannot upgrade yet
 
@@ -99,7 +99,7 @@ Do not bypass peer checks to treat an unsupported combination as supported.
 
 ## Retained features and current limits
 
-Express 4/5, Nest 9–12, Fastify 4, the Zod 3 bridge and all ten public libraries remain in the baseline. Fastify 5 and public React 19 are pending additions, rather than support removed by this migration. Peer ranges describe allowed versions; release notes identify the combinations actually tested.
+Express 4/5, Nest 9–12, Fastify 4, the Zod 3 bridge and all ten public libraries remain in the baseline. React 18/19 compatibility is verified in this source; React 19 still needs a containing release and compatible native Query peers. Fastify 5 remains a pending addition. Peer ranges describe allowed versions; release notes identify the combinations actually tested.
 
 The [OpenAPI Zod 3 default converter is retained](/standard-schema-migration#openapi). Changing runtime validation to Standard Schema does not automatically add JSON Schema generation for a new validator; use a matching converter when changing validators.
 

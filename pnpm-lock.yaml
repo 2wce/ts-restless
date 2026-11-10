@@ -1411,7 +1411,7 @@ importers:
   libs/ts-rest/react-query:
     dependencies:
       react:
-        specifier: ^18.0.0
+        specifier: ^18.0.0 || ^19.0.0
         version: 18.3.1
     devDependencies:
       '@tanstack/react-query':

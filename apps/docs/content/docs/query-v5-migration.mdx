@@ -7,11 +7,13 @@ The first stable **ts-restless v4** baseline supports **TanStack Query v5 only**
 
 ## Upgrade order
 
-1. For React applications, upgrade React/React DOM and their types to **18** before adopting this adapter. React 16/17 are excluded; React 19 support is a separate pending gate. Follow the [React 18 upgrade guide](https://react.dev/blog/2022/03/08/react-18-upgrade-guide), including `createRoot` when required.
+1. For React applications, align React/React DOM and their types on **18 or 19** before adopting a containing adapter release. React 16/17 are excluded. Follow the [React 18 upgrade guide](https://react.dev/blog/2022/03/08/react-18-upgrade-guide) or [React 19 upgrade guide](https://react.dev/blog/2024/04/25/react-19-upgrade-guide), including `createRoot` when required. For React 19, select a native Query version whose own React peer also allows 19.
 2. Install the framework's native Query v5 dependency explicitly. Use `@tanstack/react-query@5`, `@tanstack/vue-query@5` or `@tanstack/solid-query@5`, plus the matching native devtools v5 if you use them. Align native Query/Core versions and remove stale v4 installations. Solid's moving latest tag may select another major.
 3. Replace your used `@ts-rest/*` packages as a matched set, pinned to a release containing this migration. Convert calls using the examples below, then run the [application verification checklist](/ts-restless-migration#verify-your-application).
 
 For example, after choosing a containing release, a Vue evaluation installs `@ts-restless/core@alpha`, `@ts-restless/vue-query@alpha` and `@tanstack/vue-query@5`. The moving alpha tag alone does not guarantee it contains the migration.
+
+React 19 compatibility is verified with React/DOM 19.3.1 and types 19.3.0 on native Query/Core 5.80.6 and 5.107.1. The retained Query 5.51.11/Core 5.51.9 checkpoint supports React 18; its native React peer excludes 19. Keep the adapter's Query 5 range and satisfy both packages' peers when selecting a pair. React 18.3.1 remains checked on all three Query checkpoints. This evidence covers providers, hooks and strict public inference; test your application's SSR/hydration separately if used.
 
 ## React API replacements
 
