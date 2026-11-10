@@ -77,7 +77,7 @@ The first stable v4 baseline supports Next.js **15 and 16** through `@ts-restles
 
 You do not need to change router style to adopt the supported Next major. Apply native framework changes from the upgrade guide, such as asynchronous request APIs where required. On Next 15 and newer, replace the removed `NextRequest.geo` / `ip` properties with the deployment provider's documented headers or helpers. For example, `nextRequest.headers.get('x-vercel-ip-country')` supplies country on deployments that provide that header; it can be absent elsewhere. Use only trusted provider headers for IP-based decisions.
 
-Next and React Query have separate compatibility ranges. The public React Query adapter currently declares React 18, and Next 16 permits React 18 or 19 according to its native peer range. A passing Next adapter example does not certify that combined React Query application. Verify the selected release's public React peer before combining these integrations; React 19 support remains pending.
+Next and React Query have separate compatibility ranges. The public React Query adapter currently declares React 18, while Next 16 may require React 19. A passing Next adapter example does not certify that combined React Query application. Verify the selected release's public React peer before combining these integrations; React 19 support remains pending.
 
 ## If you cannot upgrade yet
 
