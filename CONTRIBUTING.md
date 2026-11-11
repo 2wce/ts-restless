@@ -119,8 +119,9 @@ use `workspace:*`. Use `catalog:` for versions shared through
 consumer-facing version specs. Shared test tooling stays at the root.
 The current workspace framework baselines are Next 16.4.2 and Nest 12.2.0
 (with Swagger 12.0.2). Nest tests use the matching platform adapters and their
-local Fastify 5.12.7 dependency. The standalone Fastify adapter retains its 4.x
-baseline. Nest 9/10/11 compatibility fixtures keep their separate installations.
+local Fastify 5.12.7 dependency. The standalone Fastify source suites and example retain their 4.x
+baseline through `/legacy`; installed consumers verify Fastify 5 at root and
+Fastify 4 through `/legacy`. Nest 9/10/11 compatibility fixtures keep their separate installations.
 The docs' workspace SDK examples use local Nest 11 dependencies.
 
 Contracts keep `:param?` optional path syntax. The Nest adapter registers

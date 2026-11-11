@@ -41,3 +41,40 @@ The new native5 warning about same-scope error-handler replacement led to regist
 `pnpm test:packages` passed 35 tests across four files, including both new strict native consumers and existing release/consumer probes. `pnpm check` passed formatting/lint/type checks, 782 source tests (two existing todos) and inference/production compiler tasks; zero lint errors and 359 warnings remain. The Fastify example builds. The final docs build/typecheck and 80 documentation checks passed, including the route-metadata/error-scope migration wording. `git diff --check` passed. The lockfile changes only the Fastify adapter peer specifier; workspace Fastify remains4.28.0 and release controls/package versions remain intact.
 
 [ADR0010](../adr/0010-fastify-support-lifecycle.md) records the user's decision to make Fastify4 legacy/deprecated through fork v4 and target removal in fork v5, subject to the stable notice/replacement window. Runtime Node20+ is Fastify5's requirement, not a newly imposed global library floor. These local Node26 checks do not certify all allowed patches, the untested4.0.0/5.0.0 floors, other Node lines, deployed hosts or the CI-only compatibility fixture matrix. Alpha.5 remains Fastify4-only; this addition needs a containing release. The stable retirement clock has not started.
+
+## Follow-up: explicit Fastify 4 legacy entry (approved 2026-11-11)
+
+**Goal:** The root adapter targets native Fastify 5; Fastify 4 applications opt into `@ts-restless/fastify/legacy` during fork v4, with removal targeted for fork v5 under the existing stable migration window.
+
+**Architecture:** Both public entries construct the same internal adapter with an expected native major. Check `app.version` before either registration path adds hooks, routes or an error handler. `registerRouter` throws a useful migration error; `plugin` reports it through Fastify's callback. Native request/reply inference continues to derive from the installed Fastify declarations. Package peers admit both majors; subpath selection is enforced at registration, not by npm or a synthetic native type.
+
+**Tech stack:** Existing TypeScript/Vite+ packer, Vitest source suites and strict installed ESM/CommonJS consumers at Fastify 4.28.0 and 5.12.7. Node 26.12.0 and pnpm 12.14.0.
+
+**Spec:** User-approved root/legacy split in PR #35; [retirement policy](../adr/0004-support-retirement.md). The Zod3 schema helper remains the independent `/zod3` export on either native line.
+
+### Task 2: enforce and verify the entry boundary
+
+**Files:** Fastify `src/index.ts`, new `src/legacy.ts`, shared `src/lib/ts-rest-fastify.ts`, nearby tests, manifest and Vite entries; existing packaging consumers/baseline; native4 example imports. Preserve shared errors/types; do not expose the internal major-selecting factory.
+
+- [x] Add a root-entry test on native4 proving both registration paths reject before routes/hooks are installed; run the focused suite and observe the missing guard.
+- [x] Extend the pinned installed consumers to load `/legacy` on4 and root on5, preserve strict `.mts`/`.cts` inference and the complete existing HTTP lifecycle journeys. Add mismatched-entry rejection for both modes/formats and classic Node resolution of `/legacy` in the existing TypeScript5.7.3 fixture.
+- [x] Extract `createServer(expectedMajor: 4 | 5)` internally. Public `initServer()` delegates with5 at root and4 at `/legacy`, exporting the existing error and types explicitly. Reject a mismatched `app.version` before native mutations.
+- [x] Add source/published exports, declaration fallbacks and pack entry for `/legacy`; update the package baseline. Native4 examples and mixed-validator runtime fixtures explicitly import `/legacy`.
+- [x] Pack real tarballs and run the focused Fastify consumers, then the full package suite, `pnpm check`, docs build/tests and the Fastify example build.
+
+### Task 3: document migration and refresh the draft PR
+
+**Files:** A superseding ADR and ADR index, support policy/inventory, roadmap, architecture, Fastify/public migration guides, package README, CONTRIBUTING and the F03b Changeset.
+
+- [x] Preserve ADR0010's original rationale and supersede its same-entry choice explicitly. Record why a shared implementation still needs a public legacy opt-in and why package peers cannot enforce it.
+- [x] Show the immediate import migration for applications staying on4 and the later import/runtime/plugin migration to5. Describe registration errors, `/zod3` independence, deprecation/removal timing and containing-release requirement.
+- [x] Mark the root-import change as breaking in the Changeset without versioning or publishing. Keep compatibility checks and critical fixes through the stable notice window.
+- [x] Review the final diff against these requirements, record fresh verification evidence, commit/push to the existing draft branch and update PR #35's title/body. No merge or release actions.
+
+### Follow-up verification
+
+Verified on 2026-11-11 against draft head `3b3cd3ee` plus the follow-up changes. The root/native4 rejection regression failed before implementation because registration succeeded instead of throwing. Final source suites pass 51 Fastify tests; the full `pnpm check` passes 784 source tests, two existing todos, production/inference checks and 14 tasks, with zero lint errors and 359 existing warnings.
+
+`pnpm test:packages` built the changed real archives. After correcting the newly added classic-resolution probe, the final `pnpm exec vp test run --config tests/vite.config.ts` passed all 35 tests across four files against those archives. Strict TS7 ESM/CommonJS consumers exercise native4 through `/legacy` and native5 through root, full HTTP lifecycle and both mismatched registration paths; emitted entries preserve error identity and hide the internal factory. The existing TS5.7.3 classic-resolution fixture verifies `/legacy` through `typesVersions`, with `esModuleInterop` matching Fastify/Pino's native declaration requirements. TS7 removed classic Node resolution; that legacy probe is intentionally separate from the modern consumers. No diagnostics were suppressed and library checking remains strict.
+
+Final docs build/typecheck and all80 tests pass; docs lint checks445 links/anchors across114 documents. The native4 Fastify example builds with `/legacy`. Independent review approved the entry boundary and migration with no actionable findings. `git diff --check` passes. Production code was unchanged after these checks; this work does not prove CI completion, all peer floors/patches, other Node runtimes, deployed hosts or publication. The existing draft PR35 is the delivery target; no merge, package versioning or publication is authorized by this follow-up.

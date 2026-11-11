@@ -280,7 +280,7 @@ for (const { profile, definition, nextVersion } of consumers) {
       const source = `import { initClient, initContract, executeQueryRequest, evaluateFetchApiArgs, evaluateResponse, ResponseMetadata, ResponseEvaluation, StandardSchemaV1, SchemaInputOrType, SchemaOutputOrType, ServerInferRequest, ClientInferRequest, ClientInferResponseBody } from '@ts-restless/core';
 import type { ClientArgs } from '@ts-restless/core';
 import { createExpressEndpoints, initServer } from '@ts-restless/express';
-import * as fastify from '@ts-restless/fastify';
+import * as fastify from '@ts-restless/fastify/legacy';
 import * as nest from '@ts-restless/nest';
 import * as next from '@ts-restless/next';
 import * as serverless from '@ts-restless/serverless';
@@ -441,6 +441,9 @@ void [createExpressEndpoints, initServer, fastify, nest, next, serverless, fetch
         await writeFile(
           file,
           `import { toStandardSchema, ZodInputOrType, ZodInferOrType } from '@ts-restless/core/zod3';
+import { initServer as initLegacyFastify, type RouteHooks } from '@ts-restless/fastify/legacy';
+void initLegacyFastify;
+type LegacyHooks = RouteHooks<import('@ts-restless/core').AppRoute>;
 import { SchemaInputOrType, SchemaOutputOrType } from '@ts-restless/core';
 import { z } from 'zod';
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
@@ -465,6 +468,7 @@ type LegacyOutput = Expect<Equal<ZodInferOrType<typeof original>, number>>;
             'commonjs',
             '--moduleResolution',
             'node',
+            '--esModuleInterop',
             file,
           ],
           { cwd: consumer, stdio: 'inherit' },
@@ -664,7 +668,7 @@ await assert.rejects(
   assert.deepEqual(missing.issues[0].path, ['x-count']);
 }
 const nativeFastify = (await import('fastify')).default;
-for (const { initServer } of [await import('@ts-restless/fastify'), require('@ts-restless/fastify')]) {
+for (const { initServer } of [await import('@ts-restless/fastify/legacy'), require('@ts-restless/fastify/legacy')]) {
   for (const responseValidation of [true, false]) {
     let calls = 0;
     const countedSchema = { '~standard': {
@@ -1501,6 +1505,12 @@ dom.window.close();
 test.each(['4.28.0', '5.12.7'])(
   'packed Fastify %s preserves strict native inference and HTTP lifecycle',
   async (fastifyVersion) => {
+    const entry =
+      '@ts-restless/fastify' +
+      (fastifyVersion.startsWith('4.') ? '/legacy' : '');
+    const wrongEntry =
+      '@ts-restless/fastify' +
+      (fastifyVersion.startsWith('4.') ? '' : '/legacy');
     const consumer = await mkdtemp(join(tmpdir(), 'ts-restless-fastify-'));
     try {
       await writeFile(
@@ -1532,7 +1542,7 @@ test.each(['4.28.0', '5.12.7'])(
       const source = `import Fastify, { type FastifyRequest, type FastifyReply } from 'fastify';
 import { type IncomingMessage, type ServerResponse } from 'node:http';
 import { initContract } from '@ts-restless/core';
-import { initServer, type RouteHooks } from '@ts-restless/fastify';
+import { initServer, type RouteHooks } from '${entry}';
 import * as v from 'valibot';
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
 type Expect<T extends true> = T;
@@ -1613,7 +1623,42 @@ import * as v from 'valibot';
 const require = createRequire(import.meta.url);
 for (const load of [name => import(name), name => Promise.resolve(require(name))]) {
   const { initContract, TsRestResponseError, TsRestResponseValidationError } = await load('@ts-restless/core');
-  const { initServer, RequestValidationError } = await load('@ts-restless/fastify');
+  const matching = await load('${entry}');
+  const mismatched = await load('${wrongEntry}');
+  const { initServer, RequestValidationError } = matching;
+  assert.equal(matching.createServer, undefined, 'internal major selection is not public');
+  assert.equal(mismatched.createServer, undefined);
+  assert.equal(matching.RequestValidationError, mismatched.RequestValidationError);
+  const boundaryContract = initContract().router({ read: {
+    method: 'GET', path: '/entry-boundary', responses: { 200: initContract().type() },
+  } });
+  for (const registration of ['registerRouter', 'plugin']) {
+    const app = Fastify({ logger: false });
+    const server = mismatched.initServer();
+    const router = server.router(boundaryContract, { read: async () => ({ status: 200, body: { ok: true } }) });
+    let routes = 0;
+    const originalErrorHandler = app.errorHandler;
+    const mismatch = /requires Fastify ${fastifyVersion.startsWith('4.') ? '5' : '4'}/;
+    const options = { hooks: { onRoute: () => { routes++; } } };
+    try {
+      if (registration === 'registerRouter') {
+        assert.throws(() => server.registerRouter(boundaryContract, router, app, options), mismatch);
+        assert.equal(app.errorHandler, originalErrorHandler);
+        app.get('/native-only', async () => ({ ok: true }));
+        assert.equal(routes, 0, 'the rejected adapter did not install its hooks');
+        await app.ready();
+        const response = await app.inject('/missing');
+        assert.equal(response.statusCode, 404);
+      } else {
+        app.register(server.plugin(router), options);
+        await assert.rejects(app.ready(), mismatch);
+      }
+      assert.equal(routes, 0);
+      assert.equal(app.hasRoute({ method: 'GET', url: '/entry-boundary' }), false);
+    } finally {
+      await app.close();
+    }
+  }
   const c = initContract();
   for (const registration of ['registerRouter', 'plugin']) {
     const order = [], nativeInputs = [], validatedInputs = [], errors = [];

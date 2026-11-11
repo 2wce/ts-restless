@@ -178,7 +178,19 @@ const validateRequest = (
 
 const RouterEmbeddedContract = Symbol('RouterEmbeddedContract');
 
-export const initServer = () => ({
+const versionMismatch = (version: string, expectedMajor: 4 | 5) => {
+  if (version.startsWith(`${expectedMajor}.`)) return;
+  const entry =
+    expectedMajor === 5
+      ? '@ts-restless/fastify'
+      : '@ts-restless/fastify/legacy';
+  return new Error(
+    `[ts-restless] ${entry} requires Fastify ${expectedMajor}.x; received ${version}. ` +
+      'Use @ts-restless/fastify for Fastify 5 or @ts-restless/fastify/legacy for Fastify 4.',
+  );
+};
+
+export const createServer = (expectedMajor: 4 | 5) => ({
   router: <TContract extends AppRouter>(
     contract: TContract,
     routes: RouterImplementation<TContract>,
@@ -204,6 +216,9 @@ export const initServer = () => ({
       requestValidationErrorHandler: 'combined',
     },
   ) => {
+    const error = versionMismatch(app.version, expectedMajor);
+    if (error) throw error;
+
     const { hooks = {}, ...restOfOptions } = options;
 
     Object.entries(hooks).forEach(([hookName, hookOrHookArray]) => {
@@ -239,6 +254,12 @@ export const initServer = () => ({
       },
       done,
     ) => {
+      const error = versionMismatch(app.version, expectedMajor);
+      if (error) {
+        done(error);
+        return;
+      }
+
       const embeddedContract = (
         router as RouterImplementation<T> & { [RouterEmbeddedContract]: T }
       )[RouterEmbeddedContract];
