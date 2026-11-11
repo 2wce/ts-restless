@@ -8,8 +8,6 @@
 
 ## Retained implementation and design records
 
-- [Side-effect metadata and bundle verification](2026-11-11-side-effect-packaging.md).
-
 - [Client response validation implementation plan](2026-11-10-client-response-validation.md).
 - [Async base headers implementation plan](2026-11-10-async-base-headers.md).
 
@@ -18,6 +16,7 @@
 - [Response Contract Evaluation Implementation Plan](002-response-contract-evaluation.md).
 - [Fastify Response Evaluation Implementation Plan](003-fastify-response-evaluation.md).
 - [Private Package Release Noise Implementation Plan](004-private-package-release-noise.md).
+- [Side-effect metadata and bundle verification](2026-11-11-side-effect-packaging.md).
 - [Next Response Evaluation Implementation Plan](005-next-response-evaluation.md).
 - [Next Supported Majors Implementation Plan](006-next-supported-majors.md).
 - [Command consistency implementation plan](2026-10-19-command-consistency.md).
