@@ -34,6 +34,7 @@
   },
   "changesets": [
     "big-camels-complain",
+    "client-response-validation",
     "common-query-execution",
     "cuddly-lions-buy",
     "express-native-raw-request",
@@ -52,6 +53,7 @@
     "react19-public-compatibility",
     "response-contract-evaluation",
     "rich-coins-move",
+    "serverless-empty-body",
     "shy-vans-float",
     "soft-dolls-leave",
     "standard-schema-header-inference",
