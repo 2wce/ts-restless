@@ -8,7 +8,7 @@
   },
   "license": "MIT",
   "peerDependencies": {
-    "fastify": "^4.0.0",
+    "fastify": "^4.0.0 || ^5.0.0",
     "@ts-restless/core": "workspace:^",
     "zod": "^3.22.3 || ^4.0.0"
   },

@@ -7,6 +7,8 @@ description: How to use ts-restless with Fastify
 
 <InstallTabs packageName="@ts-restless/fastify" />
 
+Development source supports Fastify **5** and retains Fastify **4** as legacy/deprecated support. The first stable ts-restless v4 release will flag Fastify 4 for removal in **ts-restless v5**, after the minimum stable migration window. The adapter import and registration API are the same on both native majors; there is no `/legacy` entry. Published alpha.5 supports Fastify 4 only. Check the containing release before installing Fastify 5 support.
+
 ## Usage
 
 ```typescript
@@ -103,11 +105,37 @@ You can also pass a custom error handler function to the `requestValidationError
 
 ```typescript
 s.registerRouter(contract, router, app, {
-  requestValidationErrorHandler: (err, req, res, next) => {
+  requestValidationErrorHandler: (err, request, reply) => {
     //             err is typed as ^ RequestValidationError
-    res.status(400).json({
+    reply.status(400).send({
       message: 'Validation failed',
     });
   },
 });
 ```
+
+## Fastify 4 to 5
+
+Upgrade in this order:
+
+1. Move your runtime to Node **20 or newer**, as required by native Fastify 5, and check each native plugin's Fastify 5 compatibility. This is Fastify's runtime requirement; ts-restless's contributor Node version is separate.
+2. Select a released `@ts-restless/fastify` version whose peer range includes `^5.0.0`, together with its matching `@ts-restless/core`. This addition is currently development source; alpha.5 remains the Fastify 4 fallback. Then upgrade native `fastify` to a patched v5 release.
+3. Keep `initServer()`, `s.router`, `s.route`, `s.registerRouter` and `s.plugin`. Contracts, Standard Schema validation, route hooks, response writing and native request/reply objects retain their adapter boundary. Handlers' top-level `params`, `query`, `headers` and `body` are validated outputs; the native request retains parsed input values.
+4. Replace removed Fastify metadata aliases in application hooks. Use the typed request argument's `request.routeOptions.config.tsRestRoute`; `reply.request` identifies the same native request, but native reply types do not preserve its route-specific config type. Replace Express-style `.json(...)` calls in custom validation handlers with native `.send(...)`.
+
+```typescript
+// Before, on Fastify 4: request.routeConfig.tsRestRoute
+// Before, on Fastify 4: reply.context.config.tsRestRoute
+const route = request.routeOptions.config.tsRestRoute;
+reply.header('x-route', route.path).status(400).send({ message: 'Validation failed' });
+```
+
+If application code names `FastifyReply` with positional generic arguments, review Fastify 5's changed generic order. Prefer inferred hook/handler arguments; the adapter now derives its request/reply types from native `RouteHandlerMethod` on each major.
+
+Follow the [native Fastify v5 migration guide](https://fastify.dev/docs/latest/Guides/Migration-Guide-V5/) for native schema compilers, logger options, redirect signature and plugin changes. ts-restless validates its contracts itself; this does not eliminate Fastify's requirements for any separate native routes or schemas you register.
+
+The adapter installs its request-validation error handler in the registration scope. To inherit a shared parent error handler, use `s.plugin(router)` or call `s.registerRouter` inside a native plugin scope. Fastify 5 warns when an existing error handler is overridden in the same scope; review application registration order instead of suppressing that warning.
+
+Before rollout, compile handlers and hooks with strict library checking and run real requests that exercise parsing/transforms, request-validation errors, declared/thrown errors, native hooks, custom response headers and no-body/text responses. The installed adapter suite verifies ESM/CommonJS types and HTTP journeys at Fastify 4.28.0 and 5.12.7 on Node 26.12.0; it does not certify every allowed patch or Node runtime.
+
+Applications that cannot upgrade yet may keep a matched Fastify 4/package set through ts-restless v4. Legacy support keeps compatibility checks and critical security/correctness fixes. The notice/replacement window starts with stable availability, with removal no earlier than six calendar months later and targeted for ts-restless v5; there is no fixed removal date while stable v4 is unreleased.

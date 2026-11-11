@@ -33,6 +33,12 @@ On 2026-11-09 the user approved TanStack Query **v5 only** across React, Vue and
 
 This is an initial stable-baseline decision, separate from removing a shipped stable fork promise. Existing upstream v3 and published fork prereleases remain unchanged. A six-month retirement clock has not started for other surfaces; future stable support changes retain the policy below.
 
+### Fastify baseline and legacy support
+
+The 2026-11-11 decision adopts Fastify **5** as the active target and classifies Fastify **4** as legacy/deprecated support through ts-restless **v4**, with removal planned for ts-restless **v5**. Both native majors use the existing `@ts-restless/fastify` entry and API; there is no separate `/legacy` entry. The peer promise is `^4.0.0 || ^5.0.0`, with strict installed declarations and HTTP lifecycle checks at 4.28.0 and 5.12.7.
+
+Fastify 4 keeps critical security/correctness fixes and compatibility checks during migration; new features target 5. The stable v4 release must include public notice, the verified replacement and [migration guidance](../apps/docs/content/docs/server/fastify.mdx#fastify-4-to-5). Its window begins only when both the notice and stable replacement are released. Earliest removal is six calendar months after that date, in a ts-restless major; the date is not established while stable v4 is unpublished. See [ADR 0010](adr/0010-fastify-support-lifecycle.md) for rationale. Fastify5 compatibility in development source does not establish npm availability.
+
 ## Support states
 
 | State       | Maintenance commitment                                                                                                                                                                           |

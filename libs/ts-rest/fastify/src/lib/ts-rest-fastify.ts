@@ -30,23 +30,20 @@ type FastifyContextConfig<T extends AppRouter | AppRoute> = {
   tsRestRoute: T extends AppRoute ? T : FlattenAppRouter<T>;
 };
 
+// Fastify 5 reordered FastifyReply's generics. The route-handler interface
+// keeps the same native request/reply relationship across both supported majors.
+type NativeRouteHandler<T extends AppRoute> = fastify.RouteHandlerMethod<
+  fastify.RawServerDefault,
+  fastify.RawRequestDefaultExpression,
+  fastify.RawReplyDefaultExpression,
+  fastify.RouteGenericInterface,
+  FastifyContextConfig<T>
+>;
+
 export type AppRouteImplementation<T extends AppRoute> = (
   input: ServerInferRequest<T, fastify.FastifyRequest['headers']> & {
-    request: fastify.FastifyRequest<
-      fastify.RouteGenericInterface,
-      fastify.RawServerDefault,
-      fastify.RawRequestDefaultExpression,
-      fastify.FastifySchema,
-      fastify.FastifyTypeProviderDefault,
-      FastifyContextConfig<T>
-    >;
-    reply: fastify.FastifyReply<
-      fastify.RawServerDefault,
-      fastify.RawRequestDefaultExpression,
-      fastify.RawReplyDefaultExpression,
-      fastify.RouteGenericInterface,
-      FastifyContextConfig<T>
-    >;
+    request: Parameters<NativeRouteHandler<T>>[0];
+    reply: Parameters<NativeRouteHandler<T>>[1];
     appRoute: T;
   },
 ) => Promise<ServerInferResponses<T>>;

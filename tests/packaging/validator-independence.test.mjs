@@ -1495,3 +1495,268 @@ dom.window.close();
     }
   },
 );
+
+// A standalone adapter promise needs its own installed native majors. Nest's
+// platform-fastify dependency does not exercise this integration's declarations.
+test.each(['4.28.0', '5.12.7'])(
+  'packed Fastify %s preserves strict native inference and HTTP lifecycle',
+  async (fastifyVersion) => {
+    const consumer = await mkdtemp(join(tmpdir(), 'ts-restless-fastify-'));
+    try {
+      await writeFile(
+        join(consumer, 'package.json'),
+        JSON.stringify({
+          name: 'packed-fastify-consumer',
+          private: true,
+          type: 'module',
+          dependencies: {
+            '@ts-restless/core':
+              'file:' + join(archives, 'ts-restless-core.tgz'),
+            '@ts-restless/fastify':
+              'file:' + join(archives, 'ts-restless-fastify.tgz'),
+            fastify: fastifyVersion,
+            valibot: '1.5.0',
+            '@types/node': '26.6.5',
+          },
+        }),
+      );
+      await writeFile(
+        join(consumer, 'pnpm-workspace.yaml'),
+        'packages: ["."]\nminimumReleaseAge: 0\n',
+      );
+      execFileSync(
+        'pnpm',
+        ['install', '--ignore-scripts', '--strict-peer-dependencies'],
+        { cwd: consumer, stdio: 'pipe' },
+      );
+      const source = `import Fastify, { type FastifyRequest, type FastifyReply } from 'fastify';
+import { type IncomingMessage, type ServerResponse } from 'node:http';
+import { initContract } from '@ts-restless/core';
+import { initServer, type RouteHooks } from '@ts-restless/fastify';
+import * as v from 'valibot';
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type Expect<T extends true> = T;
+const c = initContract();
+const contract = c.router({ read: {
+  method: 'POST', path: '/items/:id',
+  pathParams: v.object({ id: v.pipe(v.string(), v.transform(Number)) }),
+  query: v.object({ count: v.number() }),
+  headers: v.object({ 'x-token': v.string() }),
+  body: v.object({ name: v.string() }),
+  responses: { 200: c.type<{ value: number }>(), 404: c.type<{ missing: true }>() },
+} });
+const s = initServer();
+const hooks: RouteHooks<typeof contract.read> = {
+  onRequest: async (request, reply) => {
+    const method: 'POST' = request.routeOptions.config.tsRestRoute.method;
+    const nativeRequest: IncomingMessage = request.raw;
+    const nativeReply: ServerResponse = reply.raw;
+    // @ts-expect-error route method remains literal
+    const wrongMethod: 'DELETE' = request.routeOptions.config.tsRestRoute.method;
+    void [method, nativeRequest, nativeReply, wrongMethod];
+  },
+  preHandler: async (request, reply) => { reply.header('x-path', request.routeOptions.config.tsRestRoute.path); },
+};
+const implementation = s.router(contract, { read: {
+  hooks,
+  handler: s.route(contract.read, async ({ params, query, body, headers, request, reply, appRoute }) => {
+    type Id = Expect<Equal<typeof params.id, number>>;
+    type Count = Expect<Equal<typeof query.count, number>>;
+    const name: string = body.name;
+    const token: string = headers['x-token'];
+    const nativeRequest: FastifyRequest = request;
+    const nativeReply: FastifyReply = reply;
+    const rawRequest: IncomingMessage = request.raw;
+    const rawReply: ServerResponse = reply.raw;
+    const metadata: typeof contract.read = request.routeOptions.config.tsRestRoute;
+    const route: typeof contract.read = appRoute;
+    // @ts-expect-error native reply raw type is ServerResponse
+    const wrongRaw: string = reply.raw;
+    // @ts-expect-error validated params are transformed numbers
+    const wrongId: string = params.id;
+    void [name, token, nativeRequest, nativeReply, rawRequest, rawReply, metadata, route, wrongRaw, wrongId];
+    reply.header('x-native', 'retained');
+    return { status: 200, body: { value: params.id + query.count } };
+  }),
+} });
+s.registerRouter(contract, implementation, Fastify(), { hooks: {
+  onRoute: (route) => { const metadata: typeof contract.read = route.config!.tsRestRoute; void metadata; },
+  onRequest: async (request) => { const metadata: typeof contract.read = request.routeOptions.config.tsRestRoute; void metadata; },
+} });
+Fastify().register(s.plugin(implementation));
+`;
+      for (const ext of ['mts', 'cts']) {
+        const file = join(consumer, 'consumer.' + ext);
+        await writeFile(file, source);
+        execFileSync(
+          process.execPath,
+          [
+            resolve(root, 'node_modules/typescript/bin/tsc'),
+            '--noEmit',
+            '--strict',
+            '--target',
+            'es2024',
+            '--module',
+            'nodenext',
+            '--moduleResolution',
+            'nodenext',
+            '--esModuleInterop',
+            file,
+          ],
+          { cwd: consumer, stdio: 'inherit' },
+        );
+      }
+      const runtime = `import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import Fastify from 'fastify';
+import * as v from 'valibot';
+const require = createRequire(import.meta.url);
+for (const load of [name => import(name), name => Promise.resolve(require(name))]) {
+  const { initContract, TsRestResponseError, TsRestResponseValidationError } = await load('@ts-restless/core');
+  const { initServer, RequestValidationError } = await load('@ts-restless/fastify');
+  const c = initContract();
+  for (const registration of ['registerRouter', 'plugin']) {
+    const order = [], nativeInputs = [], validatedInputs = [], errors = [];
+    let transforms = 0;
+    const response = v.object({ value: v.pipe(v.number(), v.transform(value => { transforms++; return value + 1; })) });
+    const contract = c.router({
+      read: { method: 'POST', path: '/items/:id/:slug', pathParams: v.object({ id: v.pipe(v.string(), v.regex(/^[0-9]+$/), v.transform(Number)) }), query: v.looseObject({ count: v.number(), limit: v.optional(v.number(), 5), note: v.optional(v.string()) }), headers: { 'X-Token': v.string(), 'X-Default': v.pipe(v.optional(v.string(), 'fallback'), v.transform(value => value.toUpperCase())), 'X-Note': v.optional(v.string()) }, body: v.looseObject({ name: v.pipe(v.string(), v.transform(value => value.trim().toUpperCase())) }), responses: { 200: response } },
+      declared: { method: 'GET', path: '/declared', responses: { 404: v.object({ missing: v.literal(true) }) } },
+      thrown: { method: 'GET', path: '/thrown', responses: { 404: v.object({ missing: v.literal(true) }) } },
+      invalid: { method: 'GET', path: '/invalid', responses: { 200: v.object({ value: v.number() }) } },
+      noContent: { method: 'POST', path: '/no-content', body: c.noBody(), responses: { 204: c.noBody() } },
+      text: { method: 'GET', path: '/text', responses: { 200: c.otherResponse({ contentType: 'text/plain', body: v.string() }) } },
+      native: { method: 'GET', path: '/native-error', responses: { 200: c.type() } },
+    });
+    const app = Fastify({ logger: false });
+    app.decorateRequest('requestMarker', 'context');
+    app.addHook('onRequest', async () => { order.push('outer'); });
+    app.setErrorHandler((error, _request, reply) => {
+      errors.push(error);
+      reply.status(503).send({ inherited: error.message });
+    });
+    const s = initServer();
+    const router = s.router(contract, {
+      read: { hooks: {
+        onRequest: async (request, reply) => {
+          order.push('route-request');
+          assert.equal(request.routeOptions.config.tsRestRoute, contract.read);
+          assert.equal(reply.request, request);
+          assert.equal(request.requestMarker, 'context');
+        },
+        preHandler: async () => { order.push('route-handler'); },
+        preSerialization: async (_request, _reply, payload) => { order.push('route-serialize'); return payload; },
+        onSend: async (_request, _reply, payload) => { order.push('route-send'); return payload; },
+      }, handler: async ({ params, query, headers, body, request, reply, appRoute }) => {
+        order.push('handler');
+        nativeInputs.push({ params: { ...request.params }, query: { ...request.query }, body: request.body });
+        validatedInputs.push({ params, query, headers, body });
+        assert.equal(appRoute, contract.read);
+        assert.equal(request.routeOptions.config.tsRestRoute, contract.read);
+        assert.deepEqual(params, { id: 42, slug: 'untouched' });
+        assert.equal(query.count, 3);
+        assert.equal(headers['x-token'], 'token');
+        assert.equal(body.name, 'SAVED');
+        reply.header('x-native', 'retained');
+        return { status: 200, body: { value: params.id + query.count } };
+      } },
+      declared: async () => ({ status: 404, body: { missing: true } }),
+      thrown: async () => { throw new TsRestResponseError(contract.thrown, { status: 404, body: { missing: true } }); },
+      invalid: async () => ({ status: 200, body: { value: 'invalid' } }),
+      noContent: async () => ({ status: 204, body: undefined }),
+      text: async () => ({ status: 200, body: 'native text' }),
+      native: async () => { throw new Error('native failure'); },
+    });
+    const routes = [];
+    const options = { responseValidation: true, jsonQuery: true, logInitialization: false, hooks: {
+      onRoute: route => { routes.push(route.config.tsRestRoute); },
+      onRequest: async () => { order.push('global-request'); },
+      preHandler: async () => { order.push('global-handler'); },
+      preSerialization: async (_request, _reply, payload) => { order.push('global-serialize'); return payload; },
+      onSend: async (_request, _reply, payload) => { order.push('global-send'); return payload; },
+    } };
+    if (registration === 'plugin') app.register(s.plugin(router), options);
+    else app.register(async scoped => { s.registerRouter(contract, router, scoped, options); });
+    try {
+      const address = await app.listen({ port: 0, host: '127.0.0.1' });
+      assert.ok(Object.values(contract).every(route => routes.includes(route)));
+      order.length = 0;
+      const path = '/items/42/untouched?count=3&extra=%22query-extra%22';
+      const requestOptions = { method: 'POST', headers: { 'content-type': 'application/json', 'X-Token': 'token' }, body: JSON.stringify({ name: ' saved ', extra: { preserved: true } }) };
+      const result = await fetch(address + path, requestOptions);
+      assert.equal(result.status, 200);
+      assert.equal(result.headers.get('x-native'), 'retained');
+      assert.match(result.headers.get('content-type'), /^application\\/json/);
+      assert.deepEqual(await result.json(), { value: 46 });
+      assert.equal(transforms, 1);
+      assert.deepEqual(order, ['outer', 'global-request', 'route-request', 'global-handler', 'route-handler', 'handler', 'global-serialize', 'route-serialize', 'global-send', 'route-send']);
+      assert.deepEqual(nativeInputs, [{ params: { id: '42', slug: 'untouched' }, query: { count: '3', extra: '"query-extra"' }, body: { name: ' saved ', extra: { preserved: true } } }]);
+      assert.deepEqual(validatedInputs[0].query, { count: 3, limit: 5, extra: 'query-extra' });
+      assert.equal(validatedInputs[0].headers['x-default'], 'FALLBACK');
+      assert.equal(validatedInputs[0].headers['x-note'], undefined);
+      assert.equal(validatedInputs[0].query.note, undefined);
+      assert.deepEqual(validatedInputs[0].body, { name: 'SAVED', extra: { preserved: true } });
+      const optional = await fetch(address + path + '&limit=9&note=%22query-note%22', { ...requestOptions, headers: { ...requestOptions.headers, 'x-default': 'provided', 'x-note': 'header-note' } });
+      assert.equal(optional.status, 200);
+      assert.deepEqual(await optional.json(), { value: 46 });
+      assert.equal(validatedInputs[1].query.limit, 9);
+      assert.equal(validatedInputs[1].query.note, 'query-note');
+      assert.equal(validatedInputs[1].headers['x-default'], 'PROVIDED');
+      assert.equal(validatedInputs[1].headers['x-note'], 'header-note');
+      const errorFields = { params: 'pathParameterErrors', headers: 'headerErrors', query: 'queryParameterErrors', body: 'bodyErrors' };
+      for (const [badPath, badOptions, locations] of [
+        [path.replace('/42/', '/invalid/'), requestOptions, { params: 'id' }],
+        [path, { ...requestOptions, headers: { 'content-type': 'application/json' } }, { headers: 'x-token' }],
+        [path.replace('count=3', 'count=%22invalid%22'), requestOptions, { query: 'count' }],
+        [path, { ...requestOptions, body: '{"name":1}' }, { body: 'name' }],
+        [path.replace('/42/', '/invalid/').replace('count=3', 'count=%22invalid%22'), { ...requestOptions, headers: { 'content-type': 'application/json' }, body: '{"name":1}' }, { params: 'id', headers: 'x-token', query: 'count', body: 'name' }],
+      ]) {
+        const bad = await fetch(address + badPath, badOptions);
+        assert.equal(bad.status, 400);
+        const failure = await bad.json();
+        for (const [location, field] of Object.entries(errorFields)) {
+          if (!(location in locations)) { assert.equal(failure[field], null); continue; }
+          assert.equal(failure[field].name, 'ValidationError');
+          assert.deepEqual(failure[field].issues[0].path.map(segment => typeof segment === 'object' ? segment.key : segment), [locations[location]]);
+        }
+        assert.equal(nativeInputs.length, 2);
+        assert.equal(validatedInputs.length, 2);
+      }
+      for (const path of ['/declared', '/thrown']) {
+        const result = await fetch(address + path); assert.equal(result.status, 404); assert.deepEqual(await result.json(), { missing: true });
+      }
+      const invalid = await fetch(address + '/invalid');
+      assert.equal(invalid.status, 503);
+      assert.ok(errors.at(-1) instanceof TsRestResponseValidationError);
+      assert.equal(errors.at(-1).appRoute, contract.invalid);
+      const empty = await fetch(address + '/no-content', { method: 'POST' }); assert.equal(empty.status, 204); assert.equal(await empty.text(), ''); assert.equal(empty.headers.get('content-type'), null);
+      const text = await fetch(address + '/text'); assert.equal(text.status, 200); assert.match(text.headers.get('content-type'), /^text\\/plain/); assert.equal(await text.text(), 'native text');
+      const native = await fetch(address + '/native-error'); assert.equal(native.status, 503); assert.deepEqual(await native.json(), { inherited: 'native failure' });
+    } finally { await app.close(); }
+    const custom = Fastify({ logger: false });
+    custom.decorateRequest('requestMarker', 'context');
+    s.registerRouter(contract, router, custom, { jsonQuery: true, logInitialization: false, requestValidationErrorHandler: (error, request, reply) => {
+      assert.ok(error instanceof RequestValidationError);
+      assert.equal(request.routeOptions.config.tsRestRoute, contract.read);
+      reply.header('x-custom', 'validation').status(422).send({ invalid: true });
+    } });
+    try {
+      const address = await custom.listen({ port: 0, host: '127.0.0.1' });
+      const invalid = await fetch(address + '/items/42/untouched?count=3', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+      assert.equal(invalid.status, 422); assert.equal(invalid.headers.get('x-custom'), 'validation'); assert.deepEqual(await invalid.json(), { invalid: true });
+    } finally { await custom.close(); }
+  }
+}
+`;
+      const file = join(consumer, 'runtime.mjs');
+      await writeFile(file, runtime);
+      execFileSync(process.execPath, [file], {
+        cwd: consumer,
+        stdio: 'pipe',
+        timeout: 30000,
+      });
+    } finally {
+      await rm(consumer, { recursive: true, force: true });
+    }
+  },
+);
