@@ -175,6 +175,8 @@ const items = pages.data?.pages.flatMap((page) => page.body.items);
 
 The default result is native `InfiniteData`: `pages` contains response envelopes, and `pageParams` contains page values. If your contract expects a string cursor, convert a numeric offset with `String(pageParam)` in the request mapper. Keep `pages` and `pageParams` when manually updating an infinite cache. The same initial-page requirement applies to native infinite prefetch/fetch options; use the [React infinite-query guide](/client/react-query-v5#infinite-query).
 
+For infinite cache access, use route `getInfiniteQueryData`, `getInfiniteQueriesData`, `setInfiniteQueryData`, `setInfiniteQueriesData` and `getInfiniteQueryState`. Their optional page-parameter generic defaults to `unknown`; for example `cache.pages.getInfiniteQueryData<number>(['pages', 'infinite'])`. Ordinary cache helpers still describe a single response. Keep ordinary and infinite keys distinct, and limit filtered helpers to infinite queries for the route. These APIs are absent from alpha.5 and require a containing release; see the [infinite cache guide](/client/react-query-v5#infinite-cache-methods).
+
 ## React options and types
 
 Remove `includeThrownErrorsInErrorType` from client initialization. V5 hook errors already include the declared HTTP-error envelope or `Error`; use [the v5 type guards](/client/react-query-v5#fully-type-safe-error-handling) rather than assuming every error has a response status. Transport exceptions still propagate.

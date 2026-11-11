@@ -994,6 +994,39 @@ const cached = cache.pages.getQueryData(['normal']);
 type CachedBody = Expect<Equal<
   NonNullable<typeof cached>['body'], { next: number; value: string }
 >>;
+const infiniteCached = cache.pages.getInfiniteQueryData<number>(['infinite']);
+type InfiniteCachedBody = Expect<Equal<
+  NonNullable<typeof infiniteCached>['pages'][number]['body'], { next: number; value: string }
+>>;
+type InfiniteParams = Expect<Equal<
+  NonNullable<typeof infiniteCached>['pageParams'], number[]
+>>;
+const unknownInfinite = cache.pages.getInfiniteQueryData(['infinite']);
+type UnknownParams = Expect<Equal<NonNullable<typeof unknownInfinite>['pageParams'], unknown[]>>;
+// @ts-expect-error an infinite cache has no single-response body
+infiniteCached?.body;
+cache.pages.setInfiniteQueryData<number>(['infinite'], old => {
+  type Old = Expect<Equal<typeof old, typeof infiniteCached>>;
+  return old && { ...old, pageParams: [0, 1] };
+});
+cache.pages.setInfiniteQueryData<number>(['infinite'], {
+  pages: [{ status: 200, body: { next: 1, value: 'first' }, headers: new Headers() }], pageParams: [0],
+});
+// @ts-expect-error pages preserve the contract's response body
+cache.pages.setInfiniteQueryData(['infinite'], { pages: [{ status: 200, body: { next: 1, value: 123 }, headers: new Headers() }], pageParams: [0] });
+// @ts-expect-error explicit page parameters are numeric
+cache.pages.setInfiniteQueryData<number>(['infinite'], { pages: [], pageParams: ['bad'] });
+// @ts-expect-error updater return values preserve page parameter types
+cache.pages.setInfiniteQueriesData<number>({}, old => old && { ...old, pageParams: ['bad'] });
+const infiniteEntries = cache.pages.getInfiniteQueriesData<number>({ queryKey: ['infinite'] });
+type EntryData = Expect<Equal<typeof infiniteEntries[number][1], typeof infiniteCached>>;
+const updatedEntries = cache.pages.setInfiniteQueriesData<number>({ queryKey: ['infinite'] }, old => old);
+type UpdatedEntryData = Expect<Equal<typeof updatedEntries[number][1], typeof infiniteCached>>;
+const infiniteState = cache.pages.getInfiniteQueryState<number>(['infinite']);
+type InfiniteStateData = Expect<Equal<NonNullable<typeof infiniteState>['data'], typeof infiniteCached>>;
+type InfiniteStateError = Expect<Equal<
+  Extract<NonNullable<NonNullable<typeof infiniteState>['error']>, { status: 404 }>['body'], { missing: true }
+>>;
 const infinite = api.pages.useInfiniteQuery({
   queryKey: ['infinite'],
   initialPageParam: 0,
@@ -1073,9 +1106,10 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const require = createRequire(import.meta.url);
 for (const load of [specifier => import(specifier), async specifier => require(specifier)]) {
   const { initContract } = await load('@ts-restless/core');
-  const { initTsrReactQuery } = await load('@ts-restless/react-query/v5');
   const { QueryClient } = await load('@tanstack/react-query');
   const c = initContract();
+  for (const cacheEntry of ['@ts-restless/react-query', '@ts-restless/react-query/v5']) {
+  const { initTsrReactQuery } = await load(cacheEntry);
   const contract = c.router({
     pages: { method: 'GET', path: '/pages', query: c.type(),
       responses: { 200: c.type(), 404: c.type() } },
@@ -1103,6 +1137,33 @@ for (const load of [specifier => import(specifier), async specifier => require(s
     assert.deepEqual(result.pageParams, [0, 1]);
     assert.deepEqual(result.pages.map(page => page.body.value), ['page-0', 'page-1']);
     assert.deepEqual(cursors, [0, 1]);
+    const cached = bound.pages.getInfiniteQueryData(['pages']);
+    assert.equal(cached, native.getQueryData(['pages']));
+    assert.deepEqual(cached.pageParams, [0, 1]);
+    assert.deepEqual(cached.pages.map(page => page.body.value), ['page-0', 'page-1']);
+    assert.equal(bound.pages.getInfiniteQueryData(['absent']), undefined);
+    assert.equal(bound.pages.getInfiniteQueryState(['absent']), undefined);
+    assert.equal(bound.pages.setInfiniteQueryData(['absent'], () => undefined), undefined);
+    assert.equal(native.getQueryState(['absent']), undefined);
+    bound.pages.setInfiniteQueryData(['pages', 'copy'], cached);
+    assert.equal(bound.pages.getInfiniteQueriesData({ queryKey: ['pages'] }).length, 2);
+    const updated = bound.pages.setInfiniteQueryData(['pages'], old => ({
+      ...old, pages: old.pages.map(page => ({ ...page, body: { ...page.body, value: 'updated' } })),
+    }), { updatedAt: 123 });
+    assert.deepEqual(updated.pageParams, [0, 1]);
+    assert.deepEqual(updated.pages.map(page => page.body.value), ['updated', 'updated']);
+    assert.equal(bound.pages.getInfiniteQueryState(['pages']), native.getQueryState(['pages']));
+    assert.equal(bound.pages.getInfiniteQueryState(['pages']).dataUpdatedAt, 123);
+    assert.equal(bound.pages.setInfiniteQueryData(['pages'], () => undefined), undefined);
+    assert.equal(bound.pages.getInfiniteQueryData(['pages']), updated);
+    const filtered = bound.pages.setInfiniteQueriesData({ queryKey: ['pages'], exact: true }, old => ({
+      ...old, pageParams: [10, 11],
+    }), { updatedAt: 456 });
+    assert.deepEqual(filtered, [[['pages'], { ...updated, pageParams: [10, 11] }]]);
+    assert.equal(bound.pages.getInfiniteQueryData(['pages', 'copy']), cached);
+    assert.equal(bound.pages.getInfiniteQueryState(['pages']).dataUpdatedAt, 456);
+    assert.deepEqual(bound.pages.getInfiniteQueriesData({ queryKey: ['absent'] }), []);
+    assert.deepEqual(bound.pages.setInfiniteQueriesData({ queryKey: ['absent'] }, () => undefined), []);
     cursors.length = 0;
     failLater = true;
     await assert.rejects(bound.pages.fetchInfiniteQuery({ ...options, queryKey: ['later-error'] }),
@@ -1139,6 +1200,7 @@ for (const load of [specifier => import(specifier), async specifier => require(s
     native.clear();
   }
 
+  }
   const { createElement, act } = await load('react');
   const { createRoot } = await load('react-dom/client');
   const { QueryClientProvider } = await load('@tanstack/react-query');

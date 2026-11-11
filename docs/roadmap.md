@@ -21,6 +21,8 @@
 
 Async base headers [#832](https://github.com/ts-rest/ts-rest/issues/832) merged in [#32](https://github.com/2wce/ts-restless/pull/32), with per-request callback resolution, existing override/deletion behavior and concurrent-request isolation; see the [scoped plan](plans/2026-11-10-async-base-headers.md) and [ADR 0009](adr/0009-request-scoped-headers.md). They are absent from alpha.5; containing release PR [#33](https://github.com/2wce/ts-restless/pull/33) is open. An open release PR does not establish publication. F04 and serverless empty-body fixes from [#29](https://github.com/2wce/ts-restless/pull/29)/[#30](https://github.com/2wce/ts-restless/pull/30) are published in alpha.5 through [#31](https://github.com/2wce/ts-restless/pull/31).
 
+[#37](https://github.com/2wce/ts-restless/issues/37) is implemented locally for review with explicit typed infinite-cache helpers. Native keys and cache behavior remain unchanged, and ordinary helpers keep their response-envelope types. The [plan](plans/2026-11-11-infinite-cache.md) records verification. This change is unmerged and absent from alpha.5; publication requires a containing release.
+
 ## Adapter maintenance epic
 
 The [epic](plans/2026-11-04-adapter-maintenance-epic.md) retains detailed deliverables and dependencies. Approval of a completed slice does not approve every later removal or redesign.
