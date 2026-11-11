@@ -117,20 +117,59 @@ const client = initClient(contract, {
 
 ### Dynamic Headers
 
-You can provide headers as functions for dynamic values:
+Header values can be strings or synchronous/asynchronous callbacks. Callbacks run
+for each API request and can return `undefined` to omit a header:
 
-```typescript title="dynamic-headers.ts"
-import { initClient } from '@ts-restless/core';
-import { getAccessToken } from './auth';
-import { contract } from './contract';
+```typescript twoslash title="dynamic-headers.ts"
+import { initClient, initContract } from '@ts-restless/core';
 
-const client = initClient(contract, {
-  baseUrl: 'https://api.example.com',
-  baseHeaders: {
-    Authorization: () => `Bearer ${getAccessToken()}`,
+const c = initContract();
+const contract = c.router({
+  me: {
+    method: 'GET',
+    path: '/me',
+    responses: { 200: c.type<{ name: string }>() },
   },
 });
+
+// ---cut---
+// Pass an auth helper scoped to the current incoming request or browser session.
+function createRequestClient(
+  getAccessToken: () => Promise<string | undefined>,
+) {
+  return initClient(contract, {
+    baseUrl: 'https://api.example.com',
+    baseHeaders: {
+      Authorization: async () => {
+        const token = await getAccessToken();
+        return token === undefined ? undefined : `Bearer ${token}`;
+      },
+      'X-App': 'my-app',
+    },
+  });
+}
 ```
+
+Independent callbacks resolve concurrently before transport runs. Callbacks
+receive `FetchApiOptions`, including the route, query, body and `fetchOptions`.
+Resolved headers are normalized to lowercase; explicit request headers override
+base headers regardless of case. An explicit `undefined` removes a base header.
+Use a callback for asynchronous values rather than putting a Promise directly
+in `baseHeaders`.
+
+If a callback throws or rejects, the request rejects with that same error and
+transport does not run. `fetchOptions.signal` is available to callbacks, but the
+client does not automatically cancel arbitrary asynchronous auth work.
+
+For SSR, create the client inside the incoming request scope or pass an auth
+helper that reads the current request's credentials. For example, a Next.js
+request-scoped `cookie` callback can return `(await cookies()).toString()`.
+Never capture one user's cookies or token in a process-wide client, and only
+forward credentials to the intended API. Plain clients and the query adapters
+share this resolution behavior.
+
+Async callbacks and optional callback values describe development source and
+are absent from `4.0.0-alpha.4`; use them after a containing release is published.
 
 ## Making Requests
 

@@ -16,7 +16,11 @@ ts-restless shares a TypeScript API contract between clients and servers. Runtim
 
 Response evaluation is adopted directly by Express, Fastify and Next. Other server paths retain their existing helpers/policies; this is not a completed universal server dispatcher. Parsed-request extraction and further native adoption remain on [the roadmap](roadmap.md).
 
+Shared client execution validates decoded responses once under the effective route/client policy, including custom transports; fetchers own transport and decoding. Standalone `tsRestFetchApi` retains validation support. [ADR 0008](adr/0008-client-response-validation.md) records this refinement of the response boundary.
+
 React, Vue and Solid reuse core query execution. The plain client returns response envelopes and does not adopt query-library rejection semantics. Native-composition APIs remain planned; current wrappers are supported.
+
+[ADR 0009](adr/0009-request-scoped-headers.md) records request-scoped asynchronous header preparation for plain clients and query bindings. Header callbacks resolve before transport without an auth cache or automatic cancellation of arbitrary auth work. The roadmap records delivery; acceptance of this boundary does not establish package availability.
 
 ## Package and artifact boundaries
 

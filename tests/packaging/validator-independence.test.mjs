@@ -278,6 +278,7 @@ for (const { profile, definition, nextVersion } of consumers) {
         );
       }
       const source = `import { initClient, initContract, executeQueryRequest, evaluateFetchApiArgs, evaluateResponse, ResponseMetadata, ResponseEvaluation, StandardSchemaV1, SchemaInputOrType, SchemaOutputOrType, ServerInferRequest, ClientInferRequest, ClientInferResponseBody } from '@ts-restless/core';
+import type { ClientArgs } from '@ts-restless/core';
 import { createExpressEndpoints, initServer } from '@ts-restless/express';
 import * as fastify from '@ts-restless/fastify';
 import * as nest from '@ts-restless/nest';
@@ -304,6 +305,20 @@ const responseClient = initClient(responseContract, { baseUrl: 'https://consumer
 type TextOutput = Expect<Equal<Extract<Awaited<ReturnType<typeof responseClient.text>>, { status: 200 }>['body'], number>>;
 type EmptyOutput = Expect<Equal<Extract<Awaited<ReturnType<typeof responseClient.empty>>, { status: 204 }>['body'], undefined>>;
 const contract = initContract().router({ convert: { method: 'POST', path: '/convert', body: schema, headers: { 'X-Count': schema, 'X-Note': optionalHeader }, responses: { 200: schema } } });
+const asyncHeaderClient = initClient(contract, {
+  baseUrl: 'https://consumer.example',
+  baseHeaders: { 'X-Count': async () => '12', 'X-Note': async (): Promise<string | undefined> => undefined },
+});
+type AsyncHeaderInput = Expect<Equal<NonNullable<Parameters<typeof asyncHeaderClient.convert>[0]>['headers'], { 'x-count'?: string; 'x-note'?: string } | undefined>>;
+asyncHeaderClient.convert({ body: '12' });
+const staticPromise: ClientArgs = {
+  baseUrl: 'https://consumer.example',
+  baseHeaders: {
+    // @ts-expect-error asynchronous header values must use per-request callbacks
+    'X-Count': Promise.resolve('12'),
+  },
+};
+void staticPromise;
 const evaluated: ResponseEvaluation = evaluateResponse({
   appRoute: contract.convert,
   response: { status: 200, body: '12' },
@@ -489,6 +504,11 @@ for (const { validateIfSchema, validateMultiSchemaObject, initClient, tsRestFetc
     }) } },
   });
   const app = createServer((req, res) => {
+    if (req.url === '/headers') {
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify(req.headers.authorization));
+      return;
+    }
     res.setHeader('x-response', 'preserved');
     res.setHeader('content-type', req.url === '/json' || req.url === '/empty' ? 'application/json' : req.url === '/binary' ? 'application/octet-stream' : 'text/plain');
     if (req.url === '/empty') { res.statusCode = 204; res.end(); }
@@ -531,6 +551,46 @@ for (const { validateIfSchema, validateMultiSchemaObject, initClient, tsRestFetc
     assert.equal(calls, 0);
     const invalid = initClient(contract, { baseUrl, validateResponse: true, api: async () => ({ status: 200, body: {}, headers: new Headers() }) });
     await assert.rejects(invalid.text(), StandardSchemaError);
+    const headerContract = c.router({ read: { method: 'GET', path: '/headers', responses: { 200: c.type() } } });
+    let resolutions = 0;
+    const headerClientArgs = {
+      baseUrl,
+      baseHeaders: {
+        Authorization: async () => { resolutions += 1; return 'Bearer packed'; },
+        'X-Optional': async () => undefined,
+      },
+    };
+    assert.equal((await initClient(headerContract, headerClientArgs).read()).body, 'Bearer packed');
+    assert.equal((await executeQueryRequest({ ...evaluateFetchApiArgs(headerContract.read, headerClientArgs), route: headerContract.read })).body, 'Bearer packed');
+    assert.equal(resolutions, 2);
+    let dispatched = 0;
+    const signal = new AbortController().signal;
+    const customArgs = {
+      ...headerClientArgs,
+      validateResponse: true,
+      api: async args => {
+        dispatched += 1;
+        assert.deepEqual(args.headers, { authorization: 'explicit' });
+        assert.equal(args.fetchOptions.signal, signal);
+        assert.equal(args.validateResponse, false);
+        return { status: 200, body: '42', headers: new Headers() };
+      },
+    };
+    calls = 0;
+    const customResult = await executeQueryRequest({
+      ...evaluateFetchApiArgs(contract.json, customArgs), route: contract.json,
+      headers: { AUTHORIZATION: 'explicit', 'x-optional': undefined },
+    }, signal);
+    assert.equal(customResult.body, 42);
+    assert.equal(calls, 1);
+    assert.equal(dispatched, 1);
+    const authFailure = new Error('packed auth failed');
+    const failingClient = initClient(contract, {
+      ...customArgs,
+      baseHeaders: { Authorization: async () => { throw authFailure; } },
+    });
+    await assert.rejects(failingClient.json(), error => error === authFailure);
+    assert.equal(dispatched, 1);
   } finally {
     await new Promise(resolve => app.close(resolve));
   }

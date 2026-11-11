@@ -72,7 +72,13 @@ export interface OverrideableClientArgs {
 }
 
 export interface ClientArgs extends OverrideableClientArgs {
-  baseHeaders?: Record<string, string | ((options: FetchApiOptions) => string)>;
+  baseHeaders?: Record<
+    string,
+    | string
+    | ((
+        options: FetchApiOptions,
+      ) => string | undefined | Promise<string | undefined>)
+  >;
   api?: ApiFetcher;
 }
 
@@ -243,13 +249,16 @@ export const fetchApi = async (options: FetchApiOptions) => {
   const baseHeaders =
     clientArgs.baseHeaders &&
     Object.fromEntries(
-      Object.entries(clientArgs.baseHeaders).map(([name, valueOrFunction]) => {
-        if (typeof valueOrFunction === 'function') {
-          return [name, valueOrFunction(options)];
-        } else {
-          return [name, valueOrFunction];
-        }
-      }),
+      await Promise.all(
+        Object.entries(clientArgs.baseHeaders).map(
+          async ([name, valueOrFunction]) => [
+            name,
+            typeof valueOrFunction === 'function'
+              ? await valueOrFunction(options)
+              : valueOrFunction,
+          ],
+        ),
+      ),
     );
 
   const combinedHeaders = {

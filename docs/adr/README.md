@@ -12,6 +12,7 @@ ADRs preserve consequential choices and their rationale. Use short Markdown reco
 | [0006](0006-query-v5-baseline.md)           | Query5 only with retained Vue/Solid bindings.                    |
 | [0007](0007-public-coordinated-releases.md) | Ten public libraries, coordinated releases and private examples. |
 | [0008](0008-client-response-validation.md)  | Client execution validates decoded responses once.               |
+| [0009](0009-request-scoped-headers.md)      | Resolve request-scoped auth headers in shared client execution.  |
 
 These initial records extract already approved decisions from existing documents; they do not newly approve roadmap proposals.
 
