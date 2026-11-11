@@ -1,6 +1,6 @@
 {
   "name": "@ts-restless/core",
-  "version": "4.0.0-alpha.5",
+  "version": "4.0.0-alpha.6",
   "private": false,
   "description": "Contract-first, end-to-end typed REST for TypeScript. A maintained fork of ts-rest.",
   "keywords": [
