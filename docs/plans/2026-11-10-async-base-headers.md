@@ -6,7 +6,7 @@
 
 **Architecture:** `fetchApi` resolves header callbacks per request before existing normalization, request overrides and transport dispatch. `Promise.all` starts independent callbacks concurrently and preserves entry order. Plain clients and query integrations share this path; core remains framework-independent.
 
-**Tech stack:** TypeScript, Vite+/Vitest, Standard Schema and strict installed ESM/CommonJS consumers. **Spec:** upstream [#832](https://github.com/ts-rest/ts-rest/issues/832), [client ownership](../adr/0003-query-ownership.md), and the accepted request-scoped design below.
+**Tech stack:** TypeScript, Vite+/Vitest, Standard Schema and strict installed ESM/CommonJS consumers. **Spec:** [request-scoped headers decision](../adr/0009-request-scoped-headers.md), upstream [#832](https://github.com/ts-rest/ts-rest/issues/832), [client ownership](../adr/0003-query-ownership.md), and the accepted request-scoped design below.
 
 ## Constraints
 

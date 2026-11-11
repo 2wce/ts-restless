@@ -8,4 +8,6 @@ A selector-only helper would leave orchestration duplicated. A universal host di
 
 This extraction does not resolve all client response-validation branches or migrate every server adapter's request/response path. Those remain separately scoped work.
 
+Follow-up recorded 2026-11-10: [ADR 0008](0008-client-response-validation.md) refines the client boundary. Shared client execution owns validation policy and validates decoded results once; fetchers own transport and decoding. This preserves the evaluation/native-write separation above. Further server adapter adoption remains separately scoped.
+
 Sources: [approved response design](../plans/001-response-contract-evaluation-design.md), [implementation](../plans/002-response-contract-evaluation.md). [Roadmap](../roadmap.md) records adoption.
