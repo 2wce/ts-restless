@@ -33,15 +33,19 @@
     "@ts-restless/vue-query": "3.52.1"
   },
   "changesets": [
+    "async-base-headers",
     "big-camels-complain",
     "client-response-validation",
     "common-query-execution",
     "cuddly-lions-buy",
+    "explicit-mutation-client",
     "express-native-raw-request",
+    "fastify-native-five",
     "fastify-response-evaluation",
     "giant-dragons-burn",
     "khaki-scissors-doubt",
     "modern-framework-baselines",
+    "modern-module-resolution",
     "new-berries-camp",
     "next-response-evaluation",
     "next-supported-majors",
@@ -49,6 +53,7 @@
     "plenty-seahorses-wait",
     "query-v5-infinite-compatibility",
     "query-v5-only",
+    "quiet-bundles-shake",
     "rare-elephants-itch",
     "react19-public-compatibility",
     "response-contract-evaluation",
@@ -58,6 +63,7 @@
     "soft-dolls-leave",
     "standard-schema-header-inference",
     "ts-restless-identity",
+    "typed-infinite-cache",
     "validator-independent-defaults"
   ]
 }

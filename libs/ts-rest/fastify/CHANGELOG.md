@@ -1,5 +1,21 @@
 # @ts-rest/fastify
 
+## 4.0.0-alpha.6
+
+### Major Changes
+
+- 3d4f180: Target native Fastify 5 from `@ts-restless/fastify` and move native Fastify 4 support to the deprecated `@ts-restless/fastify/legacy` entry. Fastify 4 applications must change their adapter value/type imports to `/legacy` when adopting this release; the root entry now rejects native4 at registration. Applications upgrading to native5 use the root entry, Node20+ and compatible native plugins. Registration APIs, contract inference, native hooks, validation and response writing are preserved; the independent `/zod3` helper is unchanged.
+
+  Fastify 4 retains compatibility checks and critical fixes through ts-restless v4. Its removal targets ts-restless v5, no earlier than six calendar months after stable notice and verified replacement availability. See the [Fastify migration guide](https://github.com/2wce/ts-restless/blob/main/apps/docs/content/docs/server/fastify.mdx#fastify-4-to-5) for the import/runtime/plugin migration and notice timing.
+
+- dc4f14e: Adopt package-export-aware TypeScript resolution for the stable v4 baseline. Consumers using `moduleResolution: "node"`/`"node10"` or `"classic"` must migrate to matching Node16/NodeNext settings for direct Node execution, or Bundler resolution for bundled applications. Remove `typesVersions` fallbacks; supported public imports resolve through conditional exports.
+
+  Both ESM and CommonJS code/declarations remain, including old-Zod compatibility. This does not impose contributor TypeScript7/Node26 on consumers or remove native framework support. See the [consumer configuration migration](https://github.com/2wce/ts-restless/blob/main/apps/docs/content/docs/ts-restless-migration.mdx#typescript-module-resolution) for compiler settings, package type, relative ESM extensions, tooling checks and pre-change release guidance.
+
+### Patch Changes
+
+- a676481: Declare audited public packages side-effect free so bundlers can remove unused imports. Installed-artifact bundle checks verify retained client/serverless APIs and Nest reflection metadata; compiled React modules retain their client directives. Function calls still perform their documented operations, and native framework initialization remains consumer-owned.
+
 ## 4.0.0-alpha.5
 
 ## 4.0.0-alpha.4

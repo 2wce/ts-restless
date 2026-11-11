@@ -1,5 +1,22 @@
 # @ts-rest/react-query
 
+## 4.0.0-alpha.6
+
+### Major Changes
+
+- dc4f14e: Adopt package-export-aware TypeScript resolution for the stable v4 baseline. Consumers using `moduleResolution: "node"`/`"node10"` or `"classic"` must migrate to matching Node16/NodeNext settings for direct Node execution, or Bundler resolution for bundled applications. Remove `typesVersions` fallbacks; supported public imports resolve through conditional exports.
+
+  Both ESM and CommonJS code/declarations remain, including old-Zod compatibility. This does not impose contributor TypeScript7/Node26 on consumers or remove native framework support. See the [consumer configuration migration](https://github.com/2wce/ts-restless/blob/main/apps/docs/content/docs/ts-restless-migration.mdx#typescript-module-resolution) for compiler settings, package type, relative ESM extensions, tooling checks and pre-change release guidance.
+
+### Minor Changes
+
+- baaf1e3: Add explicit route infinite-query cache read, update and state helpers that preserve response-envelope pages and typed page parameters while delegating to the native QueryClient.
+
+### Patch Changes
+
+- e2d7086: Forward the optional QueryClient passed to useMutation, allowing provider-free mutations and honoring an explicit client over a surrounding provider.
+- a676481: Declare audited public packages side-effect free so bundlers can remove unused imports. Installed-artifact bundle checks verify retained client/serverless APIs and Nest reflection metadata; compiled React modules retain their client directives. Function calls still perform their documented operations, and native framework initialization remains consumer-owned.
+
 ## 4.0.0-alpha.5
 
 ## 4.0.0-alpha.4
