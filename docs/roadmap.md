@@ -48,3 +48,7 @@ Merged [#30](https://github.com/2wce/ts-restless/pull/30), verified against main
 ## Resuming work
 
 Select one slice, verify prerequisites against current source and read its ADRs, historical design and acceptance criteria. Update this index with the actual PR/commit when implementation lands. Record publication separately with the containing version and registry evidence; no retirement clock starts from a plan or unreleased replacement.
+
+## Explicit mutation client follow-up
+
+[#36](https://github.com/2wce/ts-restless/issues/36) is implemented locally for review: the optional native QueryClient is forwarded to mutations, preserving its defaults, cache and errors. The [plan](plans/2026-11-11-mutation-queryclient.md) records verification. This change is unmerged and absent from alpha.5; publication requires a containing release.

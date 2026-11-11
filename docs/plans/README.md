@@ -12,6 +12,7 @@
 
 - [Client response validation implementation plan](2026-11-10-client-response-validation.md).
 - [Async base headers implementation plan](2026-11-10-async-base-headers.md).
+- [Explicit mutation QueryClient plan](2026-11-11-mutation-queryclient.md).
 
 - [React 19 compatibility implementation plan](2026-11-10-react19-compatibility.md).
 - [Response contract evaluation design](001-response-contract-evaluation-design.md).

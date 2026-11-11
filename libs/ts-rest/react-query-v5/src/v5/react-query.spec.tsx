@@ -1769,6 +1769,103 @@ describe('react-query', () => {
   });
 });
 
+it.each([false, true])(
+  'useMutation uses the explicit QueryClient with surrounding provider: %s',
+  async (withProvider) => {
+    const localContract = c.router({
+      write: {
+        method: 'POST',
+        path: '/explicit-client',
+        body: c.type<{ value: string }>(),
+        responses: {
+          200: c.type<{ saved: string }>(),
+          404: c.type<{ missing: true }>(),
+        },
+      },
+    });
+    const success = {
+      status: 200,
+      body: { saved: 'ok' },
+      headers: new Headers(),
+    };
+    const failure = {
+      status: 404,
+      body: { missing: true },
+      headers: new Headers(),
+    };
+    const transportError = new Error('transport unavailable');
+    const local = initTsrReactQuery(localContract, {
+      baseUrl: 'https://mutation.example',
+      api: async ({ rawBody }) => {
+        const { value } = rawBody as { value: string };
+        if (value === 'missing') return failure;
+        if (value === 'transport') throw transportError;
+        return success;
+      },
+    });
+    const explicit = new QueryClient({
+      defaultOptions: { mutations: { retry: false, gcTime: Infinity } },
+    });
+    const surrounding = new QueryClient();
+    explicit.setMutationDefaults(['write'], { meta: { source: 'explicit' } });
+    surrounding.setMutationDefaults(['write'], {
+      meta: { source: 'provider' },
+    });
+    const errors: unknown[] = [];
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={surrounding}>{children}</QueryClientProvider>
+    );
+    try {
+      const { result, unmount } = renderHook(
+        () =>
+          local.write.useMutation(
+            {
+              mutationKey: ['write'],
+              onError: (error) => {
+                errors.push(error);
+              },
+            },
+            explicit,
+          ),
+        { wrapper: withProvider ? wrapper : undefined },
+      );
+      try {
+        await act(async () => {
+          expect(
+            await result.current.mutateAsync({ body: { value: 'ok' } }),
+          ).toBe(success);
+        });
+        await waitFor(() => expect(result.current.data).toBe(success));
+        expect(result.current.contractEndpoint).toBe(localContract.write);
+        const mutations = explicit.getMutationCache().getAll();
+        expect(mutations).toHaveLength(1);
+        expect(mutations[0].options.meta).toEqual({ source: 'explicit' });
+        expect(mutations[0].state.data).toBe(success);
+        expect(surrounding.getMutationCache().getAll()).toHaveLength(0);
+
+        for (const [value, error] of [
+          ['missing', failure],
+          ['transport', transportError],
+        ] as const) {
+          await act(async () => {
+            await expect(
+              result.current.mutateAsync({ body: { value } }),
+            ).rejects.toBe(error);
+          });
+          await waitFor(() => expect(result.current.error).toBe(error));
+        }
+        expect(errors).toEqual([failure, transportError]);
+        expect(surrounding.getMutationCache().getAll()).toHaveLength(0);
+      } finally {
+        unmount();
+      }
+    } finally {
+      explicit.clear();
+      surrounding.clear();
+    }
+  },
+);
+
 it.each(['resolved', 'rejected'] as const)(
   'A11 preserves native signal, cache key and %s error identity',
   async (mode) => {

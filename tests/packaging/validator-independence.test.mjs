@@ -938,6 +938,7 @@ test.each(queryV5Consumers)(
       );
       const source = `import { initContract } from '@ts-restless/core';
 import { initTsrReactQuery } from '@ts-restless/react-query';
+import { QueryClient } from '@tanstack/react-query';
 import { createElement, type PropsWithChildren } from 'react';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends
@@ -975,7 +976,9 @@ type DeclaredError = Expect<Equal<
   Extract<NonNullable<typeof normal.error>, { status: 404 }>['body'],
   { missing: true }
 >>;
-const mutation = api.write.useMutation();
+const mutation = api.write.useMutation({}, new QueryClient());
+// @ts-expect-error the second argument must be a native QueryClient
+api.write.useMutation({}, {});
 type MutationBody = Expect<Equal<
   Parameters<typeof mutation.mutate>[0]['body'], { value: string }
 >>;
@@ -1234,6 +1237,47 @@ for (const load of [specifier => import(specifier), async specifier => require(s
       await act(async () => { rendered.unmount(); });
       hookClient.clear();
       container.remove();
+    }
+    for (const withProvider of [false, true]) {
+      const explicit = new QueryClient({ defaultOptions: { mutations: { retry: false, gcTime: Infinity } } });
+      const surrounding = new QueryClient();
+      explicit.setMutationDefaults(['explicit'], { meta: { source: 'explicit' } });
+      surrounding.setMutationDefaults(['explicit'], { meta: { source: 'provider' } });
+      let mutation;
+      function MutationProbe() {
+        mutation = tsr.write.useMutation({ mutationKey: ['explicit'] }, explicit);
+        return null;
+      }
+      const isolatedContainer = document.createElement('div');
+      document.body.append(isolatedContainer);
+      const isolatedRoot = createRoot(isolatedContainer);
+      try {
+        await act(async () => {
+          const probe = createElement(MutationProbe);
+          isolatedRoot.render(withProvider
+            ? createElement(QueryClientProvider, { client: surrounding }, probe)
+            : probe);
+        });
+        await act(async () => { await mutation.mutateAsync({ body: { value: 'explicit' } }); });
+        await waitForState(() => mutation.isSuccess);
+        assert.deepEqual(mutation.data.body, { saved: 'explicit' });
+        const mutations = explicit.getMutationCache().getAll();
+        assert.equal(mutations.length, 1);
+        assert.deepEqual(mutations[0].options.meta, { source: 'explicit' });
+        assert.equal(mutations[0].state.data, mutation.data);
+        assert.equal(surrounding.getMutationCache().getAll().length, 0);
+        await act(async () => {
+          await assert.rejects(mutation.mutateAsync({ body: { value: 'missing' } }), error => error === missing);
+        });
+        await waitForState(() => mutation.isError);
+        assert.equal(mutation.error, missing);
+        assert.equal(surrounding.getMutationCache().getAll().length, 0);
+      } finally {
+        await act(async () => { isolatedRoot.unmount(); });
+        explicit.clear();
+        surrounding.clear();
+        isolatedContainer.remove();
+      }
     }
   }
 }

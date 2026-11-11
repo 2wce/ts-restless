@@ -199,12 +199,15 @@ export const initHooksContainer = <
               key,
               {
                 mutate: getRouteQuery(subRouter, clientOptions) as any,
-                useMutation: (options) => {
+                useMutation: (options, queryClient) => {
                   return appendTsRestResult(
-                    useMutation({
-                      ...options,
-                      mutationFn: apiFetcher(subRouter, clientOptions) as any,
-                    }),
+                    useMutation(
+                      {
+                        ...options,
+                        mutationFn: apiFetcher(subRouter, clientOptions) as any,
+                      },
+                      queryClient,
+                    ),
                     {
                       contractEndpoint: subRouter,
                     },

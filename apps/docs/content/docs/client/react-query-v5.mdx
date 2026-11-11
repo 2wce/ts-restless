@@ -86,6 +86,26 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
 Now use the hooks from `tsr` in your components. The structure of the `tsr` container follows the same structure as your contract.
 
+### Explicit mutation QueryClient
+
+Pass a native `QueryClient` as the second argument to `useMutation` when the mutation should use that client:
+
+```tsx
+import { QueryClient } from '@tanstack/react-query';
+import { tsr } from './tsr';
+
+const mutationClient = new QueryClient();
+
+export function CreatePost() {
+  const mutation = tsr.posts.create.useMutation({}, mutationClient);
+  return <button disabled={mutation.isPending}>Create post</button>;
+}
+```
+
+Keep the client stable across renders. The explicit client supplies the mutation defaults and cache, takes precedence over a surrounding `QueryClientProvider`, and works without a provider. When omitted, the hook uses the surrounding native provider as usual. `tsr.useQueryClient()` still requires the providers described above.
+
+The correction for [#36](https://github.com/2wce/ts-restless/issues/36) is pending release and is absent from `4.0.0-alpha.5`; check the [delivery status](https://github.com/2wce/ts-restless/blob/main/docs/roadmap.md) for a containing release.
+
 ## Complete Example
 
 ```tsx
