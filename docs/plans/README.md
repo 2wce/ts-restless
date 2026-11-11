@@ -8,6 +8,8 @@
 
 ## Retained implementation and design records
 
+- [Side-effect metadata and bundle verification](2026-11-11-side-effect-packaging.md).
+
 - [Client response validation implementation plan](2026-11-10-client-response-validation.md).
 - [Async base headers implementation plan](2026-11-10-async-base-headers.md).
 

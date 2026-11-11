@@ -77,6 +77,16 @@
 
 **Dependency:** Selected launch fixes and support claims must be verified. A17 independent versions can follow separately; it is not required to ship the fork under the current coordinated scheme.
 
+## F07 — Side-effect metadata and bundle verification
+
+**Recorded:** 2026-11-11 against main `43b0a72d`. All ten public libraries omit `sideEffects`; emitted ESM permits export-level tree shaking but does not promise unused modules are safe to discard.
+
+**Deliverable:** Audit every executable public export and its built import graph before adding `sideEffects: false`; use emitted-file allowlists for genuine required initialization. This describes import-time behavior, not purity of invoked APIs. Preserve native Nest decorator metadata, React client directives and used serverless factories. Extend existing tarball checks with real unused/used bundle probes, without broad build refactoring.
+
+**Acceptance:** Packed manifests carry audited metadata; unused public imports disappear from bundles; retained contract/client APIs execute; retained Nest decorated classes retain reflection metadata; React emitted modules preserve `use client`. Check ESM/CommonJS consumers, existing package/release checks and documentation gates. Record audit evidence and a Changeset; publication remains separate.
+
+**Dependency:** Existing packing/consumer infrastructure. Independent of F03b and architecture extraction; suitable before the first stable release. [Implementation plan](2026-11-11-side-effect-packaging.md).
+
 ## 2026-11-06 findings and resume order
 
 The [dated evidence record](../evidence/2026-11-06-support-demand.md) and [JSON snapshot](../evidence/2026-11-06-support-demand.json) record support counts, upstream demand, framework-major shares, source limitations and release state. These are decision inputs, not approved retirements. Continue F01/F02/F03a independently of the architecture epic; Fastify5, client validation and OpenAPI remain separately scoped fixes.
