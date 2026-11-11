@@ -68,31 +68,11 @@
           "default": "./dist/legacy.cjs.js"
         }
       }
-    },
-    "typesVersions": {
-      "*": {
-        "zod3": [
-          "./dist/zod3.cjs.d.ts"
-        ],
-        "legacy": [
-          "./dist/legacy.cjs.d.ts"
-        ]
-      }
     }
   },
   "peerDependenciesMeta": {
     "zod": {
       "optional": true
-    }
-  },
-  "typesVersions": {
-    "*": {
-      "zod3": [
-        "./src/zod3.ts"
-      ],
-      "legacy": [
-        "./src/legacy.ts"
-      ]
     }
   },
   "bugs": {

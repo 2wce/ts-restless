@@ -33,6 +33,11 @@ test('packed packages preserve their public API and consumer compatibility', asy
       );
       assert.equal(pkg.name, `@ts-restless/${name}`, `${name}: fork identity`);
       assert.equal(
+        pkg.typesVersions,
+        undefined,
+        `${name}: modern resolution uses conditional export declarations`,
+      );
+      assert.equal(
         pkg.sideEffects,
         false,
         `${name}: audited import-time effects`,
@@ -356,7 +361,8 @@ Promise.all([client.get(), handler(new Request('https://example.test/retained'))
         );
       }
     }
-    // Both classic Node resolution and conditional ESM/CJS resolution must typecheck.
+    // Conditional export declarations must resolve with older/current compilers.
+    // CommonJS consumers remain supported through modern Node resolution.
     const typeImports = imports
       .map(
         (name, index) =>
@@ -377,10 +383,14 @@ void [initDefault, initTsrReactQuery, createFetchHandler, value, invalid];
       await writeFile(join(consumer, `consumer.${extension}`), typeConsumer);
     }
     for (const [compiler, mode, extension] of [
-      ['typescript-legacy', 'node', 'ts'],
+      ['typescript-legacy', 'bundler', 'ts'],
+      ['typescript-legacy', 'node16', 'mts'],
+      ['typescript-legacy', 'node16', 'cts'],
       ['typescript-legacy', 'nodenext', 'mts'],
       ['typescript-legacy', 'nodenext', 'cts'],
       ['typescript', 'bundler', 'ts'],
+      ['typescript', 'node16', 'mts'],
+      ['typescript', 'node16', 'cts'],
       ['typescript', 'nodenext', 'mts'],
       ['typescript', 'nodenext', 'cts'],
     ]) {
@@ -394,11 +404,7 @@ void [initDefault, initTsrReactQuery, createFetchHandler, value, invalid];
           '--target',
           'es2019',
           '--module',
-          mode === 'node'
-            ? 'commonjs'
-            : mode === 'bundler'
-              ? 'esnext'
-              : 'nodenext',
+          mode === 'bundler' ? 'esnext' : mode,
           '--moduleResolution',
           mode,
           join(consumer, `consumer.${extension}`),

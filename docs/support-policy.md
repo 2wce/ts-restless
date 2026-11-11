@@ -39,6 +39,12 @@ The 2026-11-11 decision adopts Fastify **5** as the active target and classifies
 
 Fastify 4 keeps critical security/correctness fixes and compatibility checks during migration; new features target 5. The stable v4 release must include public notice, the verified replacement and [migration guidance](../apps/docs/content/docs/server/fastify.mdx#fastify-4-to-5). Its window begins only when both the notice and stable replacement are released. Earliest removal is six calendar months after that date, in a ts-restless major; the date is not established while stable v4 is unpublished. See [ADR 0011](adr/0011-fastify-legacy-entry.md) for rationale. Fastify5 compatibility in development source does not establish npm availability.
 
+### TypeScript module-resolution baseline
+
+The first stable v4 supports `node16`, `nodenext` and `bundler` resolution through conditional package exports. `node`/`node10` and TypeScript's separate `classic` resolver are excluded; `typesVersions` compatibility mappings are removed. Both ESM and CommonJS builds/consumers remain. Native framework and old-Zod compatibility do not depend on retaining the old resolver.
+
+This is an initial stable-baseline decision in [ADR0012](adr/0012-modern-module-resolution.md), with [consumer configuration migration](../apps/docs/content/docs/ts-restless-migration.mdx#typescript-module-resolution). TypeScript6 deprecates node10 and7 removes it; older compilers can still use modern resolution. Contributor tool versions are not consumer minimums. The [inventory](support-inventory.md#compilers-package-consumers-and-runtimes) records actual pinned compiler/resolver coverage and its limits. Source adoption requires a containing release; existing publications are unchanged.
+
 ## Support states
 
 | State       | Maintenance commitment                                                                                                                                                                           |

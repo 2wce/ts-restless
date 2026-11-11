@@ -434,13 +434,9 @@ void [createExpressEndpoints, initServer, fastify, nest, next, serverless, fetch
         checkConsumerDeclarations(consumer, file, nextVersion);
       }
       if (profile === 'zod-3-legacy') {
-        // Classic Node resolution predates conditional package exports. The
-        // compatibility entry must still resolve, and its types must compile
-        // against actual pre-Standard-Schema Zod rather than workspace aliases.
-        const file = join(consumer, 'legacy.ts');
-        await writeFile(
-          file,
-          `import { toStandardSchema, ZodInputOrType, ZodInferOrType } from '@ts-restless/core/zod3';
+        // Old-Zod compatibility uses the same conditional ESM/CJS declarations.
+        // Keep strict checking on an older compiler and the actual old Zod peer.
+        const bridgeSource = `import { toStandardSchema, ZodInputOrType, ZodInferOrType } from '@ts-restless/core/zod3';
 import { initServer as initLegacyFastify, type RouteHooks } from '@ts-restless/fastify/legacy';
 void initLegacyFastify;
 type LegacyHooks = RouteHooks<import('@ts-restless/core').AppRoute>;
@@ -454,25 +450,27 @@ type Input = Expect<Equal<SchemaInputOrType<typeof schema>, string>>;
 type Output = Expect<Equal<SchemaOutputOrType<typeof schema>, number>>;
 type LegacyInput = Expect<Equal<ZodInputOrType<typeof original>, string>>;
 type LegacyOutput = Expect<Equal<ZodInferOrType<typeof original>, number>>;
-`,
-        );
-        execFileSync(
-          process.execPath,
-          [
-            join(consumer, 'node_modules/typescript/bin/tsc'),
-            '--noEmit',
-            '--strict',
-            '--target',
-            'es2022',
-            '--module',
-            'commonjs',
-            '--moduleResolution',
-            'node',
-            '--esModuleInterop',
-            file,
-          ],
-          { cwd: consumer, stdio: 'inherit' },
-        );
+`;
+        for (const extension of ['mts', 'cts']) {
+          const file = join(consumer, `legacy.${extension}`);
+          await writeFile(file, bridgeSource);
+          execFileSync(
+            process.execPath,
+            [
+              join(consumer, 'node_modules/typescript/bin/tsc'),
+              '--noEmit',
+              '--strict',
+              '--target',
+              'es2022',
+              '--module',
+              'nodenext',
+              '--moduleResolution',
+              'nodenext',
+              file,
+            ],
+            { cwd: consumer, stdio: 'inherit' },
+          );
+        }
       }
       const runtime = `import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';

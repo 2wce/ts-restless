@@ -8,7 +8,7 @@ export class AppController {
   constructor(private readonly appService: AppService) {}
 
   @TsRestHandler(contract)
-  handler() {
+  handler(): ReturnType<typeof tsRestHandler<typeof contract>> {
     return tsRestHandler(contract, {
       getHello: async () => {
         return {
