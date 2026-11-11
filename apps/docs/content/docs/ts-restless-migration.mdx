@@ -103,7 +103,7 @@ Do not bypass peer checks to treat an unsupported combination as supported.
 
 ## Retained features and current limits
 
-Express 4/5, Nest 9–12, Fastify 4/5, the Zod 3 bridge and all ten public libraries remain in the development baseline. Fastify 5 is preferred; Fastify 4 is legacy/deprecated through ts-restless v4, with removal planned for ts-restless v5 under the stable migration policy. Alpha.5 supports Fastify 4 only; select a containing release for 5. See the [Fastify migration guide](/server/fastify#fastify-4-to-5). React 18/19 compatibility requires a containing release and compatible native Query peers. Peer ranges describe allowed versions; release notes identify the combinations actually tested.
+Express 4/5, Nest 9–12, Fastify 4/5, the Zod 3 bridge and all ten public libraries remain in the development baseline. Fastify 5 is preferred; Fastify 4 is legacy/deprecated through ts-restless v4, with removal planned for ts-restless v5 under the stable migration policy. Alpha.5 supports Fastify 4 only; select a containing release for 5. See the [Fastify migration guide](/server/fastify#fastify-4-to-5). React 18/19 compatibility is published from alpha.4; React 19 also requires compatible native Query peers. Peer ranges describe allowed versions; release notes identify the combinations actually tested.
 
 The [OpenAPI Zod 3 default converter is retained](/standard-schema-migration#openapi). Changing runtime validation to Standard Schema does not automatically add JSON Schema generation for a new validator; use a matching converter when changing validators.
 
