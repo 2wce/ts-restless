@@ -100,6 +100,8 @@ mutation.mutate({ body: { value: 'save' } });
 
 Call hooks inside components. Mutation variables remain the contract request object; do not wrap them in `queryData`. Supply mutation callbacks in `useMutation` options or the `mutate` call as allowed by native v5. The binding supplies `mutationFn`.
 
+For an explicitly managed mutation client, pass it as the second argument: `tsr.write.useMutation(options, queryClient)`. It owns that mutation's defaults and cache and takes precedence over a surrounding provider. Omitting it preserves the native provider behavior. This correction is absent from alpha.5 and requires a containing release; see the [React guide](/client/react-query-v5#explicit-mutation-queryclient).
+
 For per-endpoint `useQueries`, move each request into its own `queryData` field:
 
 ```ts
