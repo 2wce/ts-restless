@@ -19,7 +19,7 @@
 
 ## Compiler-resolution baseline
 
-Modern TypeScript resolution is being adopted on `feat/modern-module-resolution`, on a separate branch after the Fastify implementation merged. [ADR0012](adr/0012-modern-module-resolution.md) and the [plan](plans/2026-11-11-modern-module-resolution.md) define Node16/NodeNext/Bundler support, removal of classic mappings/probes, retained ESM/CommonJS and consumer migration. This needs a containing release; alpha.5 predates the change. A single-ESM-build investigation remains future work requiring separate evidence and approval.
+Modern TypeScript resolution is verified in draft [PR43](https://github.com/2wce/ts-restless/pull/43) on `feat/modern-module-resolution`, after the Fastify implementation merged. [ADR0012](adr/0012-modern-module-resolution.md) and the [plan](plans/2026-11-11-modern-module-resolution.md) define Node16/NodeNext/Bundler support, removal of classic mappings/probes, retained ESM/CommonJS and consumer migration. This needs a containing release; alpha.5 predates the change. A single-ESM-build investigation remains future work requiring separate evidence and approval.
 
 ## Follow-up from the upstream shortlist
 

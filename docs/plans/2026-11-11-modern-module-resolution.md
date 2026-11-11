@@ -27,7 +27,7 @@
 - [x] Provide NodeNext CommonJS/ESM and Bundler configs, package `type`/extension behavior, relative ESM import extensions, tooling migration and release/fallback guidance. Do not advise bypassing failures with `skipLibCheck`, disabled export resolution or casts.
 - [x] Record pinned modern resolver/compiler evidence without implying exhaustive version coverage or imposing the contributor Node/TS baseline on consumers. A single-ESM-build investigation remains a separate future choice.
 - [x] Run repository checks, documentation build/tests and docs lint; obtain independent review and record verification.
-- [ ] Commit/push the separate branch and create a draft PR. Do not merge, version or publish.
+- [x] Commit/push the separate branch and create draft [PR43](https://github.com/2wce/ts-restless/pull/43). Do not merge, version or publish.
 
 ## Coordination
 
