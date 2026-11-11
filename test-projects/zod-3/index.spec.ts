@@ -5,7 +5,7 @@ import {
   RequestValidationErrorSchema,
   RequestValidationErrorSchemaForNest,
   RequestValidationErrorSchemaWithoutMessage,
-} from '@ts-restless/core/zod3';
+} from '@ts-restless/core/legacy';
 
 const expectRes = (res: any) => {
   return expect({ body: res.body, status: res.status });

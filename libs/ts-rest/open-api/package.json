@@ -8,12 +8,12 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@anatine/zod-openapi": "^1.14.2",
-    "openapi3-ts": "^2.0.2"
+    "openapi3-ts": "^4.5.0"
   },
   "peerDependencies": {
+    "@ts-restless/core": "workspace:^",
     "zod": "^3.22.3",
-    "@ts-restless/core": "workspace:^"
+    "@anatine/zod-openapi": "^1.14.2"
   },
   "scripts": {
     "build": "vp pack"
@@ -25,7 +25,8 @@
   "types": "./src/index.ts",
   "exports": {
     "./package.json": "./package.json",
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./legacy": "./src/legacy.ts"
   },
   "files": [
     "dist",
@@ -47,6 +48,16 @@
           "types": "./dist/index.cjs.d.ts",
           "default": "./dist/index.cjs.js"
         }
+      },
+      "./legacy": {
+        "import": {
+          "types": "./dist/legacy.esm.d.mts",
+          "default": "./dist/legacy.esm.mjs"
+        },
+        "require": {
+          "types": "./dist/legacy.cjs.d.ts",
+          "default": "./dist/legacy.cjs.js"
+        }
       }
     }
   },
@@ -55,5 +66,13 @@
   },
   "homepage": "https://github.com/2wce/ts-restless#readme",
   "description": "ts-restless open-api integration for contract-first, end-to-end typed REST.",
-  "sideEffects": false
+  "sideEffects": false,
+  "peerDependenciesMeta": {
+    "zod": {
+      "optional": true
+    },
+    "@anatine/zod-openapi": {
+      "optional": true
+    }
+  }
 }

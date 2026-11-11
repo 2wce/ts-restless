@@ -11,3 +11,7 @@ Report bugs and prerelease feedback in [the fork's issue tracker](https://github
 ## Workspace development
 
 From the repository root, run `pnpm --filter @ts-restless/open-api build` to build this library and `pnpm test` for the source test suite. Use the repository's pinned Node and pnpm versions.
+
+## Conversion
+
+The development-source default entry requires `schemaTransformer` and supports explicit OpenAPI 3.0.2/3.1.0 targets. It has no required validator dependency. Zod 3 compatibility is opt-in through `@ts-restless/open-api/legacy` and needs Zod 3 plus `@anatine/zod-openapi`. Inferred defaults are omitted without evaluating callbacks; supply constant metadata defaults explicitly. See the [OpenAPI guide](https://github.com/2wce/ts-restless/blob/main/apps/docs/content/docs/openapi.mdx) for conversion, body-presence and query-union migration examples.

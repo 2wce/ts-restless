@@ -1,7 +1,15 @@
-import { AppRoute, StandardSchemaV1 } from '@ts-restless/core';
-import { ParameterObject, ResponseObject, SchemaObject } from 'openapi3-ts';
+import { AppRoute } from '@ts-restless/core';
+import { ParameterObject, SchemaObject } from './model';
 
-type SchemaTransformerArgs = {
+export type OpenApiVersion = '3.0.2' | '3.1.0';
+
+/** Presence refers to the whole value, not its object properties. No validation runs during generation. */
+export type SchemaConversion = { schema: SchemaObject; required: boolean };
+export type SchemaTransformerResult = SchemaObject | SchemaConversion | null;
+
+export type SchemaTransformerArgs = {
+  /** Target document dialect. Defaults to 3.0.2 in parser helpers. */
+  openApiVersion?: OpenApiVersion;
   /**
    * The schema to transform.
    */
@@ -33,7 +41,7 @@ type SchemaTransformerArgs = {
  */
 export type SchemaTransformerSync = (
   args: SchemaTransformerArgs,
-) => SchemaObject | null;
+) => SchemaTransformerResult;
 
 /**
  * Async schema transformer.
@@ -44,7 +52,7 @@ export type SchemaTransformerSync = (
  */
 export type SchemaTransformerAsync = (
   args: SchemaTransformerArgs,
-) => Promise<SchemaObject | null>;
+) => Promise<SchemaTransformerResult>;
 
 export type SchemaTransformer = SchemaTransformerSync | SchemaTransformerAsync;
 
@@ -93,9 +101,20 @@ export type PathSchemaResults = {
   path: ParameterObject[];
   headers: ParameterObject[];
   query: ParameterObject[];
-  body: SchemaObject | null;
+  body: SchemaConversion | null;
   /**
    * Status code to response.
    */
   responses: Record<string, SchemaObject>;
+};
+
+/** @hidden Normalize old plain-schema returns and explicit whole-value presence. */
+export const resolveSchema = (
+  result: SchemaTransformerResult,
+): SchemaConversion | null => {
+  if (result === null) return null;
+  if ('schema' in result && typeof result.required === 'boolean') {
+    return result as SchemaConversion;
+  }
+  return { schema: result as SchemaObject, required: true };
 };

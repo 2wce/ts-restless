@@ -1,4 +1,4 @@
-import { SchemaObject, MediaTypeObject, ReferenceObject } from 'openapi3-ts';
+import { SchemaObject, MediaTypeObject, ReferenceObject } from './model';
 
 export const convertSchemaObjectToMediaTypeObject = (
   input: SchemaObject,

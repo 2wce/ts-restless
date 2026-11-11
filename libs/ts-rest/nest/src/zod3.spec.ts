@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { RequestValidationError, RequestValidationErrorSchema } from './zod3';
+import { RequestValidationError, RequestValidationErrorSchema } from './legacy';
 
 it('retains historical ZodError payload schemas in the explicit compatibility entry', () => {
   const issue = {

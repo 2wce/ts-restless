@@ -7,7 +7,7 @@ import {
   zodMerge,
   type ZodInferOrType,
   type ZodInputOrType,
-} from '../zod3';
+} from '../legacy';
 import {
   validateIfSchema,
   validateMultiSchemaObject,

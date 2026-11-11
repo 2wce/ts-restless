@@ -95,7 +95,7 @@ catalog:
   'multer': '2.4.0'
   'next': '16.4.2'
   'node-mocks-http': '^1.13.0'
-  'openapi3-ts': '^2.0.2'
+  'openapi3-ts': '4.5.0'
   'parse-multipart-data': '^1.5.0'
   'passport': '^0.6.0'
   'passport-jwt': '^4.0.1'

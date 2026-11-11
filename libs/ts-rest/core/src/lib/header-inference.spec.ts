@@ -8,7 +8,7 @@ import type { StandardSchemaV1 } from './standard-schema';
 import type { Equal, Expect } from './test-helpers';
 import { validateMultiSchemaObject } from './standard-schema-utils';
 import { StandardSchemaError } from './validation-error';
-import { toStandardSchema } from '../zod3';
+import { toStandardSchema } from '../legacy';
 
 const c = initContract();
 

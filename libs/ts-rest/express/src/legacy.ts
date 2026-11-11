@@ -2,4 +2,4 @@
 export {
   ZodErrorSchema as DefaultRequestValidationErrorSchema,
   RequestValidationErrorSchemaWithoutMessage as CombinedRequestValidationErrorSchema,
-} from '@ts-restless/core/zod3';
+} from '@ts-restless/core/legacy';

@@ -1,13 +1,13 @@
-import { AppRoute, isStandardSchema } from '@ts-restless/core';
-import { isZodObject } from '@ts-restless/core/zod3';
+import { AppRoute } from '@ts-restless/core';
 import {
+  resolveSchema,
   AsyncAndSyncHelper,
   GetAsyncFunction,
   GetSyncFunction,
   SchemaTransformerAsync,
   SchemaTransformerSync,
 } from '../types';
-import { ParameterObject } from 'openapi3-ts';
+import { ParameterObject } from '../model';
 import { schemaObjectToParameters } from './utils';
 
 type GetQueryParameterHelper = AsyncAndSyncHelper<
@@ -34,25 +34,30 @@ const syncFunc: GetSyncFunction<GetQueryParameterHelper> = ({
   jsonQuery = false,
 }) => {
   const schema = appRoute.query;
-  const isSchema = isZodObject(schema) || isStandardSchema(schema);
-
-  if (!isSchema) {
+  if (schema == null || typeof schema === 'symbol') {
     return [];
   }
 
-  const transformedSchema = transformSchema({
-    schema,
-    appRoute,
-    id,
-    concatenatedPath,
-    type: 'query',
-  });
+  const transformedSchema = resolveSchema(
+    transformSchema({
+      schema,
+      appRoute,
+      id,
+      concatenatedPath,
+      type: 'query',
+    }),
+  )?.schema;
 
   if (!transformedSchema) {
     return [];
   }
 
-  return schemaObjectToParameters(transformedSchema, 'query', jsonQuery);
+  return schemaObjectToParameters(
+    transformedSchema,
+    'query',
+    jsonQuery,
+    concatenatedPath,
+  );
 };
 
 const asyncFunc: GetAsyncFunction<GetQueryParameterHelper> = async ({
@@ -63,25 +68,30 @@ const asyncFunc: GetAsyncFunction<GetQueryParameterHelper> = async ({
   jsonQuery = false,
 }) => {
   const schema = appRoute.query;
-  const isSchema = isZodObject(schema) || isStandardSchema(schema);
-
-  if (!isSchema) {
+  if (schema == null || typeof schema === 'symbol') {
     return [];
   }
 
-  const transformedSchema = await transformSchema({
-    schema,
-    appRoute,
-    id,
-    concatenatedPath,
-    type: 'query',
-  });
+  const transformedSchema = resolveSchema(
+    await transformSchema({
+      schema,
+      appRoute,
+      id,
+      concatenatedPath,
+      type: 'query',
+    }),
+  )?.schema;
 
   if (!transformedSchema) {
     return [];
   }
 
-  return schemaObjectToParameters(transformedSchema, 'query', jsonQuery);
+  return schemaObjectToParameters(
+    transformedSchema,
+    'query',
+    jsonQuery,
+    concatenatedPath,
+  );
 };
 
 export const getQueryParameterSchema: GetQueryParameterHelper = {

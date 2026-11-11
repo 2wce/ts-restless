@@ -1,5 +1,14 @@
+import { z as z4 } from 'zod4';
+import { toJsonSchema } from '@valibot/to-json-schema';
+import SwaggerParser from '@apidevtools/swagger-parser';
+import type { SchemaTransformerSync } from './types';
+import type { SchemaObject } from './model';
 import * as v from 'valibot';
-import { initContract, type StandardSchemaV1 } from '@ts-restless/core';
+import {
+  initContract,
+  isStandardSchema,
+  type StandardSchemaV1,
+} from '@ts-restless/core';
 import { generateOpenApi, generateOpenApiAsync } from './ts-rest-open-api';
 import { VALIBOT_ASYNC } from './parsers/test-helpers';
 
@@ -139,6 +148,7 @@ describe('standard schema', () => {
               {
                 in: 'path',
                 name: 'id',
+                required: true,
                 schema: {
                   type: 'string',
                   pattern: '^[0-9]+$',
@@ -146,17 +156,6 @@ describe('standard schema', () => {
                 },
               },
             ],
-            requestBody: {
-              content: {
-                'application/json': {
-                  schema: {
-                    description: 'body',
-                    topLevelReturn: true,
-                  },
-                },
-              },
-              description: 'Body',
-            },
             responses: {
               '200': {
                 content: {
@@ -275,6 +274,7 @@ describe('standard schema', () => {
           },
         ],
         requestBody: {
+          required: true,
           content: {
             'application/json': {
               schema,
@@ -322,6 +322,7 @@ describe('standard schema', () => {
           },
         ],
         requestBody: {
+          required: true,
           content: {
             'application/json': {
               schema: {
@@ -418,7 +419,7 @@ describe('standard schema', () => {
       },
     );
 
-    expect(openApiSchema.paths['/posts/{id}'].get.parameters).toStrictEqual([
+    expect(openApiSchema.paths['/posts/{id}'].get!.parameters).toStrictEqual([
       {
         name: 'id',
         in: 'path',
@@ -506,10 +507,370 @@ describe('Standard Schema response description metadata', () => {
             type === 'response' ? { type: 'string' } : null,
         },
       );
-      expect(document.paths['/metadata'].get?.responses['200']).toEqual({
+      expect(document.paths['/metadata'].get?.responses!['200']).toEqual({
         description: expected,
         content: { 'application/json': { schema: { type: 'string' } } },
       });
+    },
+  );
+});
+
+// The same converter recipes are used by the public checked guide.
+const zod4Converter: SchemaTransformerSync = ({
+  schema,
+  type,
+  openApiVersion,
+}) => {
+  if (!(schema instanceof z4.ZodType)) return null;
+  return {
+    schema: z4.toJSONSchema(schema, {
+      target: openApiVersion === '3.1.0' ? 'draft-2020-12' : 'openapi-3.0',
+      io: type === 'response' ? 'output' : 'input',
+    }) as SchemaObject,
+    required: !(schema instanceof z4.ZodOptional),
+  };
+};
+const valibotConverter: SchemaTransformerSync = ({
+  schema,
+  openApiVersion,
+}) => {
+  if (!isStandardSchema(schema) || schema['~standard'].vendor !== 'valibot')
+    return null;
+  return {
+    schema: toJsonSchema(schema as v.GenericSchema, {
+      target: openApiVersion === '3.1.0' ? 'draft-2020-12' : 'openapi-3.0',
+    }) as SchemaObject,
+    required: (schema as v.GenericSchema).type !== 'optional',
+  };
+};
+
+describe('explicit conversion and dialects', () => {
+  const info = { info: { title: 'Conversion', version: '1' } };
+  const marker: StandardSchemaV1 = {
+    '~standard': {
+      version: 1,
+      vendor: 'test',
+      validate: () => {
+        throw new Error('Generation must not validate');
+      },
+    },
+  };
+  const contract = c.router({
+    create: {
+      method: 'POST',
+      path: '/body',
+      body: marker,
+      responses: { 204: c.noBody() },
+    },
+  });
+
+  it('requires a converter and rejects an unsupported validator', () => {
+    expect(() => generateOpenApi(contract, info, undefined as never)).toThrow(
+      /schemaTransformer/,
+    );
+    expect(() =>
+      generateOpenApi(contract, info, { schemaTransformer: () => null }),
+    ).toThrow(/No schema conversion.*create.*body/);
+  });
+
+  it('rejects an async converter in synchronous generation, even from JavaScript', () => {
+    expect(() =>
+      generateOpenApi(contract, info, {
+        schemaTransformer: (async () =>
+          null) as unknown as SchemaTransformerSync,
+      }),
+    ).toThrow(/generateOpenApiAsync/);
+  });
+
+  it.each([true, false])(
+    'uses explicit whole-body presence %s without running validation',
+    async (required) => {
+      const converter: SchemaTransformerSync = ({ schema }) =>
+        schema === marker
+          ? {
+              schema: {
+                type: 'object',
+                properties: { field: { type: 'string' } },
+                required: ['field'],
+              },
+              required,
+            }
+          : null;
+      const sync = generateOpenApi(contract, info, {
+        schemaTransformer: converter,
+      });
+      const async = await generateOpenApiAsync(contract, info, {
+        schemaTransformer: async (args) => converter(args),
+      });
+      expect(sync.paths['/body'].post?.requestBody).toMatchObject({ required });
+      expect(async).toEqual(sync);
+      await SwaggerParser.validate(structuredClone(sync) as never);
+    },
+  );
+
+  it.each(['3.0.2', '3.1.0'] as const)(
+    'validates Zod4 and Valibot documents for %s',
+    async (openApiVersion) => {
+      for (const [schema, optional, converter] of [
+        [
+          z4.object({
+            name: z4.string(),
+            maybe: z4.string().nullable(),
+            choice: z4.union([z4.string(), z4.number()]),
+          }),
+          z4.optional(z4.string()),
+          zod4Converter,
+        ],
+        [
+          v.object({
+            name: v.string(),
+            maybe: v.nullable(v.string()),
+            choice: v.union([v.string(), v.number()]),
+          }),
+          v.optional(v.string()),
+          valibotConverter,
+        ],
+      ] as const) {
+        const routes = c.router({
+          create: {
+            method: 'POST',
+            path: '/values/:name',
+            pathParams: schema,
+            query: schema,
+            headers: { 'x-optional': optional },
+            body: schema,
+            responses: {
+              200: schema,
+              204: c.noBody(),
+              400: c.otherResponse({
+                contentType: 'text/plain',
+                body: optional,
+              }),
+            },
+          },
+        });
+        const sync = generateOpenApi(routes, info, {
+          schemaTransformer: converter,
+          openApiVersion,
+        });
+        const async = await generateOpenApiAsync(routes, info, {
+          schemaTransformer: async (args) => converter(args),
+          openApiVersion,
+        });
+        expect(sync).toEqual(async);
+        expect(sync.openapi).toBe(openApiVersion);
+        expect(sync.paths['/values/{name}'].post?.requestBody).toMatchObject({
+          required: true,
+        });
+        expect(sync.paths['/values/{name}'].post?.responses?.['204']).toEqual({
+          description: '204',
+        });
+        expect(
+          sync.paths['/values/{name}'].post?.responses?.['400'],
+        ).toHaveProperty('content.text/plain');
+        expect(sync.paths['/values/{name}'].post?.parameters).toContainEqual({
+          name: 'x-optional',
+          in: 'header',
+          schema: { type: 'string' },
+        });
+        await SwaggerParser.validate(structuredClone(sync) as never);
+      }
+    },
+  );
+
+  it('hoists shared definitions, preserves recursive refs, and resolves root parameter refs', async () => {
+    const schema: SchemaObject = {
+      $schema: 'https://json-schema.org/draft/2020-12/schema',
+      $defs: {
+        Shared: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            next: { $ref: '#/$defs/Shared' },
+          },
+          required: ['name'],
+        },
+      },
+      $ref: '#/$defs/Shared',
+    };
+    const converter: SchemaTransformerSync = ({ schema: input }) =>
+      input === marker ? schema : null;
+    const routes = c.router({
+      create: {
+        method: 'POST',
+        path: '/refs',
+        query: marker,
+        body: marker,
+        responses: { 200: marker },
+      },
+    });
+    const document = generateOpenApi(
+      routes,
+      {
+        ...info,
+        components: {
+          schemas: { Existing: { type: 'string' } },
+          securitySchemes: { token: { type: 'http', scheme: 'bearer' } },
+        },
+      },
+      { schemaTransformer: converter, openApiVersion: '3.1.0' },
+    );
+    expect(document.components?.schemas?.['Shared']).toMatchObject({
+      properties: { next: { $ref: '#/components/schemas/Shared' } },
+    });
+    expect(document.components?.schemas?.['Existing']).toEqual({
+      type: 'string',
+    });
+    expect(document.components?.securitySchemes?.['token']).toEqual({
+      type: 'http',
+      scheme: 'bearer',
+    });
+    expect(document.paths['/refs'].post?.parameters).toContainEqual({
+      name: 'name',
+      in: 'query',
+      required: true,
+      schema: { type: 'string' },
+    });
+    expect(schema).toHaveProperty('$defs');
+    await SwaggerParser.validate(structuredClone(document) as never);
+  });
+
+  it.each([
+    { schema: { $ref: '#/$defs/Missing' }, error: /Unresolved/ },
+    {
+      schema: { $schema: 'http://json-schema.org/draft-07/schema#' },
+      error: /dialect/,
+    },
+    { schema: { const: 'x' }, error: /incompatible/ },
+    { schema: { $id: 'https://example.com/schema' }, error: /resource IDs/ },
+  ])('rejects incompatible conversion $schema', ({ schema, error }) => {
+    expect(() =>
+      generateOpenApi(contract, info, {
+        schemaTransformer: ({ schema: input }) =>
+          input === marker ? schema : null,
+      }),
+    ).toThrow(error);
+  });
+
+  it.each([
+    { type: 'number', minimum: 5, exclusiveMinimum: true },
+    { type: 'number', maximum: 5, exclusiveMaximum: false },
+    {
+      type: 'object',
+      properties: { value: { type: 'number', exclusiveMinimum: false } },
+    },
+    {
+      type: 'array',
+      unevaluatedItems: { type: 'number', exclusiveMaximum: true },
+    },
+  ] as SchemaObject[])(
+    'rejects boolean exclusive bounds when targeting 3.1',
+    async (schema) => {
+      const options = {
+        schemaTransformer: ({ schema: input }: { schema: unknown }) =>
+          input === marker ? schema : null,
+        openApiVersion: '3.1.0' as const,
+      };
+      expect(() => generateOpenApi(contract, info, options)).toThrow(
+        /exclusive.*3.1/,
+      );
+      await expect(
+        generateOpenApiAsync(contract, info, options),
+      ).rejects.toThrow(/exclusive.*3.1/);
+    },
+  );
+
+  it('does not overwrite conflicting caller components', () => {
+    expect(() =>
+      generateOpenApi(
+        contract,
+        { ...info, components: { schemas: { Shared: { type: 'number' } } } },
+        {
+          schemaTransformer: ({ schema }) =>
+            schema === marker
+              ? {
+                  $defs: { Shared: { type: 'string' } },
+                  $ref: '#/$defs/Shared',
+                }
+              : null,
+        },
+      ),
+    ).toThrow(/different schema/);
+  });
+
+  it('rejects external parameter references before resolving local components', () => {
+    const routes = c.router({
+      find: {
+        method: 'GET',
+        path: '/find',
+        query: marker,
+        responses: { 204: c.noBody() },
+      },
+    });
+    expect(() =>
+      generateOpenApi(
+        routes,
+        {
+          ...info,
+          components: {
+            schemas: {
+              Shared: {
+                type: 'object',
+                properties: { unrelated: { type: 'string' } },
+              },
+            },
+          },
+        },
+        {
+          schemaTransformer: ({ schema }) =>
+            schema === marker ? { $ref: 'https://example.com/Shared' } : null,
+        },
+      ),
+    ).toThrow(/direct local component reference/);
+  });
+
+  it.each([{ dependentRequired: { a: ['b'] } }, { unevaluatedItems: false }])(
+    'rejects additional unsupported 3.0 keywords',
+    (schema) => {
+      expect(() =>
+        generateOpenApi(contract, info, {
+          schemaTransformer: ({ schema: input }) =>
+            input === marker ? schema : null,
+        }),
+      ).toThrow(/incompatible/);
+    },
+  );
+
+  it.each([false, true])(
+    'diagnoses union query conversion for sync/async (%s)',
+    async (async) => {
+      const routes = c.router({
+        find: {
+          method: 'GET',
+          path: '/find',
+          query: marker,
+          responses: { 204: c.noBody() },
+        },
+      });
+      const converter: SchemaTransformerSync = ({ schema }) =>
+        schema === marker
+          ? ({
+              oneOf: [
+                { type: 'object', properties: { a: { type: 'string' } } },
+                { type: 'object', properties: { b: { type: 'string' } } },
+              ],
+            } as SchemaObject)
+          : null;
+      if (async)
+        await expect(
+          generateOpenApiAsync(routes, info, {
+            schemaTransformer: async (args) => converter(args),
+          }),
+        ).rejects.toThrow(/query.*find.*plain object/);
+      else
+        expect(() =>
+          generateOpenApi(routes, info, { schemaTransformer: converter }),
+        ).toThrow(/query.*find.*plain object/);
     },
   );
 });

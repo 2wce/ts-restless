@@ -1,7 +1,7 @@
 /** Historical error constructors and payload schemas for Zod 3 only. */
 import type { ZodError } from 'zod';
 import { TsRestHttpError } from './lib/http-error';
-export { RequestValidationErrorSchema } from '@ts-restless/core/zod3';
+export { RequestValidationErrorSchema } from '@ts-restless/core/legacy';
 
 export class RequestValidationError extends TsRestHttpError {
   constructor(

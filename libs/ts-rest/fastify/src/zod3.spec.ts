@@ -1,4 +1,4 @@
-import { RequestValidationErrorSchema } from './zod3';
+import { RequestValidationErrorSchema } from './legacy';
 
 it('retains historical ZodError payload schemas in the explicit compatibility entry', () => {
   const issue = {

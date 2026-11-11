@@ -24,7 +24,7 @@ Wrap a schema that does not provide `~standard` explicitly:
 
 ```typescript twoslash
 import { initContract } from '@ts-restless/core';
-import { toStandardSchema } from '@ts-restless/core/zod3';
+import { toStandardSchema } from '@ts-restless/core/legacy';
 import { z } from 'zod';
 
 const c = initContract();
@@ -47,7 +47,7 @@ contract, so bridge each old schema that lacks `~standard`:
 
 ```typescript twoslash
 import { initContract } from '@ts-restless/core';
-import { toStandardSchema } from '@ts-restless/core/zod3';
+import { toStandardSchema } from '@ts-restless/core/legacy';
 import { z } from 'zod';
 const c = initContract();
 const contract = c.router({
@@ -146,9 +146,9 @@ handler policy and replace its nested historical Zod-error schema with the
 portable schema. Update any contract response declaration that describes these
 errors, then test invalid parameters, headers, query and body independently.
 
-The historical `/zod3` payload schemas require `name: 'ZodError'` and Zod issue
+The historical `/legacy` payload schemas require `name: 'ZodError'` and Zod issue
 fields. They are useful for older payloads, but are not parsers for the new
-default handlers. A `/zod3` import or explicit old-schema bridge does not enable
+default handlers. A `/legacy` import or explicit old-schema bridge does not enable
 legacy error formatting.
 
 ## Historical helpers
@@ -157,13 +157,13 @@ These imports move out of the default core entry:
 
 | Previous core export | Replacement |
 | --- | --- |
-| `ZodInferOrType`, `ZodInputOrType` | `SchemaOutputOrType`, `SchemaInputOrType` from the root for Standard Schema; historical names remain under `/zod3`. |
-| `isZodType` | `isStandardSchema` for portable detection; the old Zod-only guard remains under `/zod3`. |
-| `isZodObject`, `isZodObjectStrict`, `extractZodObjectShape` | Keep validator-owned introspection in your integration, or import historical Zod 3 helpers from `/zod3`. Standard Schema does not expose object fields. |
-| `zodMerge` | Use field records or `combineStandardSchemas` for validating both schemas; use `/zod3` only when historical Zod object replacement semantics are required. |
-| `zodErrorResponse`, `ZodErrorSchema` | `validationErrorResponse` and an application-defined portable payload schema; old payload helpers remain under `/zod3`. |
-| `ResponseValidationError` | `TsRestResponseValidationError` from core for current handlers; the historical constructor remains under core `/zod3`. |
-| `RequestValidationErrorSchema`, `RequestValidationErrorSchemaWithoutMessage`, `RequestValidationErrorSchemaForNest` | Define schemas matching current error payloads; historical versions remain under core `/zod3`. |
+| `ZodInferOrType`, `ZodInputOrType` | `SchemaOutputOrType`, `SchemaInputOrType` from the root for Standard Schema; historical names remain under `/legacy`. |
+| `isZodType` | `isStandardSchema` for portable detection; the old Zod-only guard remains under `/legacy`. |
+| `isZodObject`, `isZodObjectStrict`, `extractZodObjectShape` | Keep validator-owned introspection in your integration, or import historical Zod 3 helpers from `/legacy`. Standard Schema does not expose object fields. |
+| `zodMerge` | Use field records or `combineStandardSchemas` for validating both schemas; use `/legacy` only when historical Zod object replacement semantics are required. |
+| `zodErrorResponse`, `ZodErrorSchema` | `validationErrorResponse` and an application-defined portable payload schema; old payload helpers remain under `/legacy`. |
+| `ResponseValidationError` | `TsRestResponseValidationError` from core for current handlers; the historical constructor remains under core `/legacy`. |
+| `RequestValidationErrorSchema`, `RequestValidationErrorSchemaWithoutMessage`, `RequestValidationErrorSchemaForNest` | Define schemas matching current error payloads; historical versions remain under core `/legacy`. |
 | `ContractAnyTypeLegacy` | `ContractAnyType`, after adapting old schemas. The legacy union is removed. |
 | `areAllSchemasLegacyZod` | Remove the vendor-based branch. All default validation failures use `StandardSchemaError`, including bridged old schemas. |
 
@@ -173,19 +173,21 @@ bridge before passing the schema to it.
 
 ```typescript twoslash
 import type { SchemaInputOrType, SchemaOutputOrType } from '@ts-restless/core';
-import { toStandardSchema } from '@ts-restless/core/zod3';
+import { toStandardSchema } from '@ts-restless/core/legacy';
 import { z } from 'zod';
 const numberFromString = toStandardSchema(z.string().transform(Number));
 type Input = SchemaInputOrType<typeof numberFromString>; // string
 type Output = SchemaOutputOrType<typeof numberFromString>; // number
 ```
 
+Replace existing `@ts-restless/<package>/zod3` imports with `@ts-restless/<package>/legacy` for core, Express, Fastify, Nest, Next and serverless. The old paths are removed in this development baseline; helper names remain unchanged. Verify a containing release before changing installed package imports.
+
 The compatibility entry points support Zod 3. Zod 4 uses the default entry
-points and its own introspection/conversion tools.
+points and its own introspection/conversion tools. Fastify combines its historical helper with the native4 adapter under `/legacy`, so importing that entry requires Zod 3 even for Standard Schema contracts using another validator. Its root native5 entry remains independent of Zod. See the [Fastify migration guide](/server/fastify#fastify-4-to-5).
 
 ## Adapter error imports
 
-| Adapter | Current default-handler error API | Historical imports available under `/zod3` |
+| Adapter | Current default-handler error API | Historical imports available under `/legacy` |
 | --- | --- | --- |
 | Express | Root `RequestValidationError` contains `StandardSchemaError` in failed locations. | `DefaultRequestValidationErrorSchema`, `CombinedRequestValidationErrorSchema`. |
 | Fastify | Root `RequestValidationError` contains `StandardSchemaError` in failed locations. | `RequestValidationErrorSchema`. |
@@ -194,7 +196,7 @@ points and its own introspection/conversion tools.
 | Serverless | Root `TsRestRequestValidationError` (`RequestValidationError` aliases it) and `ResponseValidationError`. | Historical `RequestValidationError`, `RequestValidationErrorSchema`. |
 
 For example, `RequestValidationErrorSchema` moves from `@ts-rest/nest` to
-`@ts-restless/nest/zod3` if you still need to describe an **old** payload. For
+`@ts-restless/nest/legacy` if you still need to describe an **old** payload. For
 new handlers, catch `TsRestRequestValidationError` from `@ts-restless/nest` and
 read the failed location's `issues`. A middleware filter importing the
 historical constructor will not catch the new class solely because their
@@ -228,7 +230,7 @@ If an old contract relies on Zod object overrides, merge before bridging:
 
 ```typescript twoslash
 import { initContract } from '@ts-restless/core';
-import { toStandardSchema } from '@ts-restless/core/zod3';
+import { toStandardSchema } from '@ts-restless/core/legacy';
 import { z } from 'zod';
 
 const baseHeaders = z.object({ role: z.literal('user') });
@@ -250,18 +252,11 @@ whole-object schemas with field records remains unsupported.
 
 ## OpenAPI
 
-This change makes runtime validation independent from the validator. It does not
-make JSON Schema generation independent. The OpenAPI package still uses its
-existing Zod 3 transformer by default; other validators need the existing custom
-transformer option. The old-Zod bridge preserves the introspection that transformer
-needs. Validator-independent OpenAPI work is tracked in issue #4.
+Runtime validation and JSON Schema conversion use separate boundaries. The default OpenAPI entry now requires an explicit `schemaTransformer` and supports OpenAPI 3.0.2 or 3.1.0 with a matching converter. Standard Schema validation cannot reconstruct JSON Schema or metadata.
 
-You can migrate the package scope while keeping a Zod 3 contract and its current
-default converter. If you change to Zod 4, Valibot or another validator, select
-an explicit matching `schemaTransformer` and use `generateOpenApiAsync` for an
-asynchronous converter. Standard Schema validation alone cannot reconstruct
-JSON Schema or metadata. See the [OpenAPI transformer guide](/openapi) and
-compare the generated request/response document before deploying the change.
+For the existing Zod 3 converter, change the generator import to `@ts-restless/open-api/legacy` and install its optional Zod 3 and `@anatine/zod-openapi` peers. The old-Zod bridge preserves introspection. Inferred Zod 3 defaults are omitted to avoid executing callbacks; document constant defaults explicitly as OpenAPI metadata. Required bodies now emit `required: true`, including objects with all-optional fields. Optional/defaulted bodies emit `required: false`; no-body contracts omit the request body.
+
+For Zod 4 or Valibot, select an explicit matching converter. Use `generateOpenApiAsync` for an asynchronous converter. Root query unions now produce a diagnostic instead of losing parameters. Compare generated documents and clients before deploying this migration. See the [checked OpenAPI converter examples](/openapi).
 
 ## Verify the migration
 

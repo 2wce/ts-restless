@@ -1,8 +1,68 @@
 import { initContract, type AppRoute } from '@ts-restless/core';
 import { z } from 'zod';
-import { generateOpenApi } from './ts-rest-open-api';
-import { extendApi } from '@anatine/zod-openapi';
-import { SecurityRequirementObject, type OperationObject } from 'openapi3-ts';
+import { generateOpenApi, generateOpenApiAsync } from '../legacy';
+import SwaggerParser from '@apidevtools/swagger-parser';
+import { extendApi as extendZodApi } from '@anatine/zod-openapi';
+import type { SchemaObject } from './model';
+const extendApi = <T extends z.ZodTypeAny>(schema: T, metadata: SchemaObject) =>
+  extendZodApi(schema, metadata as Parameters<typeof extendZodApi>[1]);
+import { SecurityRequirementObject, type OperationObject } from './model';
+
+describe('OpenAPI migration regressions', () => {
+  const c = initContract();
+  const info = { info: { title: 'Regression', version: '1' } };
+
+  it('marks the whole request body required independently of its properties', () => {
+    const contract = c.router({
+      create: {
+        method: 'POST',
+        path: '/body',
+        body: z.object({ field: z.string() }),
+        responses: { 204: c.noBody() },
+      },
+    });
+    expect(
+      generateOpenApi(contract, info).paths['/body'].post?.requestBody,
+    ).toMatchObject({ required: true });
+  });
+
+  it('never evaluates dynamic defaults in bodies, headers, queries or responses', () => {
+    let calls = 0;
+    const value = z.string().default(() => `generated-${++calls}`);
+    const contract = c.router({
+      create: {
+        method: 'POST',
+        path: '/defaults',
+        body: z.object({ id: value }),
+        headers: { 'x-id': value },
+        query: z.object({ id: value }),
+        responses: { 200: z.object({ id: value }) },
+      },
+    });
+    const first = generateOpenApi(contract, info);
+    const second = generateOpenApi(contract, info);
+    expect(calls).toBe(0);
+    expect(first).toEqual(second);
+    expect(JSON.stringify(first)).not.toContain('generated-');
+  });
+
+  it('diagnoses root query unions instead of silently losing parameters', () => {
+    const contract = c.router({
+      find: {
+        method: 'GET',
+        path: '/union',
+        query: z.discriminatedUnion('kind', [
+          z.object({ kind: z.literal('a'), field: z.string() }),
+          z.object({ kind: z.literal('b'), other: z.string() }),
+        ]),
+        responses: { 204: c.noBody() },
+      },
+    });
+    expect(() => generateOpenApi(contract, info)).toThrow(
+      /query.*object|object.*query/,
+    );
+  });
+});
 
 const c = initContract();
 
@@ -29,8 +89,12 @@ const postsRouter = c.router({
     path: `/posts`,
     query: z.object({
       search: z.string().nullish(),
-      sortBy: z.enum(['title', 'date']).default('date').optional(),
-      sort: z.enum(['asc', 'desc']).default('asc').optional(),
+      sortBy: extendApi(z.enum(['title', 'date']).default('date').optional(), {
+        default: 'date',
+      }),
+      sort: extendApi(z.enum(['asc', 'desc']).default('asc').optional(), {
+        default: 'asc',
+      }),
       obj: z.object({
         a: z.string(),
       }),
@@ -183,6 +247,7 @@ const expectedApiDoc = {
           },
         ],
         requestBody: {
+          required: true,
           description: 'Body',
           content: {
             'application/json': {
@@ -288,6 +353,7 @@ const expectedApiDoc = {
         description: undefined,
         parameters: [],
         requestBody: {
+          required: true,
           content: {
             'application/json': {
               schema: {
@@ -476,6 +542,7 @@ const expectedApiDoc = {
           },
         ],
         requestBody: {
+          required: true,
           description: 'Body',
           content: {
             'application/json': {
@@ -890,18 +957,20 @@ describe('ts-rest-open-api', () => {
       expect(operationIds).toContain('auth');
 
       // Verify that the custom field was added with the correct id
-      expect(apiDoc.paths['/health'].get['x-operation-id']).toBe('health');
-      expect(apiDoc.paths['/posts'].get['x-operation-id']).toBe('findPosts');
-      expect(apiDoc.paths['/posts'].post['x-operation-id']).toBe('createPost');
-      expect(apiDoc.paths['/posts/{id}'].get['x-operation-id']).toBe('getPost');
-      expect(apiDoc.paths['/posts/{id}/comments'].get['x-operation-id']).toBe(
+      expect(apiDoc.paths['/health'].get!['x-operation-id']).toBe('health');
+      expect(apiDoc.paths['/posts'].get!['x-operation-id']).toBe('findPosts');
+      expect(apiDoc.paths['/posts'].post!['x-operation-id']).toBe('createPost');
+      expect(apiDoc.paths['/posts/{id}'].get!['x-operation-id']).toBe(
+        'getPost',
+      );
+      expect(apiDoc.paths['/posts/{id}/comments'].get!['x-operation-id']).toBe(
         'getPostComments',
       );
       expect(
-        apiDoc.paths['/posts/{id}/comments/{commentId}'].get['x-operation-id'],
+        apiDoc.paths['/posts/{id}/comments/{commentId}'].get!['x-operation-id'],
       ).toBe('getPostComment');
-      expect(apiDoc.paths['/auth'].post['x-operation-id']).toBe('auth');
-      expect(apiDoc.paths['/media-examples'].post['x-operation-id']).toBe(
+      expect(apiDoc.paths['/auth'].post!['x-operation-id']).toBe('auth');
+      expect(apiDoc.paths['/media-examples'].post!['x-operation-id']).toBe(
         'mediaExamples',
       );
     });
@@ -1118,6 +1187,7 @@ describe('ts-rest-open-api', () => {
               description: undefined,
               parameters: [],
               requestBody: {
+                required: true,
                 content: {
                   'multipart/form-data': {
                     schema: {
@@ -1195,6 +1265,7 @@ describe('ts-rest-open-api', () => {
             put: {
               parameters: [],
               requestBody: {
+                required: true,
                 content: {
                   'application/json': {
                     schema: {
@@ -1290,6 +1361,7 @@ describe('ts-rest-open-api', () => {
             put: {
               parameters: [],
               requestBody: {
+                required: true,
                 content: {
                   'application/json': {
                     schema: {
@@ -1425,5 +1497,152 @@ describe('ts-rest-open-api', () => {
         },
       });
     });
+  });
+});
+
+describe('Zod3 presence and callback-free compatibility', () => {
+  const info = { info: { title: 'Presence', version: '1' } };
+
+  it('converts Zod3 exclusive bounds to the OpenAPI 3.0 dialect', async () => {
+    const body = z.object({
+      positive: z.number().positive(),
+      range: z.number().gt(1).lt(10),
+    });
+    const routes = c.router({
+      create: {
+        method: 'POST',
+        path: '/bounds',
+        body,
+        responses: { 204: c.noBody() },
+      },
+    });
+    const document = generateOpenApi(routes, info);
+    expect(document.paths['/bounds'].post?.requestBody).toMatchObject({
+      content: {
+        'application/json': {
+          schema: {
+            properties: {
+              positive: { minimum: 0, exclusiveMinimum: true },
+              range: {
+                minimum: 1,
+                exclusiveMinimum: true,
+                maximum: 10,
+                exclusiveMaximum: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    await SwaggerParser.validate(structuredClone(document) as never);
+  });
+  it.each(['required', 'optional', 'defaulted', 'no-body'] as const)(
+    'represents %s whole-body presence in both paths',
+    async (kind) => {
+      let calls = 0;
+      const value = z.object({ field: z.string() });
+      const body =
+        kind === 'required'
+          ? value
+          : kind === 'optional'
+            ? value.optional()
+            : kind === 'defaulted'
+              ? value.default(() => {
+                  calls++;
+                  return { field: 'runtime' };
+                })
+              : c.noBody();
+      const routes = c.router({
+        create: {
+          method: 'POST',
+          path: '/presence',
+          body,
+          responses: { 204: c.noBody() },
+        },
+      });
+      const sync = generateOpenApi(routes, info);
+      const async = await generateOpenApiAsync(routes, info);
+      expect(sync).toEqual(async);
+      expect(calls).toBe(0);
+      if (kind === 'no-body')
+        expect(sync.paths['/presence'].post?.requestBody).toBeUndefined();
+      else
+        expect(sync.paths['/presence'].post?.requestBody).toMatchObject({
+          required: kind === 'required',
+        });
+      await SwaggerParser.validate(structuredClone(sync) as never);
+    },
+  );
+
+  it('marks caught bodies and header fields optional without running catch callbacks', async () => {
+    let calls = 0;
+    const body = z.object({ field: z.string() }).catch(() => {
+      calls++;
+      return { field: 'runtime' };
+    });
+    const header = z.string().catch(() => {
+      calls++;
+      return 'runtime';
+    });
+    const routes = c.router({
+      create: {
+        method: 'POST',
+        path: '/caught',
+        body,
+        headers: { 'x-caught': header },
+        responses: { 204: c.noBody() },
+      },
+    });
+    const sync = generateOpenApi(routes, info);
+    const async = await generateOpenApiAsync(routes, info);
+    expect(sync).toEqual(async);
+    expect(calls).toBe(0);
+    expect(sync.paths['/caught'].post?.requestBody).toMatchObject({
+      required: false,
+    });
+    const caughtHeader = sync.paths['/caught'].post?.parameters?.find(
+      (parameter) => 'name' in parameter && parameter.name === 'x-caught',
+    );
+    expect(caughtHeader).toMatchObject({ name: 'x-caught', in: 'header' });
+    expect(caughtHeader).not.toHaveProperty('required', true);
+    await SwaggerParser.validate(structuredClone(sync) as never);
+    expect(body.parse(undefined)).toEqual({ field: 'runtime' });
+    expect(header.parse(undefined)).toBe('runtime');
+    expect(calls).toBe(2);
+  });
+
+  it('preserves an explicit constant metadata default while omitting inferred defaults', async () => {
+    let calls = 0;
+    const dynamic = z.string().default(() => {
+      calls++;
+      return 'runtime';
+    });
+    const body = z.object({
+      dynamic,
+      constant: extendApi(z.string().default('static'), { default: 'static' }),
+      inferred: z.string().default('implicit'),
+    });
+    const routes = c.router({
+      create: {
+        method: 'POST',
+        path: '/metadata-defaults',
+        body,
+        responses: { 200: body },
+      },
+    });
+    const sync = generateOpenApi(routes, info);
+    expect(await generateOpenApiAsync(routes, info)).toEqual(sync);
+    expect(calls).toBe(0);
+    const encoded = JSON.stringify(sync);
+    expect(encoded).toContain('"default":"static"');
+    expect(encoded).not.toContain('"default":"implicit"');
+    expect(encoded).not.toContain('runtime');
+    // Converting must not alter runtime validation/default behavior.
+    expect(body.parse({})).toEqual({
+      dynamic: 'runtime',
+      constant: 'static',
+      inferred: 'implicit',
+    });
+    expect(calls).toBe(1);
   });
 });

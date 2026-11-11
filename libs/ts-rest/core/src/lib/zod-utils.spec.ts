@@ -1,4 +1,4 @@
-import { zodMerge } from '../zod3';
+import { zodMerge } from '../legacy';
 import { z } from 'zod-legacy';
 
 describe('zodMerge', () => {

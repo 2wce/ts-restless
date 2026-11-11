@@ -8,6 +8,8 @@
 
 ## Retained implementation and design records
 
+- [OpenAPI conversion and generator bugs](2026-11-11-openapi.md).
+
 - [Fastify 5 compatibility implementation plan](2026-11-11-fastify5-compatibility.md).
 
 - [Modern TypeScript module resolution](2026-11-11-modern-module-resolution.md).

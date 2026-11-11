@@ -1,6 +1,6 @@
 /** Historical error constructors and payload schemas for Zod 3 only. */
 import type { ZodError } from 'zod';
-export { ZodErrorSchema as RequestValidationErrorSchema } from '@ts-restless/core/zod3';
+export { ZodErrorSchema as RequestValidationErrorSchema } from '@ts-restless/core/legacy';
 
 export class RequestValidationError extends Error {
   constructor(

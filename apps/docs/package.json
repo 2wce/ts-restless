@@ -29,7 +29,8 @@
     "zod": "4.6.7",
     "@tanstack/react-start": "1.169.3",
     "@tanstack/react-router": "1.170.45",
-    "zod3": "npm:zod@3.25.76"
+    "zod3": "npm:zod@3.25.76",
+    "@ts-restless/open-api": "workspace:*"
   },
   "devDependencies": {
     "@types/mdx": "^2.0.13",
@@ -47,7 +48,9 @@
     "@ts-restless/solid-query": "workspace:*",
     "@ts-restless/vue-query": "workspace:*",
     "solid-js": "catalog:",
-    "vue": "catalog:"
+    "vue": "catalog:",
+    "valibot": "catalog:",
+    "@valibot/to-json-schema": "catalog:"
   },
   "type": "module"
 }

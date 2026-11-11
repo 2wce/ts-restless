@@ -1,164 +1,77 @@
 import { AppRoute, isStandardSchema } from '@ts-restless/core';
-import { isZodObject } from '@ts-restless/core/zod3';
+import type { ParameterObject } from '../model';
 import {
-  AsyncAndSyncHelper,
-  GetAsyncFunction,
-  GetSyncFunction,
-  SchemaTransformerAsync,
-  SchemaTransformerSync,
+  resolveSchema,
+  type AsyncAndSyncHelper,
+  type SchemaTransformerAsync,
+  type SchemaTransformerSync,
 } from '../types';
-import { ParameterObject } from 'openapi3-ts';
 import { schemaObjectToParameters, schemaToParameter } from './utils';
 
+type Args = { appRoute: AppRoute; id: string; concatenatedPath: string };
 type GetHeaderParameterHelper = AsyncAndSyncHelper<
-  {
-    appRoute: AppRoute;
-    id: string;
-    concatenatedPath: string;
-  },
-  {
-    transformSchema: SchemaTransformerSync;
-  },
-  {
-    transformSchema: SchemaTransformerAsync;
-  },
-  Array<ParameterObject>
+  Args,
+  { transformSchema: SchemaTransformerSync },
+  { transformSchema: SchemaTransformerAsync },
+  ParameterObject[]
 >;
+const isSchema = (value: unknown) =>
+  isStandardSchema(value) ||
+  (typeof value === 'object' &&
+    value !== null &&
+    'safeParse' in value &&
+    typeof value.safeParse === 'function');
 
-const syncFunc: GetSyncFunction<GetHeaderParameterHelper> = ({
-  transformSchema,
-  appRoute,
-  id,
-  concatenatedPath,
-}) => {
-  const schema = appRoute.headers;
-
-  if (schema === null) {
-    return [];
-  }
-
-  if (schema === undefined) {
-    return [];
-  }
-
-  if (typeof schema === 'symbol') {
-    return [];
-  }
-
-  if (isZodObject(schema)) {
-    const transformedSchema = transformSchema({
-      schema,
-      appRoute,
-      id,
-      concatenatedPath,
-      type: 'header',
-    });
-
-    if (!transformedSchema) {
-      return [];
-    }
-
-    return schemaObjectToParameters(transformedSchema, 'header');
-  }
-
-  const parameters: ParameterObject[] = [];
-
-  for (const [key, subSchema] of Object.entries(schema)) {
-    if (isStandardSchema(subSchema)) {
-      const transformedSchema = transformSchema({
-        schema: subSchema,
-        appRoute,
-        id,
-        concatenatedPath,
-        type: 'header',
-      });
-
-      if (!transformedSchema) {
-        return [];
-      }
-
-      parameters.push(...schemaObjectToParameters(transformedSchema, 'header'));
-    }
-  }
-
-  return parameters;
+const convertHeaders = (
+  args: Args,
+  results: Array<{ key?: string; result: ReturnType<typeof resolveSchema> }>,
+): ParameterObject[] =>
+  results.flatMap(({ key, result }) => {
+    if (!result) return [];
+    return key === undefined
+      ? schemaObjectToParameters(
+          result.schema,
+          'header',
+          false,
+          args.concatenatedPath,
+        )
+      : [
+          schemaToParameter(
+            result.schema,
+            'header',
+            result.required,
+            key,
+            false,
+          ),
+        ];
+  });
+const entries = (
+  schema: AppRoute['headers'],
+): Array<[string | undefined, unknown]> => {
+  if (schema == null || typeof schema === 'symbol') return [];
+  return isSchema(schema) ? [[undefined, schema]] : Object.entries(schema);
 };
-
-const asyncFunc: GetAsyncFunction<GetHeaderParameterHelper> = async ({
-  transformSchema,
-  appRoute,
-  id,
-  concatenatedPath,
-}) => {
-  const schema = appRoute.headers;
-
-  if (schema === null) {
-    return [];
-  }
-
-  if (schema === undefined) {
-    return [];
-  }
-
-  if (typeof schema === 'symbol') {
-    return [];
-  }
-
-  if (isZodObject(schema)) {
-    const transformedSchema = await transformSchema({
-      schema,
-      appRoute,
-      id,
-      concatenatedPath,
-      type: 'header',
-    });
-
-    if (!transformedSchema) {
-      return [];
-    }
-
-    return schemaObjectToParameters(transformedSchema, 'header');
-  }
-
-  const parameters: ParameterObject[] = [];
-
-  for (const [key, subSchema] of Object.entries(schema)) {
-    if (isStandardSchema(subSchema)) {
-      const transformedSchema = await transformSchema({
-        schema: subSchema,
-        appRoute,
-        id,
-        concatenatedPath,
-        type: 'header',
-      });
-
-      if (!transformedSchema) {
-        continue;
-      }
-
-      const validateEmptyResult = subSchema['~standard'].validate(undefined);
-
-      if (validateEmptyResult instanceof Promise) {
-        throw new Error('Schema validation must be synchronous');
-      }
-
-      const isRequired = Boolean(validateEmptyResult.issues?.length);
-
-      const asParameter = schemaToParameter(
-        transformedSchema,
-        'header',
-        isRequired,
-        key,
-        false,
-      );
-      parameters.push(asParameter);
-    }
-  }
-
-  return parameters;
-};
-
 export const getHeaderParameterSchema: GetHeaderParameterHelper = {
-  sync: syncFunc,
-  async: asyncFunc,
+  sync: (args) =>
+    convertHeaders(
+      args,
+      entries(args.appRoute.headers).map(([key, schema]) => ({
+        key,
+        result: resolveSchema(
+          args.transformSchema({ ...args, schema, type: 'header' }),
+        ),
+      })),
+    ),
+  async: async (args) =>
+    convertHeaders(
+      args,
+      await Promise.all(
+        entries(args.appRoute.headers).map(async ([key, schema]) => ({
+          key,
+          result: resolveSchema(
+            await args.transformSchema({ ...args, schema, type: 'header' }),
+          ),
+        })),
+      ),
+    ),
 };

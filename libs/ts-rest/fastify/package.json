@@ -24,7 +24,6 @@
   "exports": {
     "./package.json": "./package.json",
     ".": "./src/index.ts",
-    "./zod3": "./src/zod3.ts",
     "./legacy": "./src/legacy.ts"
   },
   "files": [
@@ -46,16 +45,6 @@
         "require": {
           "types": "./dist/index.cjs.d.ts",
           "default": "./dist/index.cjs.js"
-        }
-      },
-      "./zod3": {
-        "import": {
-          "types": "./dist/zod3.esm.d.mts",
-          "default": "./dist/zod3.esm.mjs"
-        },
-        "require": {
-          "types": "./dist/zod3.cjs.d.ts",
-          "default": "./dist/zod3.cjs.js"
         }
       },
       "./legacy": {

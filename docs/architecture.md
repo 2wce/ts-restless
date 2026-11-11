@@ -4,15 +4,15 @@ ts-restless shares a TypeScript API contract between clients and servers. Runtim
 
 ## Ownership
 
-| Boundary            | Responsibility                                                                                                   | Entry points / source                                                                                                             |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Contract            | Route declarations and client/server request/response inference.                                                 | [Core DSL](../libs/ts-rest/core/src/lib/dsl.ts) and core public exports.                                                          |
-| Validation          | Synchronous Standard Schema validation, transforms and portable errors; explicit old-Zod bridge.                 | [Schema utilities](../libs/ts-rest/core/src/lib/standard-schema-utils.ts), core `/zod3`; [ADR 0001](adr/0001-standard-schema.md). |
-| Response evaluation | Interpret response declarations and validate bodies once. Callers retain policy, decoding, errors and writes.    | [Core response evaluation](../libs/ts-rest/core/src/lib/response.ts); [ADR 0002](adr/0002-response-ownership.md).                 |
-| Transport           | Request normalization, fetcher invocation, decoding and response envelopes.                                      | [Core client](../libs/ts-rest/core/src/lib/client.ts), `initClient`.                                                              |
-| Query execution     | Request/native signal precedence and same-object HTTP error rejection.                                           | Core `executeQueryRequest`; [ADR 0003](adr/0003-query-ownership.md).                                                              |
-| Native integrations | Framework routing, lifecycle, middleware/hooks, serialization, providers, cache and reactivity.                  | Express/Fastify/Nest/Next/serverless and React/Vue/Solid packages.                                                                |
-| OpenAPI             | Explicit schema conversion and document generation. Standard Schema validation alone cannot provide JSON Schema. | [OpenAPI package](../libs/ts-rest/open-api/README.md); retained default Zod3 converter.                                           |
+| Boundary            | Responsibility                                                                                                   | Entry points / source                                                                                                                      |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Contract            | Route declarations and client/server request/response inference.                                                 | [Core DSL](../libs/ts-rest/core/src/lib/dsl.ts) and core public exports.                                                                   |
+| Validation          | Synchronous Standard Schema validation, transforms and portable errors; explicit old-Zod bridge.                 | [Schema utilities](../libs/ts-rest/core/src/lib/standard-schema-utils.ts), core `/legacy`; [ADR 0001](adr/0001-standard-schema.md).        |
+| Response evaluation | Interpret response declarations and validate bodies once. Callers retain policy, decoding, errors and writes.    | [Core response evaluation](../libs/ts-rest/core/src/lib/response.ts); [ADR 0002](adr/0002-response-ownership.md).                          |
+| Transport           | Request normalization, fetcher invocation, decoding and response envelopes.                                      | [Core client](../libs/ts-rest/core/src/lib/client.ts), `initClient`.                                                                       |
+| Query execution     | Request/native signal precedence and same-object HTTP error rejection.                                           | Core `executeQueryRequest`; [ADR 0003](adr/0003-query-ownership.md).                                                                       |
+| Native integrations | Framework routing, lifecycle, middleware/hooks, serialization, providers, cache and reactivity.                  | Express/Fastify/Nest/Next/serverless and React/Vue/Solid packages.                                                                         |
+| OpenAPI             | Explicit schema conversion and document generation. Standard Schema validation alone cannot provide JSON Schema. | [OpenAPI package](../libs/ts-rest/open-api/README.md); explicit converter/dialect selection; deprecated `/legacy` converter compatibility. |
 
 Response evaluation is adopted directly by Express, Fastify and Next. Other server paths retain their existing helpers/policies; this is not a completed universal server dispatcher. Parsed-request extraction and further native adoption remain on [the roadmap](roadmap.md).
 
@@ -22,7 +22,7 @@ React, Vue and Solid reuse core query execution. The plain client returns respon
 
 [ADR 0009](adr/0009-request-scoped-headers.md) records request-scoped asynchronous header preparation for plain clients and query bindings. Header callbacks resolve before transport without an auth cache or automatic cancellation of arbitrary auth work. The roadmap records delivery; acceptance of this boundary does not establish package availability.
 
-[ADR 0011](adr/0011-fastify-legacy-entry.md) separates the Fastify5 root entry from deprecated Fastify4 `/legacy` support. They share adapter internals and native inference; registration enforces the selected major before native mutations. The retirement window remains governed by ADR 0004.
+[ADR 0011](adr/0011-fastify-legacy-entry.md) separates the Fastify5 root entry from deprecated Fastify4 `/legacy` support. They share adapter internals and native inference; registration enforces the selected major before native mutations. [ADR0014](adr/0014-legacy-helper-paths.md) combines the historical Zod helper with Fastify's native4 `/legacy` adapter, so that entry requires Zod3 even for other validators. The root native5 entry stays independent of Zod. The native4 retirement window remains governed by ADR 0004; helper retirement requires a separate migration decision.
 
 ## Package and artifact boundaries
 

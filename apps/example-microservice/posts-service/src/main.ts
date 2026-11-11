@@ -10,7 +10,7 @@ import * as swaggerUi from 'swagger-ui-express';
 import { postsApi } from '@ts-restless/example-microservice-util-posts-api';
 import { createExpressEndpoints, initServer } from '@ts-restless/express';
 import { userAdapter } from './app/userAdapter';
-import { generateOpenApi } from '@ts-restless/open-api';
+import { generateOpenApi } from '@ts-restless/open-api/legacy';
 
 const upload = multer();
 const s = initServer();
