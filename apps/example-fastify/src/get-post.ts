@@ -1,4 +1,4 @@
-import { initServer } from '@ts-restless/fastify';
+import { initServer } from '@ts-restless/fastify/legacy';
 import { apiBlog } from '@ts-restless/example-contracts';
 import { mockPostFixtureFactory } from './main';
 

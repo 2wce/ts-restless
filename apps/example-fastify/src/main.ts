@@ -1,5 +1,5 @@
 import fastify from 'fastify';
-import { initServer } from '@ts-restless/fastify';
+import { initServer } from '@ts-restless/fastify/legacy';
 import { apiBlog, Post } from '@ts-restless/example-contracts';
 import { getPost } from './get-post';
 

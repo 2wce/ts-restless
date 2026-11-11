@@ -10,7 +10,7 @@ import {
   sendHttpRequest,
   TransformInput,
 } from '../../../../../tests/conformance/http';
-import { initServer } from './ts-rest-fastify';
+import { initServer } from '../legacy';
 
 describeHttpConformance(async (): Promise<HttpHost> => {
   const app = fastify({ logger: false });

@@ -19,6 +19,7 @@ Each row identifies a removed support line, moved API or changed behavior and it
 | --- | --- | --- |
 | `@ts-rest/*` dependencies and imports | The matching `@ts-restless/*` packages | [Replace the complete package set](#package-migration), including shared contracts and public subpaths. |
 | Next.js 12, 13 or 14 | A current patched Next.js 15 or 16 release | [Upgrade Next first](#nextjs-1214), retaining your existing router integration. |
+| Native Fastify 4 | Fastify 5 at root; Fastify 4 via `/legacy` through ts-restless v4 | [Move native4 imports to `/legacy`, or upgrade runtime/plugins and use root on native5](/server/fastify#fastify-4-to-5). Fastify 5 support is development source only; removal of 4 targets ts-restless v5 after the stable migration window. |
 | React 16 or 17 with the React Query adapter | React 18 or 19 and matching React/DOM types | [Upgrade React before Query](/query-v5-migration#upgrade-order). React 19 also needs a containing adapter release and compatible native Query peers. |
 | TanStack Query v4 in React, Vue or Solid | The framework's native Query v5 package | [Query v5 migration](/query-v5-migration), including native options, providers, status flags and pagination. |
 | React root `initQueryClient`, `useTsRestQueryClient` and positional hooks | `initTsrReactQuery`, its providers, object options and `tsr.useQueryClient()` | [React API replacements](/query-v5-migration#react-api-replacements), including mutations, cache access and SSR. |
@@ -42,7 +43,7 @@ Public packages belong to the project-owned npm organization `ts-restless`, with
 | --- | --- |
 | `@ts-rest/core` | `@ts-restless/core` |
 | `@ts-rest/express` | `@ts-restless/express` |
-| `@ts-rest/fastify` | `@ts-restless/fastify` |
+| `@ts-rest/fastify` | `@ts-restless/fastify` on native5; `@ts-restless/fastify/legacy` on native4 |
 | `@ts-rest/nest` | `@ts-restless/nest` |
 | `@ts-rest/next` | `@ts-restless/next` |
 | `@ts-rest/serverless` | `@ts-restless/serverless` |
@@ -102,7 +103,7 @@ Do not bypass peer checks to treat an unsupported combination as supported.
 
 ## Retained features and current limits
 
-Express 4/5, Nest 9–12, Fastify 4, the Zod 3 bridge and all ten public libraries remain in the baseline. React 18/19 compatibility is published from alpha.4; React 19 also requires compatible native Query peers. Fastify 5 remains a pending addition. Peer ranges describe allowed versions; release notes identify the combinations actually tested.
+Express 4/5, Nest 9–12, Fastify 4/5, the Zod 3 bridge and all ten public libraries remain in the development baseline. Fastify 5 uses the root entry; Fastify 4 uses the legacy/deprecated `/legacy` entry through ts-restless v4, with removal planned for ts-restless v5 under the stable migration policy. Alpha.5 supports Fastify 4 at root only; select a containing release for the new root/legacy split and Fastify 5 support. See the [Fastify migration guide](/server/fastify#fastify-4-to-5). React 18/19 compatibility is published from alpha.4; React 19 also requires compatible native Query peers. Peer ranges describe allowed versions; release notes identify the combinations actually tested.
 
 The [OpenAPI Zod 3 default converter is retained](/standard-schema-migration#openapi). Changing runtime validation to Standard Schema does not automatically add JSON Schema generation for a new validator; use a matching converter when changing validators.
 

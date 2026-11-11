@@ -5,7 +5,8 @@ import {
   TsRestResponseError,
   TsRestResponseValidationError,
 } from '@ts-restless/core';
-import { initServer } from './ts-rest-fastify';
+import { initServer } from '../legacy';
+import { initServer as initCurrentServer } from '../index';
 import { z } from 'zod';
 import fastify, { FastifyInstance } from 'fastify';
 import supertest from 'supertest';
@@ -94,6 +95,73 @@ const contract = c.router({
 });
 
 vi.setConfig({ testTimeout: 30000 });
+
+describe('Fastify entry boundary', () => {
+  const entryContract = c.router({
+    read: {
+      method: 'GET',
+      path: '/entry-boundary',
+      responses: { 200: c.type<{ ok: boolean }>() },
+    },
+  });
+
+  it('root registerRouter rejects Fastify 4 before native registration', async () => {
+    const app = fastify({ logger: false });
+    const s = initCurrentServer();
+    const router = s.router(entryContract, {
+      read: async () => ({ status: 200, body: { ok: true } }),
+    });
+    let routes = 0;
+    try {
+      expect(() =>
+        s.registerRouter(entryContract, router, app, {
+          hooks: {
+            onRoute: () => {
+              routes++;
+            },
+          },
+        }),
+      ).toThrow(/requires Fastify 5/);
+      expect(routes).toBe(0);
+      expect(app.hasRoute({ method: 'GET', url: '/entry-boundary' })).toBe(
+        false,
+      );
+      app.get('/native-only', async () => ({ ok: true }));
+      expect(routes).toBe(0);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('root plugin reports the Fastify 4 mismatch through native startup', async () => {
+    const app = fastify({ logger: false });
+    const s = initCurrentServer();
+    const router = s.router(entryContract, {
+      read: async () => ({ status: 200, body: { ok: true } }),
+    });
+    let routes = 0;
+    app.register(s.plugin(router), {
+      hooks: {
+        onRoute: () => {
+          routes++;
+        },
+      },
+    });
+    try {
+      await expect(
+        (async () => {
+          await app.ready();
+        })(),
+      ).rejects.toThrow(/requires Fastify 5/);
+      expect(routes).toBe(0);
+      expect(app.hasRoute({ method: 'GET', url: '/entry-boundary' })).toBe(
+        false,
+      );
+    } finally {
+      await app.close();
+    }
+  });
+});
 
 describe('response evaluation compatibility', () => {
   const s = initServer();
@@ -338,9 +406,8 @@ describe('ts-rest-fastify', () => {
 
   const router = s.router(contract, {
     test: async ({ request, reply }) => {
-      expect(request.routeConfig.tsRestRoute).toEqual(contract.test);
       expect(request.routeOptions.config.tsRestRoute).toEqual(contract.test);
-      expect(reply.context.config.tsRestRoute).toEqual(contract.test);
+      expect(reply.request).toBe(request);
 
       return {
         status: 200,
