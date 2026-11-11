@@ -18,6 +18,7 @@ Each row identifies a removed support line, moved API or changed behavior and it
 | Previous feature or support | Replacement in the v4 baseline | Migration path |
 | --- | --- | --- |
 | `@ts-rest/*` dependencies and imports | The matching `@ts-restless/*` packages | [Replace the complete package set](#package-migration), including shared contracts and public subpaths. |
+| TypeScript `node`/`node10` or `classic` module resolution | Node16/NodeNext or Bundler; ESM and CommonJS retained | [Update compiler and tooling configuration](#typescript-module-resolution). The new resolver baseline requires a containing release; alpha.5 predates it. |
 | Next.js 12, 13 or 14 | A current patched Next.js 15 or 16 release | [Upgrade Next first](#nextjs-1214), retaining your existing router integration. |
 | Native Fastify 4 | Fastify 5 at root; Fastify 4 via `/legacy` through ts-restless v4 | [Move native4 imports to `/legacy`, or upgrade runtime/plugins and use root on native5](/server/fastify#fastify-4-to-5). Fastify 5 support is development source only; removal of 4 targets ts-restless v5 after the stable migration window. |
 | React 16 or 17 with the React Query adapter | React 18 or 19 and matching React/DOM types | [Upgrade React before Query](/query-v5-migration#upgrade-order). React 19 also needs a containing adapter release and compatible native Query peers. |
@@ -68,6 +69,46 @@ import { initClient, initContract } from '@ts-restless/core';
 import { toStandardSchema } from '@ts-restless/core/zod3';
 import { initTsrReactQuery } from '@ts-restless/react-query';
 ```
+
+## TypeScript module resolution
+
+The stable v4 baseline uses package-export-aware resolution. `moduleResolution: "node"` (also called `"node10"`) and TypeScript's separate `"classic"` resolver are no longer supported. New packages remove `typesVersions` fallbacks and use their existing conditional `exports` to select declarations and runtime files. Some root imports might still resolve with an old resolver; that does not make it a supported configuration.
+
+This describes development source and needs a containing release. Published alpha.5 predates this policy change; keep a matched pre-change release while preparing the configuration migration if necessary. Modern resolution does not require TypeScript7 or Node26. Use a compiler supported by your framework and capable of the selected resolver, and check your actual application; older/current pinned consumers are verified separately from every compiler version.
+
+For an application executed directly by Node, use matching settings in `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext"
+  }
+}
+```
+
+Node16 with matching `module: "Node16"` and `moduleResolution: "Node16"` is also supported. These settings do not force ESM output: preserve `"type": "commonjs"` (or no `type` field) in your application package for CommonJS `.ts` files; `.cts` files also select CommonJS. Existing `require()` consumers and CommonJS builds remain supported. This change does not require a runtime upgrade solely to load ESM.
+
+For native ESM, use `"type": "module"` in your application package or `.mts` files. Node ESM resolution requires explicit extensions on relative imports, for example `import { contract } from './contract.js'` in TypeScript source. Public package imports such as `@ts-restless/core/zod3` keep their published specifiers.
+
+For an application whose bundler owns module loading, use:
+
+```json
+{
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
+  }
+}
+```
+
+Keep framework-required compiler options such as Nest's decorator metadata settings and your existing strict checks. Review inherited tsconfigs and code-generation, test-runner, ts-node and build-tool configurations so each consumer uses the intended resolver. A CommonJS Nest application can use NodeNext while preserving CommonJS output; a bundled application should follow its bundler's configuration. Do not switch to Bundler merely to bypass a direct Node runtime resolution error.
+
+If an older compiler reports TS2742 while emitting declarations for an inferred contract or Nest handler, give the exported API a public type name rather than an internal package path. For example, name a plain response as `const helloBody: ContractPlainType<string> = c.type<string>()` (import `ContractPlainType` from `@ts-restless/core`), and annotate a Nest method with `ReturnType<typeof tsRestHandler<typeof contract>>`. The Nest9/10 fixtures verify this with TypeScript5.1.3 while preserving contract inference. A newer framework-compatible compiler can also resolve these older declaration-emission limitations. Keep declaration generation enabled when your application exports declarations.
+
+[TypeScript6 deprecates node10 and7 removes it](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-6-0.html). Setting `ignoreDeprecations` does not migrate resolution and cannot restore it on7. Enabling `skipLibCheck`, disabling package-export resolution or importing package-internal declarations is not the migration path.
+
+Reinstall a matched package set, run your normal TypeScript check, build the application and exercise it using the real runtime/test runner. Verify the public subpaths you use, including `/zod3`, React `/v5` and serverless host entries. The old-Zod bridge and framework compatibility support remain; their legacy APIs do not require a legacy resolver. Native runtime/framework requirements still apply independently.
 
 ## Next.js 12–14
 

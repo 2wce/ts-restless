@@ -83,16 +83,6 @@
           "default": "./dist/v5.cjs.js"
         }
       }
-    },
-    "typesVersions": {
-      "*": {
-        "tanstack": [
-          "./dist/tanstack.cjs.d.ts"
-        ],
-        "v5": [
-          "./dist/v5.cjs.d.ts"
-        ]
-      }
     }
   },
   "bugs": {

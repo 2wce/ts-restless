@@ -10,6 +10,8 @@
 
 - [Fastify 5 compatibility implementation plan](2026-11-11-fastify5-compatibility.md).
 
+- [Modern TypeScript module resolution](2026-11-11-modern-module-resolution.md).
+
 - [Client response validation implementation plan](2026-11-10-client-response-validation.md).
 - [Async base headers implementation plan](2026-11-10-async-base-headers.md).
 

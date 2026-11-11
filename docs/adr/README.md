@@ -14,8 +14,8 @@ ADRs preserve consequential choices and their rationale. Use short Markdown reco
 | [0008](0008-client-response-validation.md)  | Client execution validates decoded responses once.               |
 | [0009](0009-request-scoped-headers.md)      | Resolve request-scoped auth headers in shared client execution.  |
 | [0010](0010-fastify-support-lifecycle.md)   | Superseded by 0011: Fastify support lifecycle.                   |
-
 | [0011](0011-fastify-legacy-entry.md) | Fastify5 at root; Fastify4 through `/legacy` until fork v5 eligibility. |
+| [0012](0012-modern-module-resolution.md) | Modern conditional-export resolution; retain ESM/CommonJS consumers. |
 
 These initial records extract already approved decisions from existing documents; they do not newly approve roadmap proposals.
 

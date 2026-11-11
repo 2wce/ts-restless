@@ -76,20 +76,6 @@
           "default": "./dist/zod3.cjs.js"
         }
       }
-    },
-    "typesVersions": {
-      "*": {
-        "zod3": [
-          "./dist/zod3.cjs.d.ts"
-        ]
-      }
-    }
-  },
-  "typesVersions": {
-    "*": {
-      "zod3": [
-        "./src/zod3.ts"
-      ]
     }
   },
   "bugs": {

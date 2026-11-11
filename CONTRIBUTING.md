@@ -95,6 +95,8 @@ and Nest decorator transform. Consumers declare it in `devDependencies` as
 and exports TypeScript source directly, so it needs no build task. Its source,
 manifest and compiler config are explicit library build cache inputs.
 
+Public consumers use Node16/NodeNext or Bundler resolution through conditional exports. Both ESM and CommonJS remain supported; classic `node`/`node10` declaration fallbacks are removed. Installed consumers retain older/current compiler probes and strict old-Zod checks with modern resolution. See [ADR0012](docs/adr/0012-modern-module-resolution.md) and the [consumer migration](apps/docs/content/docs/ts-restless-migration.mdx#typescript-module-resolution).
+
 Package Vite configs declare entry points; React Query also declares its combined
 declaration config and v5 cache inputs. Pack overrides use Vite's `mergeConfig`.
 Root `vite.config.ts` owns workspace orchestration, and library Vitest projects
@@ -352,7 +354,7 @@ for error identity, moved exports, old-schema bridging and header merge behavior
 
 Changesets versions the original workspace manifests. Each public package keeps
 source exports for development and declares `publishConfig` overrides for the
-compiled `main`, `module`, `types`, conditional exports and subpath `typesVersions`.
+compiled `main`, `module`, `types`, conditional exports.
 
 Its `files` allowlist includes `dist` and the changelog. pnpm also includes package
 readmes and the workspace license. Packing uses normal pnpm metadata handling;
