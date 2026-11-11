@@ -95,5 +95,6 @@
   "bugs": {
     "url": "https://github.com/2wce/ts-restless/issues"
   },
-  "homepage": "https://github.com/2wce/ts-restless#readme"
+  "homepage": "https://github.com/2wce/ts-restless#readme",
+  "sideEffects": false
 }

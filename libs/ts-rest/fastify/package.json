@@ -82,5 +82,6 @@
     "url": "https://github.com/2wce/ts-restless/issues"
   },
   "homepage": "https://github.com/2wce/ts-restless#readme",
-  "description": "ts-restless fastify integration for contract-first, end-to-end typed REST."
+  "description": "ts-restless fastify integration for contract-first, end-to-end typed REST.",
+  "sideEffects": false
 }

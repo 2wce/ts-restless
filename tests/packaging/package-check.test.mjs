@@ -1,10 +1,18 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import {
+  mkdtemp,
+  readFile,
+  readdir,
+  rename,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { build } from 'esbuild';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const baseline = JSON.parse(
@@ -14,6 +22,7 @@ test('packed packages preserve their public API and consumer compatibility', asy
   const consumer = await mkdtemp(join(tmpdir(), 'ts-restless-consumer-'));
   try {
     const dependencies = {};
+    const external = new Set(['node:*', 'reflect-metadata']);
     const archives = resolve(root, 'dist/packages');
     for (const name of Object.keys(baseline)) {
       const archive = join(archives, `ts-restless-${name}.tgz`);
@@ -23,6 +32,14 @@ test('packed packages preserve their public API and consumer compatibility', asy
         }),
       );
       assert.equal(pkg.name, `@ts-restless/${name}`, `${name}: fork identity`);
+      assert.equal(
+        pkg.sideEffects,
+        false,
+        `${name}: audited import-time effects`,
+      );
+      for (const dependency of Object.keys(pkg.peerDependencies ?? {})) {
+        if (!dependency.startsWith('@ts-restless/')) external.add(dependency);
+      }
       assert.equal(
         pkg.repository.url,
         'https://github.com/2wce/ts-restless.git',
@@ -190,6 +207,138 @@ assert.equal(Reflect.getMetadata('design:paramtypes', TsRestInterceptor)[0], Ref
     execFileSync(process.execPath, [join(consumer, 'consumer.mjs')], {
       stdio: 'inherit',
     });
+    // Resolve the installed package exports, not workspace source aliases.
+    // Metadata must let unused modules disappear even when their bodies contain
+    // schema construction or decorators that a bundler cannot prove pure.
+    for (const format of ['esm', 'cjs']) {
+      const extension = format === 'esm' ? 'mjs' : 'cjs';
+      const unusedOptions = {
+        absWorkingDir: consumer,
+        stdin: {
+          contents:
+            imports
+              .map(
+                (name, index) =>
+                  `import * as entry${index} from ${JSON.stringify(name)};`,
+              )
+              .join('\n') + '\nconsole.log("unused imports removed");',
+          resolveDir: consumer,
+          sourcefile: `unused.${extension}`,
+        },
+        bundle: true,
+        platform: 'node',
+        format,
+        external: [...external],
+        treeShaking: true,
+        metafile: true,
+        write: false,
+      };
+      const unused = await build(unusedOptions);
+      const retained = Object.values(unused.metafile.outputs).flatMap(
+        (output) =>
+          Object.entries(output.inputs).filter(
+            ([path, input]) =>
+              path.includes('@ts-restless/') && input.bytesInOutput > 0,
+          ),
+      );
+      assert.deepEqual(
+        retained,
+        [],
+        `${format}: unused public modules removed`,
+      );
+      if (format === 'esm') {
+        // Negative control: conservative metadata retains Nest's decorators.
+        // This proves the probe observes the package promise, not just ordinary
+        // export-level elimination of already-pure functions.
+        const nestManifest = join(
+          consumer,
+          'node_modules/@ts-restless/nest/package.json',
+        );
+        const original = await readFile(nestManifest, 'utf8');
+        const replacement = `${nestManifest}.control`;
+        try {
+          // Replace the inode; installed files may be hard-linked to pnpm's store.
+          await writeFile(
+            replacement,
+            JSON.stringify({ ...JSON.parse(original), sideEffects: true }),
+          );
+          await rename(replacement, nestManifest);
+          const conservative = await build(unusedOptions);
+          assert.ok(
+            Object.values(conservative.metafile.outputs).some((output) =>
+              Object.entries(output.inputs).some(
+                ([path, input]) =>
+                  path.includes('@ts-restless/nest/') &&
+                  input.bytesInOutput > 0,
+              ),
+            ),
+            'without the promise, unused Nest initialization is retained',
+          );
+        } finally {
+          await writeFile(replacement, original);
+          await rename(replacement, nestManifest);
+        }
+      }
+      const unusedPath = join(consumer, `unused.${extension}`);
+      await writeFile(unusedPath, unused.outputFiles[0].text);
+      assert.equal(
+        execFileSync(process.execPath, [unusedPath], {
+          encoding: 'utf8',
+        }).trim(),
+        'unused imports removed',
+      );
+
+      const usedApis = {
+        '@ts-restless/core': ['initContract', 'initClient'],
+        '@ts-restless/nest': ['TsRestInterceptor', 'TsRestModule'],
+        '@nestjs/core': ['Reflector'],
+        '@ts-restless/serverless/fetch': ['createFetchHandler', 'tsr'],
+      };
+      const apiImports = Object.entries(usedApis)
+        .map(([name, exports]) =>
+          format === 'esm'
+            ? `import { ${exports.join(', ')} } from ${JSON.stringify(name)};`
+            : `const { ${exports.join(', ')} } = require(${JSON.stringify(name)});`,
+        )
+        .join('\n');
+      const source = `
+${format === 'esm' ? "import 'reflect-metadata';\nimport assert from 'node:assert/strict';" : "require('reflect-metadata');\nconst assert = require('node:assert/strict');"}
+${apiImports}
+const c = initContract();
+const contract = c.router({ get: { method: 'GET', path: '/retained', responses: { 200: c.type() } } });
+const client = initClient(contract, { baseUrl: 'https://example.test', api: async ({ path }) => ({ status: 200, body: { path }, headers: new Headers() }) });
+assert.equal(Reflect.getMetadata('design:paramtypes', TsRestInterceptor)[0], Reflector);
+assert.ok(Reflect.getMetadata('exports', TsRestModule).length > 0);
+const implementation = tsr.router(contract, { get: async () => ({ status: 200, body: { value: 'serverless' } }) });
+const handler = createFetchHandler(contract, implementation);
+Promise.all([client.get(), handler(new Request('https://example.test/retained'))]).then(async ([clientResponse, serverResponse]) => {
+  assert.equal(clientResponse.body.path, 'https://example.test/retained');
+  assert.equal(serverResponse.status, 200);
+  assert.deepEqual(await serverResponse.json(), { value: 'serverless' });
+  console.log('retained APIs work');
+}).catch(error => { console.error(error); process.exitCode = 1; });
+`;
+      const usedPath = join(consumer, `retained.${extension}`);
+      await build({
+        absWorkingDir: consumer,
+        stdin: {
+          contents: source,
+          resolveDir: consumer,
+          sourcefile: `retained-input.${extension}`,
+        },
+        outfile: usedPath,
+        bundle: true,
+        platform: 'node',
+        format,
+        external: [...external],
+        treeShaking: true,
+      });
+      assert.equal(
+        execFileSync(process.execPath, [usedPath], { encoding: 'utf8' }).trim(),
+        'retained APIs work',
+        `${format}: used API and Nest metadata behavior`,
+      );
+    }
     const files = await readdir(
       join(consumer, 'node_modules/@ts-restless/react-query'),
       { recursive: true },
