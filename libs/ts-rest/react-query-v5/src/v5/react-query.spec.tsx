@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import {
+  InfiniteData,
   QueryClient,
   QueryClientProvider,
   skipToken,
@@ -12,11 +13,13 @@ import {
   waitForElementToBeRemoved,
 } from '@testing-library/react';
 import { ApiFetcher, ApiFetcherArgs, initContract } from '@ts-restless/core';
+import type { Equal, Expect } from '../../../core/src/lib/test-helpers';
 import * as React from 'react';
 import { act } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { z } from 'zod';
 import { initTsrReactQuery } from './init-tsr-react-query';
+import { DataResponse } from './types';
 import {
   isFetchError,
   isNotKnownResponseError,
@@ -2013,4 +2016,163 @@ it('A11 retains page mapping and later-page HTTP errors', async () => {
   await waitFor(() => expect(result.current.error).toBe(failure));
   expect(api.mock.calls[1][0].rawQuery).toEqual({ cursor: 1 });
   expect(result.current.data?.pages).toEqual([success]);
+});
+
+it('infinite cache helpers retain native pages, parameters, updates and state', async () => {
+  const localContract = c.router({
+    pages: {
+      method: 'GET',
+      path: '/infinite-cache',
+      query: c.type<{ cursor: number }>(),
+      responses: { 200: c.type<{ next: number; value: string }>() },
+    },
+  });
+  const native = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+  });
+  let cursor = 0;
+  const bound = initTsrReactQuery(localContract, {
+    baseUrl: 'https://cache.example',
+    api: async () => {
+      const page = cursor++;
+      return {
+        status: 200,
+        body: { next: page + 1, value: 'page-' + page },
+        headers: new Headers(),
+      };
+    },
+  }).initQueryClient(native);
+  type Page = DataResponse<typeof localContract.pages>;
+  const key = ['infinite-cache', 'first'];
+  const otherKey = ['infinite-cache', 'other'];
+  const missingKey = ['infinite-cache', 'missing'];
+  try {
+    expect(bound.pages.getInfiniteQueryData(missingKey)).toBeUndefined();
+    expect(bound.pages.getInfiniteQueryState(missingKey)).toBeUndefined();
+    expect(
+      bound.pages.setInfiniteQueryData(missingKey, () => undefined),
+    ).toBeUndefined();
+    expect(native.getQueryState(missingKey)).toBeUndefined();
+    await bound.pages.prefetchInfiniteQuery({
+      queryKey: key,
+      initialPageParam: 0,
+      pages: 2,
+      queryData: { query: { cursor: 0 } },
+      getNextPageParam: (last) => last.body.next,
+    });
+    const cached = bound.pages.getInfiniteQueryData<number>(key);
+    type Cached = Expect<
+      Equal<typeof cached, InfiniteData<Page, number> | undefined>
+    >;
+    const unknownParams = bound.pages.getInfiniteQueryData(key);
+    type DefaultParams = Expect<
+      Equal<typeof unknownParams, InfiniteData<Page, unknown> | undefined>
+    >;
+    expect(cached).toBe(native.getQueryData(key));
+    expect(cached?.pageParams).toEqual([0, 1]);
+    expect(cached?.pages.map((page) => page.body.value)).toEqual([
+      'page-0',
+      'page-1',
+    ]);
+    const seeded = bound.pages.setInfiniteQueryData<number>(otherKey, cached);
+    expect(seeded).toBe(cached);
+    expect(
+      bound.pages.getInfiniteQueriesData<number>({
+        queryKey: ['infinite-cache'],
+      }),
+    ).toEqual([
+      [key, cached],
+      [otherKey, cached],
+    ]);
+    const updated = bound.pages.setInfiniteQueryData<number>(
+      key,
+      (old) => {
+        type Old = Expect<
+          Equal<typeof old, InfiniteData<Page, number> | undefined>
+        >;
+        return (
+          old && {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              body: { ...page.body, value: 'updated' },
+            })),
+          }
+        );
+      },
+      { updatedAt: 123 },
+    );
+    expect(updated?.pageParams).toEqual([0, 1]);
+    expect(updated?.pages.map((page) => page.body.value)).toEqual([
+      'updated',
+      'updated',
+    ]);
+    const state = bound.pages.getInfiniteQueryState<number>(key);
+    type StateData = Expect<
+      Equal<
+        NonNullable<typeof state>['data'],
+        InfiniteData<Page, number> | undefined
+      >
+    >;
+    expect(state).toBe(native.getQueryState(key));
+    expect(state?.data).toBe(updated);
+    expect(state?.status).toBe('success');
+    expect(state?.dataUpdatedAt).toBe(123);
+    expect(
+      bound.pages.setInfiniteQueryData<number>(key, () => undefined),
+    ).toBeUndefined();
+    expect(bound.pages.getInfiniteQueryData<number>(key)).toBe(updated);
+    const filtered = bound.pages.setInfiniteQueriesData<number>(
+      {
+        queryKey: ['infinite-cache'],
+        predicate: (query) => query.queryKey[1] === 'first',
+      },
+      (old) => old && { ...old, pageParams: [10, 11] },
+      { updatedAt: 456 },
+    );
+    expect(filtered).toEqual([[key, { ...updated, pageParams: [10, 11] }]]);
+    expect(bound.pages.getInfiniteQueryData<number>(otherKey)).toBe(cached);
+    expect(bound.pages.getInfiniteQueryState<number>(key)?.dataUpdatedAt).toBe(
+      456,
+    );
+    expect(
+      bound.pages.getInfiniteQueriesData({ queryKey: missingKey }),
+    ).toEqual([]);
+    expect(
+      bound.pages.setInfiniteQueriesData(
+        { queryKey: missingKey },
+        () => undefined,
+      ),
+    ).toEqual([]);
+
+    // These calls are inference probes, not runtime writes.
+    const assertInvalidUpdates = () => {
+      // @ts-expect-error infinite values have no single response body
+      cached?.body;
+      bound.pages.setInfiniteQueryData(key, {
+        pages: [
+          {
+            status: 200,
+            // @ts-expect-error pages keep the route response body
+            body: { next: 1, value: 123 },
+            headers: new Headers(),
+          },
+        ],
+        pageParams: [0],
+      });
+      bound.pages.setInfiniteQueryData<number>(key, {
+        pages: [],
+        // @ts-expect-error explicit page parameters must be numbers
+        pageParams: ['bad'],
+      });
+      bound.pages.setInfiniteQueriesData<number>(
+        {},
+        // @ts-expect-error updater return values preserve page-parameter types
+        (old) => old && { ...old, pageParams: ['bad'] },
+      );
+    };
+    void assertInvalidUpdates;
+  } finally {
+    native.clear();
+  }
 });

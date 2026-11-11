@@ -478,7 +478,7 @@ const PAGE_SIZE = 5;
 export const Posts = () => {
   const { data, isLoading, isError, fetchNextPage, hasNextPage } =
     tsr.getPosts.useInfiniteQuery({
-      queryKey: ['posts'],
+      queryKey: ['posts', 'infinite'],
       queryData: ({ pageParam }) => ({
         query: {
           skip: pageParam.skip,
@@ -539,7 +539,7 @@ export default async function Page() {
 
   const initialPageParam = { skip: 0, take: 10 };
   await tsrQueryClient.getPosts.prefetchInfiniteQuery({
-    queryKey: ['posts'],
+    queryKey: ['posts', 'infinite'],
     queryData: {
       query: initialPageParam,
     },
@@ -555,6 +555,34 @@ export default async function Page() {
   );
 }
 ```
+
+### Infinite cache methods
+
+Use the explicit infinite helpers with keys used by infinite queries. `getInfiniteQueryData`, `getInfiniteQueriesData`, `setInfiniteQueryData`, `setInfiniteQueriesData` and `getInfiniteQueryState` describe native `InfiniteData`: response-envelope `pages` and `pageParams`. Ordinary `getQueryData` / `setQueryData` and their related helpers continue to describe a single response envelope.
+
+Keep ordinary and infinite-query keys distinct, such as `['posts', 'ordinary']` and `['posts', 'infinite']`. Filtered helpers use native QueryClient filters; choose filters that match infinite queries for that route. Hook `select` transforms the observer's result; the cache still contains response envelopes.
+
+```ts
+import { QueryClient } from '@tanstack/react-query';
+import { tsr } from './tsr';
+
+type PageParam = { skip: number; take: number };
+const cache = tsr.initQueryClient(new QueryClient());
+const key = ['posts', 'infinite'];
+const cached = cache.getPosts.getInfiniteQueryData<PageParam>(key);
+// cached?.pages contains response envelopes; cached?.pageParams is PageParam[].
+cache.getPosts.setInfiniteQueryData<PageParam>(key, (old) =>
+  old && {
+    pages: old.pages.slice(0, 1),
+    pageParams: old.pageParams.slice(0, 1),
+  },
+);
+const state = cache.getPosts.getInfiniteQueryState<PageParam>(key);
+```
+
+Reads and state return `undefined` for missing queries. An updater returning `undefined` leaves existing data unchanged and creates no missing query, following native behavior. Page parameters default to `unknown`; supply the generic matching your infinite query when you need a specific parameter type. Arbitrary query keys do not infer that type.
+
+These additive APIs for [#37](https://github.com/2wce/ts-restless/issues/37) are pending release and are absent from `4.0.0-alpha.5`; check the [delivery status](https://github.com/2wce/ts-restless/blob/main/docs/roadmap.md) for a containing release. Until then, use the native client's explicit `InfiniteData` generic for infinite-cache access.
 
 ## Troubleshooting
 

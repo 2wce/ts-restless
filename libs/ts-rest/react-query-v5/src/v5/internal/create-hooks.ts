@@ -264,6 +264,19 @@ export const initQueryClient = <
                 getQueryState: (queryKey) => {
                   return queryClient.getQueryState(queryKey);
                 },
+                getInfiniteQueryData: (queryKey) => {
+                  return queryClient.getQueryData(queryKey);
+                },
+                getInfiniteQueriesData: (filters) => {
+                  return queryClient.getQueriesData(filters);
+                },
+                setInfiniteQueryData:
+                  queryClient.setQueryData.bind(queryClient),
+                setInfiniteQueriesData:
+                  queryClient.setQueriesData.bind(queryClient),
+                getInfiniteQueryState: (queryKey) => {
+                  return queryClient.getQueryState(queryKey);
+                },
                 fetchQuery: (options) => {
                   return queryClient.fetchQuery(
                     createBaseQueryOptions(subRouter, clientOptions, options),
