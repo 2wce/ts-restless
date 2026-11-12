@@ -1080,3 +1080,208 @@ describe('explicit conversion and dialects', () => {
     },
   );
 });
+
+describe('sync/async preparation and converter ordering', () => {
+  it.each(['3.0.2', '3.1.0'] as const)(
+    'preserves nested context, parameters and references for %s',
+    async (openApiVersion) => {
+      const routes = c.router({
+        nested: {
+          create: {
+            method: 'POST',
+            path: '/items/:id/:fallback',
+            pathParams: c.type<{ id: number }>(),
+            query: z4.object({ search: z4.string().optional() }),
+            headers: {
+              'x-first': c.type<string>(),
+              'x-second': c.type<string>(),
+            },
+            body: c.type<{ title: string }>(),
+            responses: {
+              200: c.otherResponse({
+                contentType: 'application/custom+json',
+                body: c.type<{ ok: boolean }>(),
+              }),
+              204: c.noBody(),
+            },
+          },
+          status: {
+            method: 'GET',
+            path: '/status',
+            responses: { 200: c.type<string>() },
+          },
+        },
+      });
+      const base = {
+        info: { title: 'Ordering', version: '1' },
+        components: {
+          schemas: {
+            Result: {
+              type: 'object' as const,
+              properties: { ok: { type: 'boolean' as const } },
+            },
+          },
+        },
+      };
+      const calls: string[] = [];
+      const convert: SchemaTransformerSync = ({
+        appRoute,
+        id,
+        concatenatedPath,
+        type,
+        schema,
+      }) => {
+        expect(appRoute).toBe(
+          id === 'create' ? routes.nested.create : routes.nested.status,
+        );
+        calls.push(`${id}:${concatenatedPath}:${type}`);
+        if (schema === undefined || schema === c.noBody()) return null;
+        switch (type) {
+          case 'path':
+            return { type: 'object', properties: { id: { type: 'integer' } } };
+          case 'header':
+            return { type: 'string' };
+          case 'query':
+            return {
+              type: 'object',
+              properties: { search: { type: 'string' } },
+            };
+          case 'body':
+            return {
+              schema: {
+                type: 'object',
+                properties: { title: { type: 'string' } },
+                required: ['title'],
+              },
+              required: false,
+            };
+          case 'response':
+            return id === 'create'
+              ? { $ref: '#/components/schemas/Result' }
+              : { type: 'string' };
+        }
+      };
+      const options = {
+        openApiVersion,
+        jsonQuery: true,
+        setOperationId: 'concatenated-path' as const,
+      };
+      const sync = generateOpenApi(routes, base, {
+        ...options,
+        schemaTransformer: convert,
+      });
+      const expectedCalls = [
+        'create:nested.create:path',
+        'create:nested.create:header',
+        'create:nested.create:header',
+        'create:nested.create:query',
+        'create:nested.create:body',
+        'create:nested.create:response',
+        'create:nested.create:response',
+        'status:nested.status:path',
+        'status:nested.status:response',
+      ];
+      expect(calls).toEqual(expectedCalls);
+      calls.length = 0;
+      const events: string[] = [];
+      const asyncOutput = await generateOpenApiAsync(routes, base, {
+        ...options,
+        schemaTransformer: async (args) => {
+          events.push(`start:${args.id}:${args.type}`);
+          await Promise.resolve();
+          const output = convert(args);
+          events.push(`finish:${args.id}:${args.type}`);
+          return output;
+        },
+      });
+      expect(calls).toEqual(expectedCalls);
+      expect(events).toEqual([
+        'start:create:path',
+        'finish:create:path',
+        'start:create:header',
+        'start:create:header',
+        'finish:create:header',
+        'finish:create:header',
+        'start:create:query',
+        'finish:create:query',
+        'start:create:body',
+        'finish:create:body',
+        'start:create:response',
+        'finish:create:response',
+        'start:create:response',
+        'finish:create:response',
+        'start:status:path',
+        'finish:status:path',
+        'start:status:response',
+        'finish:status:response',
+      ]);
+      expect(asyncOutput).toEqual(sync);
+      expect(sync.paths['/items/{id}/{fallback}'].post).toMatchObject({
+        operationId: 'nested.create',
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'integer' },
+          },
+          {
+            name: 'fallback',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+          },
+          {
+            name: 'x-first',
+            in: 'header',
+            required: true,
+            schema: { type: 'string' },
+          },
+          {
+            name: 'x-second',
+            in: 'header',
+            required: true,
+            schema: { type: 'string' },
+          },
+          {
+            name: 'search',
+            in: 'query',
+            content: { 'application/json': { schema: { type: 'string' } } },
+          },
+        ],
+        requestBody: {
+          required: false,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: { title: { type: 'string' } },
+                required: ['title'],
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: '200',
+            content: {
+              'application/custom+json': {
+                schema: { $ref: '#/components/schemas/Result' },
+              },
+            },
+          },
+          204: { description: '204' },
+        },
+      });
+      expect(sync.paths['/status'].get).toMatchObject({
+        operationId: 'nested.status',
+        parameters: [],
+        responses: {
+          200: {
+            content: { 'application/json': { schema: { type: 'string' } } },
+          },
+        },
+      });
+    },
+  );
+});
