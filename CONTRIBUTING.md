@@ -77,7 +77,9 @@ it for libraries, tests, declaration packing, Node examples and browser examples
 `tsconfig.library.json`, `tsconfig.test.json`, `tsconfig.pack.json`,
 `tsconfig.node.json` and `tsconfig.web.json`. `tsconfig.assertions.json` supplies
 the inference-check settings; owning packages select their assertion files. The
-non-strict package maps core to its built declarations in its own config.
+non-strict package maps core to its built declarations in its own config. Its
+`typecheck` script runs the owning `check-inference` task, which depends on
+`@ts-restless/core#pack`; fresh checks build those declarations first.
 
 The presets use TypeScript's `${configDir}` variable for standard source/test
 globs, so inherited patterns select files in the consuming package. Package
@@ -97,8 +99,10 @@ manifest and compiler config are explicit library build cache inputs.
 
 Public consumers use Node16/NodeNext or Bundler resolution through conditional exports. Both ESM and CommonJS remain supported; classic `node`/`node10` declaration fallbacks are removed. Installed consumers retain older/current compiler probes and strict old-Zod checks with modern resolution. See [ADR0012](docs/adr/0012-modern-module-resolution.md) and the [consumer migration](apps/docs/content/docs/ts-restless-migration.mdx#typescript-module-resolution).
 
-Package Vite configs declare entry points; React Query also declares its combined
-declaration config and v5 cache inputs. Pack overrides use Vite's `mergeConfig`.
+Package Vite configs call `libraryConfig(entry, options?)` with their entry points
+and artifact requirements. React Query declares unbundling, its combined
+declaration config and v5 cache inputs; Nest declares its SWC decorator plugin.
+Pack overrides use Vite's `mergeConfig`.
 Root `vite.config.ts` owns workspace orchestration, and library Vitest projects
 inherit its settings with `extends: true`. The [build-config README](libs/build-config/README.md)
 describes the presets. Package consumer tests live under `tests/packaging` and

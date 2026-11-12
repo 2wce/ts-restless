@@ -1,6 +1,10 @@
 import { defineConfig } from 'vite-plus';
-import { libraryConfig } from '@ts-restless/build-config';
+import swc from 'unplugin-swc';
+import { libraryConfig, decoratorOptions } from '@ts-restless/build-config';
 
 export default defineConfig(
-  libraryConfig('nest', { index: 'src/index.ts', legacy: 'src/legacy.ts' }),
+  libraryConfig(
+    { index: 'src/index.ts', legacy: 'src/legacy.ts' },
+    { pack: { plugins: [swc.rollup(decoratorOptions('tsconfig.lib.json'))] } },
+  ),
 );

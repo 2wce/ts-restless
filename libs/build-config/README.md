@@ -11,16 +11,18 @@ import {
 } from '@ts-restless/build-config';
 ```
 
-- `libraryConfig(name, entry, options?)` declares a library's Vite+ pack task,
+- `libraryConfig(entry, options?)` declares a library's Vite+ pack task,
   cache inputs/outputs and ESM/CJS artifacts. It supports package-specific pack
-  overrides and additional workspace cache inputs.
+  overrides and additional workspace cache inputs. React Query owns its
+  `unbundle` setting and Nest owns its decorator plugin in their package configs.
 - `nodePack(entry?)` shares Node example packing settings and uses package-local
   `dist` output.
 - `decoratorOptions(tsconfigFile, jsx?)` shares Nest's legacy decorator metadata
   transform for builds and tests.
 
 Consumers declare this package in `devDependencies` using `workspace:*`.
-The package owns the Vite+/SWC dependencies used by its presets. Root
+The package owns the Vite+/SWC dependencies used by its presets and option types.
+Root
 `vite.config.ts` continues to own workspace tasks, tests, lint and formatting.
 
 Published libraries emit ESM/CJS and declaration files into their own `dist`.

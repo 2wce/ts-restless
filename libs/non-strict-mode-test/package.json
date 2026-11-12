@@ -7,7 +7,7 @@
     "zod": "catalog:"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "vp run check-inference"
   },
   "private": true
 }
