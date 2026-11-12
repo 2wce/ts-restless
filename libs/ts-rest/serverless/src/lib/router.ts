@@ -44,24 +44,25 @@ const recursivelyProcessContract = ({
     schema: AppRoute,
   ) => void;
 }): void => {
-  if (isRouterImplementation(router)) {
+  if (!isAppRoute(schema)) {
+    if (typeof router !== 'object') {
+      throw new Error(`[ts-rest] Expected AppRoute but received AppRouter`);
+    }
     for (const key in router) {
-      if (isAppRoute(schema)) {
-        throw new Error(`[ts-rest] Expected AppRouter but received AppRoute`);
-      }
-
       recursivelyProcessContract({
         schema: schema[key],
-        router: router[key],
+        router: (router as RouterImplementation<any, any, any>)[key],
         processRoute,
       });
     }
   } else {
-    if (!isAppRoute(schema)) {
-      throw new Error(`[ts-rest] Expected AppRoute but received AppRouter`);
+    if (isRouterImplementation(router)) {
+      throw new Error(`[ts-rest] Expected AppRouter but received AppRoute`);
     }
-
-    processRoute(router, schema);
+    processRoute(
+      router as AppRouteImplementationOrOptions<AppRoute, any, any>,
+      schema,
+    );
   }
 };
 

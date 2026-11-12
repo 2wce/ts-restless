@@ -1,4 +1,4 @@
-import { AppRoute, AppRouter } from '@ts-restless/core';
+import { AppRoute, AppRouter, isAppRoute } from '@ts-restless/core';
 import { RequestHandler } from 'itty-router';
 import { TsRestRequest } from '../request';
 import {
@@ -62,7 +62,7 @@ export class RouterBuilder<
       this.contract = contractOrBuilder.contract;
       this._requestMiddleware = [...contractOrBuilder._requestMiddleware];
       this._responseHandlers = [...contractOrBuilder._responseHandlers];
-      this._router = this.copyRouter(contractOrBuilder._router);
+      this._router = this.copyRouter(contractOrBuilder._router, this.contract);
       this._remainingRoutes = new Set(contractOrBuilder._remainingRoutes);
     } else {
       this.contract = contractOrBuilder;
@@ -111,13 +111,14 @@ export class RouterBuilder<
       TPlatformContext,
       TRequestExtensionCumulative
     >,
+    contract: AppRouter,
   ): PartialRouter<TContract, TPlatformContext, TRequestExtensionCumulative> {
     return Object.fromEntries(
       Object.entries(router).map(([key, value]) => [
         key,
-        this.isRouteImplementationOrOptions(value)
+        isAppRoute(contract[key])
           ? value
-          : this.copyRouter(value),
+          : this.copyRouter(value as any, contract[key] as AppRouter),
       ]),
     ) as PartialRouter<
       TContract,
@@ -308,12 +309,13 @@ export class RouterBuilder<
     const mergePartialRouter = (
       targetRouter: any,
       subRouter: any,
+      contract: AppRouter,
       parentPath = '',
     ) => {
       const keyPrefix = parentPath === '' ? '' : `${parentPath}.`;
 
       return Object.entries(subRouter).forEach(([key, value]) => {
-        if (this.isRouteImplementationOrOptions(value as any)) {
+        if (isAppRoute(contract[key])) {
           this._remainingRoutes.delete(
             `${keyPrefix}${key}` as TRemainingRoutes,
           );
@@ -324,12 +326,17 @@ export class RouterBuilder<
             targetRouter[key] = {};
           }
 
-          mergePartialRouter(targetRouter[key], value, `${keyPrefix}${key}`);
+          mergePartialRouter(
+            targetRouter[key],
+            value,
+            contract[key] as AppRouter,
+            `${keyPrefix}${key}`,
+          );
         }
       });
     };
 
-    mergePartialRouter(this._router, partialRouter);
+    mergePartialRouter(this._router, partialRouter, this.contract);
 
     if (this._remainingRoutes.size > 0) {
       // @ts-expect-error - assert that _remainingRoutes.size > 0 means TNewRemainingRoutes is not `never`

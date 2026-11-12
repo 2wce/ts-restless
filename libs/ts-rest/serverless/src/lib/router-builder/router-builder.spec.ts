@@ -153,6 +153,54 @@ describe('RouterBuilder', () => {
       expect(await originalResponse.json()).toBe('original second');
       expect(await clonedResponse.json()).toBe('clone second');
     });
+
+    it.each(['route', 'partialRouter'] as const)(
+      'keeps a nested endpoint named handler independent through %s',
+      async (entry) => {
+        const handlerContract = c.router({
+          nested: {
+            handler: cloneContract.nested.first,
+            second: cloneContract.nested.second,
+          },
+        });
+        const partial =
+          entry === 'route'
+            ? tsr
+                .routerBuilder(handlerContract)
+                .route('nested.handler', async () => ({
+                  status: 200,
+                  body: 'shared handler',
+                }))
+            : tsr.routerBuilder(handlerContract).partialRouter({
+                nested: {
+                  handler: async () => ({
+                    status: 200,
+                    body: 'shared handler',
+                  }),
+                },
+              });
+        const cloned = partial.clone().route('nested.second', async () => ({
+          status: 200,
+          body: 'clone second',
+        }));
+        const original = partial.route('nested.second', async () => ({
+          status: 200,
+          body: 'original second',
+        }));
+
+        const originalResponse = await createFetchHandler(
+          handlerContract,
+          original,
+        )(new Request('http://localhost/second'));
+        const clonedResponse = await createFetchHandler(
+          handlerContract,
+          cloned,
+        )(new Request('http://localhost/second'));
+
+        expect(await originalResponse.json()).toBe('original second');
+        expect(await clonedResponse.json()).toBe('clone second');
+      },
+    );
   });
 
   const healthHandler = async () => {
