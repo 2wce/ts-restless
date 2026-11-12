@@ -69,6 +69,7 @@ export default defineConfig({
           exclude: [
             '**/node_modules/**',
             '**/dist/**',
+            'apps/docs/**',
             'apps/example-azure-function/**',
             'apps/example-cloudflare-worker/**',
           ],

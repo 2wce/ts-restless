@@ -2,19 +2,16 @@
 
 const fs = require('fs');
 const path = require('path');
+const { parseArgs } = require('node:util');
 
 // Configuration
 const LIBS_DIR = path.resolve(__dirname, '../../libs/ts-rest');
-const OUTPUT_FILE = path.resolve(
-  __dirname,
-  './content/docs/changelog.mdx',
-);
+const OUTPUT_FILE = path.resolve(__dirname, './content/docs/changelog.mdx');
 
 /**
  * Parse a changelog file and extract version entries
  */
-function parseChangelog(filePath, packageName) {
-  const content = fs.readFileSync(filePath, 'utf8');
+function parseChangelogContent(content, packageName) {
   const lines = content.split('\n');
   const entries = [];
   let currentVersion = null;
@@ -97,19 +94,24 @@ function parseChangelog(filePath, packageName) {
   return entries;
 }
 
+function parseChangelog(filePath, packageName) {
+  return parseChangelogContent(fs.readFileSync(filePath, 'utf8'), packageName);
+}
+
 /**
  * Find all ts-rest packages with CHANGELOG.md files
  */
-function findChangelogFiles() {
+function findChangelogFiles(libsDir) {
   const packages = fs
-    .readdirSync(LIBS_DIR, { withFileTypes: true })
+    .readdirSync(libsDir, { withFileTypes: true })
     .filter((dirent) => dirent.isDirectory())
-    .map((dirent) => dirent.name);
+    .map((dirent) => dirent.name)
+    .sort();
 
   const changelogFiles = [];
 
   for (const pkg of packages) {
-    const changelogPath = path.join(LIBS_DIR, pkg, 'CHANGELOG.md');
+    const changelogPath = path.join(libsDir, pkg, 'CHANGELOG.md');
     if (fs.existsSync(changelogPath)) {
       changelogFiles.push({
         path: changelogPath,
@@ -124,15 +126,11 @@ function findChangelogFiles() {
 /**
  * Aggregate all changelog entries by version
  */
-function aggregateChangelogs() {
-  const changelogFiles = findChangelogFiles();
+function aggregateChangelogs(libsDir = LIBS_DIR) {
+  const changelogFiles = findChangelogFiles(libsDir);
   const versionMap = new Map();
 
-  console.log(`Found ${changelogFiles.length} changelog files:`);
-  changelogFiles.forEach(({ package }) => console.log(`  - ${package}`));
-
   for (const { path: filePath, package: packageName } of changelogFiles) {
-    console.log(`\nProcessing ${packageName}...`);
     const entries = parseChangelog(filePath, packageName);
 
     for (const entry of entries) {
@@ -210,7 +208,10 @@ description: Combined ts-restless changelog, including historical upstream ts-re
     for (const entry of entries) {
       if (entry.changes.length > 0) {
         for (const change of entry.changes) {
-          const repository = Number(version.split('.')[0]) >= 4 ? '2wce/ts-restless' : 'ts-rest/ts-rest';
+          const repository =
+            Number(version.split('.')[0]) >= 4
+              ? '2wce/ts-restless'
+              : 'ts-rest/ts-rest';
           const githubUrl = `https://github.com/${repository}/commit/${change.hash}`;
           content += `- ([${change.hash}](${githubUrl})) **${entry.package}**: ${change.description}\n`;
         }
@@ -226,33 +227,56 @@ description: Combined ts-restless changelog, including historical upstream ts-re
   return content;
 }
 
-/**
- * Main function
- */
+function generateChangelog({
+  libsDir = LIBS_DIR,
+  outputFile = OUTPUT_FILE,
+  check = false,
+} = {}) {
+  const content = generateMDX(aggregateChangelogs(libsDir));
+  const current = fs.existsSync(outputFile)
+    ? fs.readFileSync(outputFile, 'utf8')
+    : null;
+  if (check) return current === content;
+  if (current !== content) {
+    fs.mkdirSync(path.dirname(outputFile), { recursive: true });
+    fs.writeFileSync(outputFile, content);
+  }
+  return true;
+}
+
 function main() {
-  console.log('🔄 Generating combined changelog...\n');
-
   try {
-    const versionMap = aggregateChangelogs();
-    const mdxContent = generateMDX(versionMap);
-
-    // Ensure output directory exists
-    const outputDir = path.dirname(OUTPUT_FILE);
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
+    const { values } = parseArgs({
+      options: {
+        check: { type: 'boolean', default: false },
+        'libs-dir': { type: 'string', default: LIBS_DIR },
+        output: { type: 'string', default: OUTPUT_FILE },
+      },
+    });
+    const fresh = generateChangelog({
+      libsDir: values['libs-dir'],
+      outputFile: values.output,
+      check: values.check,
+    });
+    if (!fresh) {
+      console.error(`Changelog is stale: ${values.output}`);
+      process.exitCode = 1;
+    } else {
+      console.log(
+        `${values.check ? 'Changelog is current' : 'Changelog generated'}: ${values.output}`,
+      );
     }
-
-    fs.writeFileSync(OUTPUT_FILE, mdxContent);
-    console.log(`\n✅ Combined changelog generated at: ${OUTPUT_FILE}`);
-    console.log(`📊 Processed ${versionMap.size} versions across packages`);
   } catch (error) {
-    console.error('❌ Error generating changelog:', error);
-    process.exit(1);
+    console.error('Error generating changelog:', error);
+    process.exitCode = 1;
   }
 }
 
-if (require.main === module) {
-  main();
-}
-
-module.exports = { parseChangelog, aggregateChangelogs, generateMDX };
+if (require.main === module) main();
+module.exports = {
+  parseChangelog,
+  parseChangelogContent,
+  aggregateChangelogs,
+  generateMDX,
+  generateChangelog,
+};

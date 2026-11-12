@@ -4,6 +4,13 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { fumadocsMdx } from 'fumadocs-mdx/vite';
 import { readdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
+
+// Fumadocs reads MDX while the config is loaded, before task prerequisites run.
+const { generateChangelog } = createRequire(import.meta.url)(
+  './generate-changelog.cjs',
+);
+generateChangelog();
 
 const pages = readdirSync('content/docs', { recursive: true })
   .filter(
@@ -63,6 +70,7 @@ export default defineConfig({
         command: [
           'pnpm -w docs:lint',
           'node --test tests/*.test.mjs',
+          'vp test run --config vitest.config.ts',
         ],
         dependsOn: ['build-app'],
         cache: false,

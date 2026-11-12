@@ -4,13 +4,11 @@ import { useEffect, useState } from 'react';
 import { usePostHog } from 'posthog-js/react';
 import { X, Cookie, Check } from 'lucide-react';
 
-export function cookieConsentGiven() {
-  if (typeof window === 'undefined') return 'undecided';
-  if (!localStorage.getItem('cookie_consent')) {
-    return 'undecided';
-  }
-  return localStorage.getItem('cookie_consent') || 'undecided';
-}
+import {
+  cookieConsentGiven,
+  saveCookieConsent,
+  consentPersistence,
+} from '../lib/consent';
 
 export function CookieBanner() {
   const [consentGiven, setConsentGiven] = useState('');
@@ -28,19 +26,19 @@ export function CookieBanner() {
   useEffect(() => {
     if (consentGiven !== '' && consentGiven !== 'undecided') {
       posthog?.set_config({
-        persistence: consentGiven === 'yes' ? 'localStorage+cookie' : 'memory',
+        persistence: consentPersistence(consentGiven),
       });
     }
   }, [consentGiven, posthog]);
 
   const handleAcceptCookies = () => {
-    localStorage.setItem('cookie_consent', 'yes');
+    saveCookieConsent('yes');
     setConsentGiven('yes');
     setIsVisible(false);
   };
 
   const handleDeclineCookies = () => {
-    localStorage.setItem('cookie_consent', 'no');
+    saveCookieConsent('no');
     setConsentGiven('no');
     setIsVisible(false);
   };
