@@ -13,3 +13,5 @@ The root-import change requires migration guidance and a breaking Changeset. App
 Sources: [plan and verification](../plans/2026-11-11-fastify5-compatibility.md#follow-up-explicit-fastify-4-legacy-entry-approved-2026-11-11), [support policy](../support-policy.md#fastify-baseline-and-legacy-support), [consumer migration](../../apps/docs/content/docs/server/fastify.mdx#fastify-4-to-5).
 
 Follow-up: [ADR0014](0014-legacy-helper-paths.md) combines the historical Zod error schema into `/legacy`, replacing the independent `/zod3` helper choice while preserving the native-major split and retirement window. Importing the combined native4 entry requires Zod3.
+
+Follow-up on 2026-11-12: [ADR0015](0015-fastify-validator-independence.md) supersedes that combined-entry choice. Native4 `/legacy` and native5 root remain validator independent; import the historical payload schema separately from core `/legacy`. The native-major split and retirement window are unchanged.

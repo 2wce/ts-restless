@@ -9,8 +9,7 @@
   "license": "MIT",
   "peerDependencies": {
     "fastify": "^4.0.0 || ^5.0.0",
-    "@ts-restless/core": "workspace:^",
-    "zod": "^3.22.3 || ^4.0.0"
+    "@ts-restless/core": "workspace:^"
   },
   "scripts": {
     "build": "vp pack"
@@ -57,11 +56,6 @@
           "default": "./dist/legacy.cjs.js"
         }
       }
-    }
-  },
-  "peerDependenciesMeta": {
-    "zod": {
-      "optional": true
     }
   },
   "bugs": {

@@ -180,17 +180,25 @@ type Input = SchemaInputOrType<typeof numberFromString>; // string
 type Output = SchemaOutputOrType<typeof numberFromString>; // number
 ```
 
-Replace existing `@ts-restless/<package>/zod3` imports with `@ts-restless/<package>/legacy` for core, Express, Fastify, Nest, Next and serverless. The old paths are removed in this development baseline; helper names remain unchanged. Verify a containing release before changing installed package imports.
+Replace existing `@ts-restless/<package>/zod3` imports with `@ts-restless/<package>/legacy` for core, Express, Nest, Next and serverless. The old paths are removed in this development baseline; helper names remain unchanged in those packages. For Fastify's historical `RequestValidationErrorSchema`, use the existing core equivalent:
+
+```typescript
+import {
+  RequestValidationErrorSchemaWithoutMessage as RequestValidationErrorSchema,
+} from '@ts-restless/core/legacy';
+```
+
+Verify a containing release before changing installed package imports.
 
 The compatibility entry points support Zod 3. Zod 4 uses the default entry
-points and its own introspection/conversion tools. Fastify combines its historical helper with the native4 adapter under `/legacy`, so importing that entry requires Zod 3 even for Standard Schema contracts using another validator. Its root native5 entry remains independent of Zod. See the [Fastify migration guide](/server/fastify#fastify-4-to-5).
+points and its own introspection/conversion tools. Fastify's native4 `/legacy` and native5 root remain validator independent; only historical helper imports from core `/legacy` require Zod 3. See the [Fastify migration guide](/server/fastify#fastify-4-to-5).
 
 ## Adapter error imports
 
 | Adapter | Current default-handler error API | Historical imports available under `/legacy` |
 | --- | --- | --- |
 | Express | Root `RequestValidationError` contains `StandardSchemaError` in failed locations. | `DefaultRequestValidationErrorSchema`, `CombinedRequestValidationErrorSchema`. |
-| Fastify | Root `RequestValidationError` contains `StandardSchemaError` in failed locations. | `RequestValidationErrorSchema`. |
+| Fastify | Root and native4 `/legacy` `RequestValidationError` contain `StandardSchemaError` in failed locations. | `RequestValidationErrorSchemaWithoutMessage` from core `/legacy`, optionally aliased to `RequestValidationErrorSchema`. |
 | Nest | Root `TsRestRequestValidationError` / `TsRestResponseValidationError`; old short names alias these current classes. | Historical `RequestValidationError`, `ResponseValidationError`, `RequestValidationErrorSchema`. |
 | Next Pages API | Root `TsRestRequestValidationError` (`RequestValidationError` aliases it); response errors use core's `TsRestResponseValidationError`. | Historical `RequestValidationError`, `RequestValidationErrorSchema`. |
 | Serverless | Root `TsRestRequestValidationError` (`RequestValidationError` aliases it) and `ResponseValidationError`. | Historical `RequestValidationError`, `RequestValidationErrorSchema`. |

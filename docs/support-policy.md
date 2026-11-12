@@ -39,7 +39,7 @@ The 2026-11-11 decision adopts Fastify **5** as the active target and classifies
 
 Fastify 4 keeps critical security/correctness fixes and compatibility checks during migration; new features target 5. The stable v4 release must include public notice, the verified replacement and [migration guidance](../apps/docs/content/docs/server/fastify.mdx#fastify-4-to-5). Its window begins only when both the notice and stable replacement are released. Earliest removal is six calendar months after that date, in a ts-restless major; the date is not established while stable v4 is unpublished. See [ADR 0011](adr/0011-fastify-legacy-entry.md) for rationale. Fastify5 compatibility in development source does not establish npm availability.
 
-[ADR0014](adr/0014-legacy-helper-paths.md) moves historical `/zod3` helpers to `/legacy` across core and server adapters. Fastify combines its helper with the native4 adapter; that entry requires Zod3 even with another contract validator. Root entries remain independent of Zod. The rename establishes no helper removal schedule. Retiring the native4 adapter does not itself authorize removing its historical payload helper.
+[ADR0015](adr/0015-fastify-validator-independence.md) retains canonical `/legacy` imports for historical helpers, superseding ADR0014's combined Fastify entry. Fastify's native4 `/legacy` and native5 root are validator independent. Historical Fastify payload users import `RequestValidationErrorSchemaWithoutMessage` from core `/legacy`, which requires Zod3. The import migration establishes no helper removal schedule. Retiring the native4 adapter does not itself authorize removing its historical payload helper.
 
 ### OpenAPI legacy converter
 

@@ -129,14 +129,8 @@
   "fastify": {
     "name": "@ts-restless/fastify",
     "peerDependencies": {
-      "fastify": "^4.0.0 || ^5.0.0",
-      "zod": "^3.22.3 || ^4.0.0"
+      "fastify": "^4.0.0 || ^5.0.0"
     },
-    "subpaths": ["./package.json", ".", "./legacy"],
-    "peerDependenciesMeta": {
-      "zod": {
-        "optional": true
-      }
-    }
+    "subpaths": ["./package.json", ".", "./legacy"]
   }
 }

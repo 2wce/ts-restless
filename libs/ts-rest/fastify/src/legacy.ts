@@ -15,6 +15,3 @@ export type {
  * Fastify 5 and import initServer from @ts-restless/fastify.
  */
 export const initServer = () => createServer(4);
-
-/** Historical payload schemas for Zod 3 only. */
-export { RequestValidationErrorSchemaWithoutMessage as RequestValidationErrorSchema } from '@ts-restless/core/legacy';

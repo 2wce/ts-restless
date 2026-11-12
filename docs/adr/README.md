@@ -19,7 +19,9 @@ ADRs preserve consequential choices and their rationale. Use short Markdown reco
 
 | [0013](0013-openapi-conversion.md) | Explicit OpenAPI conversion/dialects, whole-value presence and opt-in Zod3. |
 
-| [0014](0014-legacy-helper-paths.md) | Canonical `/legacy` helper imports; combined Fastify native4 compatibility. |
+| [0014](0014-legacy-helper-paths.md) | Superseded by 0015: canonical `/legacy` helpers and combined Fastify compatibility. |
+
+| [0015](0015-fastify-validator-independence.md) | Canonical `/legacy` helpers; validator-independent Fastify4/5 adapters. |
 
 These initial records extract already approved decisions from existing documents; they do not newly approve roadmap proposals.
 

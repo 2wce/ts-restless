@@ -22,7 +22,7 @@ React, Vue and Solid reuse core query execution. The plain client returns respon
 
 [ADR 0009](adr/0009-request-scoped-headers.md) records request-scoped asynchronous header preparation for plain clients and query bindings. Header callbacks resolve before transport without an auth cache or automatic cancellation of arbitrary auth work. The roadmap records delivery; acceptance of this boundary does not establish package availability.
 
-[ADR 0011](adr/0011-fastify-legacy-entry.md) separates the Fastify5 root entry from deprecated Fastify4 `/legacy` support. They share adapter internals and native inference; registration enforces the selected major before native mutations. [ADR0014](adr/0014-legacy-helper-paths.md) combines the historical Zod helper with Fastify's native4 `/legacy` adapter, so that entry requires Zod3 even for other validators. The root native5 entry stays independent of Zod. The native4 retirement window remains governed by ADR 0004; helper retirement requires a separate migration decision.
+[ADR 0011](adr/0011-fastify-legacy-entry.md) separates the Fastify5 root entry from deprecated Fastify4 `/legacy` support. They share adapter internals and native inference; registration enforces the selected major before native mutations. [ADR0015](adr/0015-fastify-validator-independence.md) keeps both entries independent of Zod and supplies the historical payload schema through core `/legacy`. The native4 retirement window remains governed by ADR 0004; helper retirement requires a separate migration decision.
 
 ## Package and artifact boundaries
 

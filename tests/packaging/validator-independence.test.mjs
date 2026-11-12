@@ -16,8 +16,8 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const archives = resolve(root, 'dist/packages');
 
-// Follow emitted chunks as well as the root; a separate legacy entry must not
-// accidentally pull Zod back into the default import/require graph.
+// Follow emitted chunks as well as the root. Fastify's native4 legacy entry
+// also stays independent; historical payload helpers live in core legacy.
 async function checkDefaultGraph(path, seen = new Set()) {
   if (seen.has(path)) return;
   seen.add(path);
@@ -82,7 +82,7 @@ for (const name of [
   'next',
   'serverless',
 ]) {
-  test(`packed default ${name} ESM and CommonJS graphs do not load or bundle Zod`, async () => {
+  test(`packed ${name} ${name === 'fastify' ? 'root/legacy' : 'default'} ESM and CommonJS graphs do not load or bundle Zod`, async () => {
     const unpacked = await mkdtemp(join(tmpdir(), 'ts-restless-graph-'));
     try {
       execFileSync('tar', [
@@ -96,7 +96,11 @@ for (const name of [
         await readFile(join(packageRoot, 'package.json'), 'utf8'),
       );
       for (const [subpath, target] of Object.entries(pkg.exports)) {
-        if (subpath === './package.json' || subpath === './legacy') continue;
+        if (
+          subpath === './package.json' ||
+          (subpath === './legacy' && name !== 'fastify')
+        )
+          continue;
 
         for (const format of ['import', 'require']) {
           await checkDefaultGraph(resolve(packageRoot, target[format].default));
@@ -1632,7 +1636,7 @@ dom.window.close();
 // A standalone adapter promise needs its own installed native majors. Nest's
 // platform-fastify dependency does not exercise this integration's declarations.
 test.each(['4.28.0', '5.12.7'])(
-  'packed Fastify %s preserves strict native inference and HTTP lifecycle',
+  'packed Fastify %s preserves strict native inference and HTTP lifecycle without Zod',
   async (fastifyVersion) => {
     const entry =
       '@ts-restless/fastify' +
@@ -1654,7 +1658,6 @@ test.each(['4.28.0', '5.12.7'])(
             '@ts-restless/fastify':
               'file:' + join(archives, 'ts-restless-fastify.tgz'),
             fastify: fastifyVersion,
-            zod: '3.25.76',
             valibot: '1.5.0',
             '@types/node': '26.6.5',
           },
@@ -1668,6 +1671,14 @@ test.each(['4.28.0', '5.12.7'])(
         'pnpm',
         ['install', '--ignore-scripts', '--strict-peer-dependencies'],
         { cwd: consumer, stdio: 'pipe' },
+      );
+      await assert.rejects(access(join(consumer, 'node_modules/zod')), {
+        code: 'ENOENT',
+      });
+      const installed = await readdir(join(consumer, 'node_modules/.pnpm'));
+      assert.ok(
+        installed.every((name) => !name.startsWith('zod@')),
+        'native Fastify consumers must not install Zod transitively',
       );
       const source = `import Fastify, { type FastifyRequest, type FastifyReply } from 'fastify';
 import { type IncomingMessage, type ServerResponse } from 'node:http';
