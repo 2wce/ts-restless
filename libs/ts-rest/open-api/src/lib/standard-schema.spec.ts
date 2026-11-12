@@ -564,6 +564,212 @@ describe('explicit conversion and dialects', () => {
     },
   });
 
+  it.each(['default', 'example', 'examples', 'x-field'])(
+    'checks schema references inside the %s property',
+    async (name) => {
+      const options = {
+        schemaTransformer: ({ schema }: { schema: unknown }) =>
+          schema === marker
+            ? {
+                type: 'object' as const,
+                properties: {
+                  [name]: { $ref: '#/components/schemas/Missing' },
+                },
+              }
+            : null,
+      };
+      expect(() => generateOpenApi(contract, info, options)).toThrow(
+        /Unresolved.*Missing/,
+      );
+      await expect(
+        generateOpenApiAsync(contract, info, options),
+      ).rejects.toThrow(/Unresolved.*Missing/);
+    },
+  );
+
+  it.each(['default', 'x-event'])(
+    'checks references under the %s webhook name',
+    async (name) => {
+      const base = {
+        ...info,
+        webhooks: { [name]: { $ref: '#/components/pathItems/Missing' } },
+      };
+      const options = {
+        openApiVersion: '3.1.0' as const,
+        schemaTransformer: ({ schema }: { schema: unknown }) =>
+          schema === marker ? { type: 'string' as const } : null,
+      };
+      expect(() => generateOpenApi(contract, base, options)).toThrow(
+        /Unresolved.*Missing/,
+      );
+      await expect(
+        generateOpenApiAsync(contract, base, options),
+      ).rejects.toThrow(/Unresolved.*Missing/);
+    },
+  );
+
+  it('keeps reference-like default, example and extension data unchanged', async () => {
+    const schema = {
+      type: 'object' as const,
+      properties: { default: { type: 'string' as const } },
+      default: { $ref: 'literal-default' },
+      examples: [{ $ref: 'literal-example' }],
+      'x-data': { $ref: 'literal-extension' },
+    };
+    const options = {
+      openApiVersion: '3.1.0' as const,
+      schemaTransformer: ({ schema: input }: { schema: unknown }) =>
+        input === marker ? schema : null,
+    };
+    const sync = generateOpenApi(contract, info, options);
+    expect(await generateOpenApiAsync(contract, info, options)).toEqual(sync);
+    expect(sync.paths['/body'].post?.requestBody).toMatchObject({
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: { default: { type: 'string' } },
+            default: { $ref: 'literal-default' },
+            examples: [{ $ref: 'literal-example' }],
+            'x-data': { $ref: 'literal-extension' },
+          },
+        },
+      },
+    });
+  });
+
+  it.each([
+    { version: '3.0.2', schema: { type: ['string', 'null'] } },
+    { version: '3.1.0', schema: { type: 'string', nullable: true } },
+  ] as const)(
+    'checks caller components against $version',
+    async ({ version, schema }) => {
+      const base = {
+        ...info,
+        components: { schemas: { Shared: schema as SchemaObject } },
+      };
+      const options = {
+        openApiVersion: version,
+        schemaTransformer: ({ schema: input }: { schema: unknown }) =>
+          input === marker ? { $ref: '#/components/schemas/Shared' } : null,
+      };
+      expect(() => generateOpenApi(contract, base, options)).toThrow(/3\.[01]/);
+      await expect(
+        generateOpenApiAsync(contract, base, options),
+      ).rejects.toThrow(/3\.[01]/);
+    },
+  );
+
+  it('normalizes caller definitions without mutating their component schemas', async () => {
+    const base = {
+      ...info,
+      components: {
+        schemas: {
+          Shared: {
+            type: 'object' as const,
+            $defs: { Field: { type: 'string' as const } },
+            properties: { value: { $ref: '#/$defs/Field' } },
+          },
+        },
+      },
+    };
+    const options = {
+      schemaTransformer: ({ schema }: { schema: unknown }) =>
+        schema === marker ? { $ref: '#/components/schemas/Shared' } : null,
+    };
+    const sync = generateOpenApi(contract, base, options);
+    expect(await generateOpenApiAsync(contract, base, options)).toEqual(sync);
+    expect(sync.components?.schemas?.['Shared']).toEqual({
+      type: 'object',
+      properties: { value: { $ref: '#/components/schemas/Field' } },
+    });
+    expect(sync.components?.schemas?.['Field']).toEqual({ type: 'string' });
+    expect(base.components.schemas.Shared.$defs).toEqual({
+      Field: { type: 'string' },
+    });
+    await SwaggerParser.validate(structuredClone(sync) as never);
+  });
+
+  it.each(['query', 'header', 'path'] as const)(
+    'diagnoses root conditional %s relationships in both generators',
+    async (location) => {
+      for (const constraints of [
+        { dependentRequired: { a: ['b'] } },
+        { dependentSchemas: { a: { required: ['b'] } } },
+        {
+          if: { required: ['a'] },
+          then: { required: ['b'] },
+          else: { required: ['c'] },
+        },
+      ]) {
+        const routes = c.router({
+          find: {
+            method: 'GET',
+            path: '/conditional/:a',
+            ...(location === 'query'
+              ? { query: marker }
+              : location === 'header'
+                ? { headers: marker }
+                : { pathParams: marker }),
+            responses: { 204: c.noBody() },
+          },
+        });
+        const options = {
+          openApiVersion: '3.1.0' as const,
+          schemaTransformer: ({ schema }: { schema: unknown }) =>
+            schema === marker
+              ? {
+                  type: 'object' as const,
+                  properties: {
+                    a: { type: 'string' as const },
+                    b: { type: 'string' as const },
+                    c: { type: 'string' as const },
+                  },
+                  ...constraints,
+                }
+              : null,
+        };
+        expect(() => generateOpenApi(routes, info, options)).toThrow(
+          new RegExp(location + '.*find.*conditional'),
+        );
+        await expect(
+          generateOpenApiAsync(routes, info, options),
+        ).rejects.toThrow(new RegExp(location + '.*find.*conditional'));
+      }
+    },
+  );
+
+  it('extracts titles from 3.1 schema positions while preserving example data', async () => {
+    const options = {
+      openApiVersion: '3.1.0' as const,
+      schemaTransformer: ({ schema }: { schema: unknown }) =>
+        schema === marker
+          ? {
+              type: 'array' as const,
+              prefixItems: [{ type: 'string' as const, title: 'TupleField' }],
+              examples: [{ title: 'DataTitle' }],
+            }
+          : null,
+    };
+    const sync = generateOpenApi(contract, info, options);
+    expect(await generateOpenApiAsync(contract, info, options)).toEqual(sync);
+    expect(sync.components?.schemas?.['TupleField']).toEqual({
+      type: 'string',
+      title: 'TupleField',
+    });
+    expect(sync.paths['/body'].post?.requestBody).toMatchObject({
+      content: {
+        'application/json': {
+          schema: {
+            prefixItems: [{ $ref: '#/components/schemas/TupleField' }],
+            examples: [{ title: 'DataTitle' }],
+          },
+        },
+      },
+    });
+    expect(sync.components?.schemas?.['DataTitle']).toBeUndefined();
+  });
+
   it('requires a converter and rejects an unsupported validator', () => {
     expect(() => generateOpenApi(contract, info, undefined as never)).toThrow(
       /schemaTransformer/,

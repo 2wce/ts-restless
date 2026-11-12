@@ -17,7 +17,7 @@ describe('zod 3', () => {
       expect(openApiSchema).toBeDefined();
 
       expect(
-        openApiSchema.paths['/pokemon/{id}'].get.responses['200'].content,
+        openApiSchema.paths['/pokemon/{id}'].get?.responses['200'].content,
       ).toStrictEqual({
         'application/json': {
           schema: {

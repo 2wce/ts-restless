@@ -19,6 +19,8 @@ export type SchemaObject = Omit<
   | 'items'
   | 'properties'
   | 'additionalProperties'
+  | 'propertyNames'
+  | 'prefixItems'
 > & {
   nullable?: boolean;
   exclusiveMinimum?: number | boolean;

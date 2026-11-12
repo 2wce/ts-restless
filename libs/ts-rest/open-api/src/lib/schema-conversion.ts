@@ -1,11 +1,11 @@
 import type { OpenAPIObject, SchemaObject } from './model';
 import type { OpenApiVersion } from './types';
 
-/** Walk schema positions only: defaults, examples and extension data are values. */
-export const visitSchemas = (
+/** Map schema positions only: defaults, examples and extension data are values. */
+export const mapSchemas = (
   schema: SchemaObject,
-  visit: (schema: SchemaObject) => void,
-) => {
+  map: (schema: SchemaObject) => SchemaObject,
+): SchemaObject => {
   for (const key of [
     'properties',
     'patternProperties',
@@ -13,8 +13,14 @@ export const visitSchemas = (
     'definitions',
     'dependentSchemas',
   ] as const) {
-    for (const child of Object.values(schema[key] ?? {}))
-      visitSchemas(child as SchemaObject, visit);
+    const children = schema[key];
+    if (children)
+      schema[key] = Object.fromEntries(
+        Object.entries(children).map(([name, child]) => [
+          name,
+          mapSchemas(child, map),
+        ]),
+      );
   }
   for (const key of [
     'items',
@@ -30,12 +36,23 @@ export const visitSchemas = (
   ] as const) {
     const child = schema[key];
     if (child && typeof child === 'object' && !Array.isArray(child))
-      visitSchemas(child, visit);
+      schema[key] = mapSchemas(child, map);
   }
   for (const key of ['allOf', 'anyOf', 'oneOf', 'prefixItems'] as const) {
-    for (const child of schema[key] ?? []) visitSchemas(child, visit);
+    if (schema[key])
+      schema[key] = schema[key].map((child) => mapSchemas(child, map));
   }
-  visit(schema);
+  return map(schema);
+};
+
+export const visitSchemas = (
+  schema: SchemaObject,
+  visit: (schema: SchemaObject) => void,
+): void => {
+  mapSchemas(schema, (node) => {
+    visit(node);
+    return node;
+  });
 };
 
 export const normalizeSchema = (
@@ -148,36 +165,95 @@ export const normalizeSchema = (
   return schema;
 };
 
+/** Normalize supplied components and their definitions before resolving route references. */
+export const normalizeComponents = (
+  input: Record<string, SchemaObject>,
+  version: OpenApiVersion,
+): Record<string, SchemaObject> => {
+  const definitions: Record<string, SchemaObject> = {};
+  const components = Object.fromEntries(
+    Object.entries(input).map(([name, schema]) => [
+      name,
+      normalizeSchema(schema, definitions, version),
+    ]),
+  );
+  for (const [name, schema] of Object.entries(definitions)) {
+    if (
+      components[name] &&
+      JSON.stringify(components[name]) !== JSON.stringify(schema)
+    )
+      throw new Error(
+        `Schema definition '${name}' already exists with a different schema.`,
+      );
+    components[name] = schema;
+  }
+  return components;
+};
+
+/** OpenAPI dictionaries contain arbitrary names, not schema or data keywords. */
+const documentMaps = new Set([
+  'paths',
+  'webhooks',
+  'schemas',
+  'responses',
+  'headers',
+  'callbacks',
+  'content',
+  'links',
+  'encoding',
+  'securitySchemes',
+  'parameters',
+  'requestBodies',
+  'examples',
+]);
+
 export const validateReferences = (document: OpenAPIObject) => {
-  const walk = (value: unknown): void => {
-    if (!value || typeof value !== 'object') return;
-    if ('$ref' in value && typeof value.$ref === 'string') {
-      if (!value.$ref.startsWith('#/'))
-        throw new Error(
-          `External or anchor reference '${value.$ref}' is unsupported; use document-local component references.`,
-        );
-      let target: unknown = document;
-      for (const token of value.$ref.slice(2).split('/')) {
-        const key = decodeURIComponent(token)
-          .replace(/~1/g, '/')
-          .replace(/~0/g, '~');
-        target =
-          target && typeof target === 'object'
-            ? (target as Record<string, unknown>)[key]
-            : undefined;
-      }
-      if (target === undefined)
-        throw new Error(`Unresolved OpenAPI reference '${value.$ref}'.`);
+  const checkReference = (value: object) => {
+    if (!('$ref' in value) || typeof value.$ref !== 'string') return;
+    if (!value.$ref.startsWith('#/'))
+      throw new Error(
+        `External or anchor reference '${value.$ref}' is unsupported; use document-local component references.`,
+      );
+    let target: unknown = document;
+    for (const token of value.$ref.slice(2).split('/')) {
+      const key = decodeURIComponent(token)
+        .replace(/~1/g, '/')
+        .replace(/~0/g, '~');
+      target =
+        target && typeof target === 'object'
+          ? (target as Record<string, unknown>)[key]
+          : undefined;
     }
+    if (target === undefined)
+      throw new Error(`Unresolved OpenAPI reference '${value.$ref}'.`);
+  };
+  const walk = (value: unknown, dictionary = false): void => {
+    if (!value || typeof value !== 'object') return;
+    if (Array.isArray(value)) {
+      for (const child of value) walk(child);
+      return;
+    }
+    if (dictionary) {
+      for (const child of Object.values(value)) walk(child);
+      return;
+    }
+    checkReference(value);
     for (const [key, child] of Object.entries(value)) {
-      if (
-        key === 'default' ||
-        key === 'example' ||
-        key === 'examples' ||
-        key.startsWith('x-')
-      )
-        continue;
-      walk(child);
+      if (key === 'schema') {
+        visitSchemas(child as SchemaObject, checkReference);
+      } else if (key === 'schemas') {
+        for (const schema of Object.values(
+          child as Record<string, SchemaObject>,
+        ))
+          visitSchemas(schema, checkReference);
+      } else if (
+        key !== 'default' &&
+        key !== 'example' &&
+        key !== 'value' &&
+        !key.startsWith('x-')
+      ) {
+        walk(child, documentMaps.has(key));
+      }
     }
   };
   walk(document);

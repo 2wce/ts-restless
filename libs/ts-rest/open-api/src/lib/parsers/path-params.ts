@@ -97,7 +97,12 @@ const syncFunc: GetSyncFunction<GetPathParameterHelper> = ({
     return Array.from(paramsMap.values());
   }
 
-  const schemaParams = schemaObjectToParameters(transformedSchema, 'path');
+  const schemaParams = schemaObjectToParameters(
+    transformedSchema,
+    'path',
+    false,
+    concatenatedPath,
+  );
 
   const schemaParamsMap = new Map(
     schemaParams.map((param) => [param.name, param]),
@@ -130,7 +135,12 @@ const asyncFunc: GetAsyncFunction<GetPathParameterHelper> = async ({
     return Array.from(paramsMap.values());
   }
 
-  const schemaParams = schemaObjectToParameters(transformedSchema, 'path');
+  const schemaParams = schemaObjectToParameters(
+    transformedSchema,
+    'path',
+    false,
+    concatenatedPath,
+  );
 
   const schemaParamsMap = new Map(
     schemaParams.map((param) => [param.name, param]),

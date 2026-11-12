@@ -27,7 +27,25 @@ import {
   convertSchemaObjectToMediaTypeObject,
   extractReferenceSchemas,
 } from './utils';
-import { normalizeSchema, validateReferences } from './schema-conversion';
+import {
+  normalizeComponents,
+  normalizeSchema,
+  validateReferences,
+} from './schema-conversion';
+
+type OperationOptions = {
+  setOperationId?: boolean | 'concatenated-path';
+  jsonQuery?: boolean;
+  operationMapper?: (
+    operation: OperationObject,
+    appRoute: AppRoute,
+    id: string,
+  ) => OperationObject;
+};
+type GenerationOptions<
+  V extends OpenApiVersion,
+  T extends SchemaTransformer,
+> = OperationOptions & { schemaTransformer: T; openApiVersion?: V };
 
 /**
  * Generate OpenAPI specification from ts-rest router
@@ -43,22 +61,13 @@ import { normalizeSchema, validateReferences } from './schema-conversion';
 export function generateOpenApi<V extends OpenApiVersion = '3.0.2'>(
   router: AppRouter,
   apiDoc: Omit<OpenAPIObject, 'paths' | 'openapi'> & { info: InfoObject },
-  options: {
-    setOperationId?: boolean | 'concatenated-path';
-    jsonQuery?: boolean;
-    operationMapper?: (
-      operation: OperationObject,
-      appRoute: AppRoute,
-      id: string,
-    ) => OperationObject;
-    schemaTransformer: SchemaTransformerSync;
-    openApiVersion?: V;
-  },
+  options: GenerationOptions<V, SchemaTransformerSync>,
 ): OpenApiDocument<V> {
-  const references: Record<string, SchemaObject> = structuredClone(
-    apiDoc.components?.schemas ?? {},
-  );
   const openApiVersion = options?.openApiVersion ?? '3.0.2';
+  const references = normalizeComponents(
+    apiDoc.components?.schemas ?? {},
+    openApiVersion,
+  );
   const transformSchema = prepareTransformer(
     options?.schemaTransformer,
     openApiVersion,
@@ -95,22 +104,13 @@ export function generateOpenApi<V extends OpenApiVersion = '3.0.2'>(
 export async function generateOpenApiAsync<V extends OpenApiVersion = '3.0.2'>(
   router: AppRouter,
   apiDoc: Omit<OpenAPIObject, 'paths' | 'openapi'> & { info: InfoObject },
-  options: {
-    setOperationId?: boolean | 'concatenated-path';
-    jsonQuery?: boolean;
-    operationMapper?: (
-      operation: OperationObject,
-      appRoute: AppRoute,
-      id: string,
-    ) => OperationObject;
-    schemaTransformer: SchemaTransformer;
-    openApiVersion?: V;
-  },
+  options: GenerationOptions<V, SchemaTransformer>,
 ): Promise<OpenApiDocument<V>> {
-  const references: Record<string, SchemaObject> = structuredClone(
-    apiDoc.components?.schemas ?? {},
-  );
   const openApiVersion = options?.openApiVersion ?? '3.0.2';
+  const references = normalizeComponents(
+    apiDoc.components?.schemas ?? {},
+    openApiVersion,
+  );
   const transformSchema = prepareTransformer(
     options?.schemaTransformer,
     openApiVersion,
@@ -138,16 +138,9 @@ export async function generateOpenApiAsync<V extends OpenApiVersion = '3.0.2'>(
 const traversedPathsToOpenApi = (
   paths: Array<RouterPath & { schemaResults: PathSchemaResults }>,
   apiDoc: Omit<OpenAPIObject, 'paths' | 'openapi'> & { info: InfoObject },
-  options: {
+  options: OperationOptions & {
     openApiVersion?: OpenApiVersion;
     references?: Record<string, SchemaObject>;
-    setOperationId?: boolean | 'concatenated-path';
-    jsonQuery?: boolean;
-    operationMapper?: (
-      operation: OperationObject,
-      appRoute: AppRoute,
-      id: string,
-    ) => OperationObject;
   },
 ) => {
   const mapMethod = {

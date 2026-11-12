@@ -75,6 +75,17 @@ export const schemaObjectToParameters = (
       `Cannot convert ${where} schema${route ? ` for '${route}'` : ''}: expected a plain object; root unions, intersections and references cannot preserve parameter relationships.`,
     );
   }
+  const conditional = [
+    'dependentRequired',
+    'dependentSchemas',
+    'if',
+    'then',
+    'else',
+  ].find((key) => key in schema);
+  if (conditional)
+    throw new Error(
+      `Cannot convert ${where} schema${route ? ` for '${route}'` : ''}: conditional constraints (${conditional}) cannot preserve parameter relationships.`,
+    );
   const parameters: ParameterObject[] = [];
 
   if (schema.type === 'object') {
