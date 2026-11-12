@@ -62,12 +62,12 @@ function facts() {
     files: new Map([
       ['docs/support-inventory.md', '| Owning package | Current peers | Boundary |\n| --- | --- | --- |\n| `@ts-restless/core` | `zod: ^3.0.0` (optional) | portable |'],
       ['AGENTS.md', 'Use Node 26.12.0 and pnpm 12.14.0. Run `pnpm check`.'],
-      ['apps/docs/content/docs/guide.mdx', '```typescript twoslash\nimport { initContract } from "@ts-restless/core/zod3";\n```'],
+      ['apps/docs/content/docs/guide.mdx', '```typescript twoslash\nimport { initContract } from "@ts-restless/core/legacy";\n```'],
       ['docs/adr/0001-portable.md', '# Portable\n\n**Status:** Accepted. **Decision:** 2026-11-10.\n\nChoose a portable contract.\n\nVendor coupling expands maintenance.\n\nSources: [evidence](../evidence/a.md).'],
     ]),
     packages: new Map([
       ['package.json', { name: 'repo', private: true, scripts: { check: 'vp check' }, engines: { node: '26.12.0', pnpm: '12.14.0' }, packageManager: 'pnpm@12.14.0' }],
-      ['libs/ts-rest/core/package.json', { name: '@ts-restless/core', private: false, peerDependencies: { zod: '^3.0.0' }, peerDependenciesMeta: { zod: { optional: true } }, exports: { '.': './src/index.ts', './zod3': './src/zod3.ts' }, publishConfig: { exports: { '.': './dist/index.js', './zod3': './dist/zod3.js' } } }],
+      ['libs/ts-rest/core/package.json', { name: '@ts-restless/core', private: false, peerDependencies: { zod: '^3.0.0' }, peerDependenciesMeta: { zod: { optional: true } }, exports: { '.': './src/index.ts', './legacy': './src/legacy.ts' }, publishConfig: { exports: { '.': './dist/index.js', './legacy': './dist/legacy.js' } } }],
     ]),
     nodeVersion: '26.12.0',
   };

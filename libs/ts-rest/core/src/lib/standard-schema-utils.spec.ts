@@ -8,7 +8,7 @@ import {
 } from './standard-schema-utils';
 import { z } from 'zod';
 import { z as legacyZod } from 'zod-legacy';
-import { toStandardSchema } from '../zod3';
+import { toStandardSchema } from '../legacy';
 import * as v from 'valibot';
 import { StandardSchemaError } from './validation-error';
 import { initContract } from './dsl';

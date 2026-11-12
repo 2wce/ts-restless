@@ -1,12 +1,13 @@
-import { ExamplesObject, ParameterObject, SchemaObject } from 'openapi3-ts';
+import { ExamplesObject, ParameterObject, SchemaObject } from '../model';
 
 export const schemaToParameter = (
-  schema: SchemaObject,
+  input: SchemaObject,
   where: 'query' | 'header' | 'path',
   required: boolean,
   key: string,
   jsonQuery: boolean,
 ): ParameterObject => {
+  const schema = { ...input };
   let description: string | undefined = undefined;
 
   if ('description' in schema) {
@@ -60,7 +61,31 @@ export const schemaObjectToParameters = (
   schema: SchemaObject,
   where: 'query' | 'header' | 'path',
   jsonQuery = false,
+  route = '',
 ): ParameterObject[] => {
+  if (
+    schema.type !== 'object' ||
+    schema.oneOf ||
+    schema.anyOf ||
+    schema.allOf ||
+    schema.$ref ||
+    schema.not
+  ) {
+    throw new Error(
+      `Cannot convert ${where} schema${route ? ` for '${route}'` : ''}: expected a plain object; root unions, intersections and references cannot preserve parameter relationships.`,
+    );
+  }
+  const conditional = [
+    'dependentRequired',
+    'dependentSchemas',
+    'if',
+    'then',
+    'else',
+  ].find((key) => key in schema);
+  if (conditional)
+    throw new Error(
+      `Cannot convert ${where} schema${route ? ` for '${route}'` : ''}: conditional constraints (${conditional}) cannot preserve parameter relationships.`,
+    );
   const parameters: ParameterObject[] = [];
 
   if (schema.type === 'object') {
@@ -73,7 +98,13 @@ export const schemaObjectToParameters = (
 
     for (const [key, value] of Object.entries(properties)) {
       parameters.push(
-        schemaToParameter(value, where, requiredSet.has(key), key, jsonQuery),
+        schemaToParameter(
+          value,
+          where,
+          where === 'path' || requiredSet.has(key),
+          key,
+          jsonQuery,
+        ),
       );
     }
   }

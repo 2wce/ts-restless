@@ -123,7 +123,12 @@ The current workspace framework baselines are Next 16.4.2 and Nest 12.2.0
 (with Swagger 12.0.2). Nest tests use the matching platform adapters and their
 local Fastify 5.12.7 dependency. The standalone Fastify source suites and example retain their 4.x
 baseline through `/legacy`; installed consumers verify Fastify 5 at root and
-Fastify 4 through `/legacy`. Nest 9/10/11 compatibility fixtures keep their separate installations.
+Fastify 4 through `/legacy`. Both adapter entries remain validator independent;
+the native4/native5 packed consumers run with Valibot and no Zod installed.
+Historical payload users import `RequestValidationErrorSchemaWithoutMessage`
+from `@ts-restless/core/legacy`, optionally aliasing it to
+`RequestValidationErrorSchema`; only that helper requires Zod3.
+Nest 9/10/11 compatibility fixtures keep their separate installations.
 The docs' workspace SDK examples use local Nest 11 dependencies.
 
 Contracts keep `:param?` optional path syntax. The Nest adapter registers
@@ -134,9 +139,7 @@ while Fastify prioritizes static segments. Avoid ambiguous optional paths such
 as `/:region?/users/:id?`: `/users/users` binds `region` on Express and `id` on
 Fastify. This middle-optional path was previously unsupported on Fastify.
 
-OpenAPI generation and its root tests share `@anatine/zod-openapi` 1.14.2 and
-`openapi3-ts` 2.x. Moving to newer OpenAPI type majors requires a separate
-consumer compatibility review. Path inference tests use exact `Equal`/`Expect`
+OpenAPI generation uses `openapi3-ts` 4.5.0 with explicit OpenAPI 3.0.2/3.1.0 targets. The deprecated `/legacy` converter uses the optional `@anatine/zod-openapi` 1.14.2 peer. Source and installed-consumer tests cover the converter boundary and generated client body requirements. Path inference tests use exact `Equal`/`Expect`
 assertions from the core test helpers. Runtime builds inline helpers; no direct
 `tslib` or SWC helpers dependency is needed.
 
@@ -318,7 +321,7 @@ for content structure and hosting details.
 
 The default core and adapter entries use Standard Schema types and validation.
 They must not import or bundle Zod, including through shared build chunks.
-Zod-specific helpers live in explicit `/zod3` entries. Their compatibility code
+Zod-specific helpers live in explicit `/legacy` entries. Their compatibility code
 must remain separate from the default runtime and declaration graph.
 
 `pnpm test:packages` installs the real tarballs into isolated consumers for minimal

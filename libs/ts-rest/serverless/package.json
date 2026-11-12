@@ -48,7 +48,7 @@
     "./aws": "./src/aws.ts",
     "./next": "./src/next.ts",
     "./azure": "./src/azure.ts",
-    "./zod3": "./src/zod3.ts"
+    "./legacy": "./src/legacy.ts"
   },
   "files": [
     "dist",
@@ -111,14 +111,14 @@
           "default": "./dist/azure.cjs.js"
         }
       },
-      "./zod3": {
+      "./legacy": {
         "import": {
-          "types": "./dist/zod3.esm.d.mts",
-          "default": "./dist/zod3.esm.mjs"
+          "types": "./dist/legacy.esm.d.mts",
+          "default": "./dist/legacy.esm.mjs"
         },
         "require": {
-          "types": "./dist/zod3.cjs.d.ts",
-          "default": "./dist/zod3.cjs.js"
+          "types": "./dist/legacy.cjs.d.ts",
+          "default": "./dist/legacy.cjs.js"
         }
       }
     }

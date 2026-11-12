@@ -9,8 +9,7 @@
   "license": "MIT",
   "peerDependencies": {
     "fastify": "^4.0.0 || ^5.0.0",
-    "@ts-restless/core": "workspace:^",
-    "zod": "^3.22.3 || ^4.0.0"
+    "@ts-restless/core": "workspace:^"
   },
   "scripts": {
     "build": "vp pack"
@@ -24,7 +23,6 @@
   "exports": {
     "./package.json": "./package.json",
     ".": "./src/index.ts",
-    "./zod3": "./src/zod3.ts",
     "./legacy": "./src/legacy.ts"
   },
   "files": [
@@ -48,16 +46,6 @@
           "default": "./dist/index.cjs.js"
         }
       },
-      "./zod3": {
-        "import": {
-          "types": "./dist/zod3.esm.d.mts",
-          "default": "./dist/zod3.esm.mjs"
-        },
-        "require": {
-          "types": "./dist/zod3.cjs.d.ts",
-          "default": "./dist/zod3.cjs.js"
-        }
-      },
       "./legacy": {
         "import": {
           "types": "./dist/legacy.esm.d.mts",
@@ -68,11 +56,6 @@
           "default": "./dist/legacy.cjs.js"
         }
       }
-    }
-  },
-  "peerDependenciesMeta": {
-    "zod": {
-      "optional": true
     }
   },
   "bugs": {

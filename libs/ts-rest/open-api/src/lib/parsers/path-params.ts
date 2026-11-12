@@ -1,12 +1,13 @@
 import { AppRoute } from '@ts-restless/core';
 import {
+  resolveSchema,
   AsyncAndSyncHelper,
   GetAsyncFunction,
   GetSyncFunction,
   SchemaTransformerAsync,
   SchemaTransformerSync,
 } from '../types';
-import { ParameterObject } from 'openapi3-ts';
+import { ParameterObject } from '../model';
 import { schemaObjectToParameters } from './utils';
 
 type GetPathParameterHelper = AsyncAndSyncHelper<
@@ -82,19 +83,26 @@ const syncFunc: GetSyncFunction<GetPathParameterHelper> = ({
 
   const paramsMap = getParamsFromPathOnly(appRoute.path);
 
-  const transformedSchema = transformSchema({
-    schema,
-    appRoute,
-    id,
-    concatenatedPath,
-    type: 'path',
-  });
+  const transformedSchema = resolveSchema(
+    transformSchema({
+      schema,
+      appRoute,
+      id,
+      concatenatedPath,
+      type: 'path',
+    }),
+  )?.schema;
 
   if (!transformedSchema) {
     return Array.from(paramsMap.values());
   }
 
-  const schemaParams = schemaObjectToParameters(transformedSchema, 'path');
+  const schemaParams = schemaObjectToParameters(
+    transformedSchema,
+    'path',
+    false,
+    concatenatedPath,
+  );
 
   const schemaParamsMap = new Map(
     schemaParams.map((param) => [param.name, param]),
@@ -113,19 +121,26 @@ const asyncFunc: GetAsyncFunction<GetPathParameterHelper> = async ({
 
   const paramsMap = getParamsFromPathOnly(appRoute.path);
 
-  const transformedSchema = await transformSchema({
-    schema,
-    appRoute,
-    id,
-    concatenatedPath,
-    type: 'path',
-  });
+  const transformedSchema = resolveSchema(
+    await transformSchema({
+      schema,
+      appRoute,
+      id,
+      concatenatedPath,
+      type: 'path',
+    }),
+  )?.schema;
 
   if (!transformedSchema) {
     return Array.from(paramsMap.values());
   }
 
-  const schemaParams = schemaObjectToParameters(transformedSchema, 'path');
+  const schemaParams = schemaObjectToParameters(
+    transformedSchema,
+    'path',
+    false,
+    concatenatedPath,
+  );
 
   const schemaParamsMap = new Map(
     schemaParams.map((param) => [param.name, param]),

@@ -3,20 +3,21 @@ import { app, contract } from './index';
 import {
   generateOpenApiAsync,
   type SchemaTransformerAsync,
+  type SchemaObject,
 } from '@ts-restless/open-api';
 import request from 'supertest';
 import { z } from 'zod';
-import { convert } from '@openapi-contrib/json-schema-to-openapi-schema';
 
 const expectRes = (res: any) => {
   return expect({ body: res.body, status: res.status });
 };
 
-const SCHEMA_TRANSFORMER: SchemaTransformerAsync = async ({ schema }) => {
-  if (schema instanceof z.ZodObject) {
-    const jsonSchema = z.toJSONSchema(schema as any);
-
-    return await convert(jsonSchema);
+const SCHEMA_TRANSFORMER: SchemaTransformerAsync = async ({ schema, type }) => {
+  if (schema instanceof z.ZodType) {
+    return z.toJSONSchema(schema, {
+      target: 'openapi-3.0',
+      io: type === 'response' ? 'output' : 'input',
+    }) as SchemaObject;
   }
 
   return null;
@@ -41,7 +42,7 @@ describe('zod 4', () => {
       expect(openApiSchema).toBeDefined();
 
       expect(
-        openApiSchema.paths['/pokemon/{id}'].get.responses['200'].content,
+        openApiSchema.paths['/pokemon/{id}'].get?.responses['200'].content,
       ).toStrictEqual({
         'application/json': {
           schema: {

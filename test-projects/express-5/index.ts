@@ -6,7 +6,7 @@ import type { IncomingHttpHeaders } from 'node:http';
 import * as bodyParser from 'body-parser';
 import { initContract } from '@ts-restless/core';
 import { z } from 'zod';
-import { toStandardSchema } from '@ts-restless/core/zod3';
+import { toStandardSchema } from '@ts-restless/core/legacy';
 
 const c = initContract();
 

@@ -16,8 +16,8 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const archives = resolve(root, 'dist/packages');
 
-// Follow emitted chunks as well as the root; a separate legacy entry must not
-// accidentally pull Zod back into the default import/require graph.
+// Follow emitted chunks as well as the root. Fastify's native4 legacy entry
+// also stays independent; historical payload helpers live in core legacy.
 async function checkDefaultGraph(path, seen = new Set()) {
   if (seen.has(path)) return;
   seen.add(path);
@@ -75,13 +75,14 @@ async function checkDefaultGraph(path, seen = new Set()) {
 
 for (const name of [
   'core',
+  'open-api',
   'express',
   'fastify',
   'nest',
   'next',
   'serverless',
 ]) {
-  test(`packed default ${name} ESM and CommonJS graphs do not load or bundle Zod`, async () => {
+  test(`packed ${name} ${name === 'fastify' ? 'root/legacy' : 'default'} ESM and CommonJS graphs do not load or bundle Zod`, async () => {
     const unpacked = await mkdtemp(join(tmpdir(), 'ts-restless-graph-'));
     try {
       execFileSync('tar', [
@@ -95,7 +96,12 @@ for (const name of [
         await readFile(join(packageRoot, 'package.json'), 'utf8'),
       );
       for (const [subpath, target] of Object.entries(pkg.exports)) {
-        if (subpath === './package.json' || subpath === './zod3') continue;
+        if (
+          subpath === './package.json' ||
+          (subpath === './legacy' && name !== 'fastify')
+        )
+          continue;
+
         for (const format of ['import', 'require']) {
           await checkDefaultGraph(resolve(packageRoot, target[format].default));
         }
@@ -116,7 +122,7 @@ const sources = {
   'zod-4': `import { z } from 'zod';
   const schema = z.string().transform(Number);`,
   'zod-3-legacy': `import { z } from 'zod';
-  import { toStandardSchema } from '@ts-restless/core/zod3';
+  import { toStandardSchema } from '@ts-restless/core/legacy';
   const schema = toStandardSchema(z.string().transform(Number));`,
 };
 
@@ -213,7 +219,13 @@ for (const { profile, definition, nextVersion } of consumers) {
         '@ts-restless/core': `file:${join(archives, 'ts-restless-core.tgz')}`,
         '@ts-restless/express': `file:${join(archives, 'ts-restless-express.tgz')}`,
       };
-      for (const name of ['fastify', 'nest', 'next', 'serverless']) {
+      for (const name of [
+        'fastify',
+        'nest',
+        'next',
+        'serverless',
+        'open-api',
+      ]) {
         dependencies[`@ts-restless/${name}`] =
           `file:${join(archives, `ts-restless-${name}.tgz`)}`;
       }
@@ -238,6 +250,9 @@ for (const { profile, definition, nextVersion } of consumers) {
           await readFile(resolve(root, 'node_modules', name, 'package.json')),
         ).version;
       }
+      dependencies.fastify = profile === 'zod-3-legacy' ? '4.28.0' : '5.12.7';
+      const fastifyEntry =
+        '@ts-restless/fastify' + (profile === 'zod-3-legacy' ? '/legacy' : '');
       dependencies.next = nextVersion;
       dependencies.react = '19.3.1';
       dependencies['react-dom'] = '19.3.1';
@@ -247,6 +262,7 @@ for (const { profile, definition, nextVersion } of consumers) {
       if (profile === 'zod-4') dependencies.zod = '4.6.7';
       if (profile === 'zod-3-legacy') {
         dependencies.zod = '3.22.3';
+        dependencies['@anatine/zod-openapi'] = '1.14.2';
         dependencies.typescript = '5.7.3';
       }
       const consumerPackage = {
@@ -279,8 +295,9 @@ for (const { profile, definition, nextVersion } of consumers) {
       }
       const source = `import { initClient, initContract, executeQueryRequest, evaluateFetchApiArgs, evaluateResponse, ResponseMetadata, ResponseEvaluation, StandardSchemaV1, SchemaInputOrType, SchemaOutputOrType, ServerInferRequest, ClientInferRequest, ClientInferResponseBody } from '@ts-restless/core';
 import type { ClientArgs } from '@ts-restless/core';
+import { generateOpenApi, type SchemaTransformerSync } from '@ts-restless/open-api';
 import { createExpressEndpoints, initServer } from '@ts-restless/express';
-import * as fastify from '@ts-restless/fastify/legacy';
+import * as fastify from '${fastifyEntry}';
 import * as nest from '@ts-restless/nest';
 import * as next from '@ts-restless/next';
 import * as serverless from '@ts-restless/serverless';
@@ -289,6 +306,10 @@ import * as aws from '@ts-restless/serverless/aws';
 import * as azure from '@ts-restless/serverless/azure';
 import * as serverlessNext from '@ts-restless/serverless/next';
 ${definition}
+const openApiContract = initContract().router({ convert: { method: 'POST', path: '/openapi', body: schema, responses: { 200: schema } } });
+const converter: SchemaTransformerSync = ({ schema: input, type }) => input === schema ? { type: type === 'response' ? 'number' : 'string' } : null;
+const document = generateOpenApi(openApiContract, { info: { title: 'Packed API', version: '1' } }, { schemaTransformer: converter });
+void document;
 const optionalHeader: StandardSchemaV1<string | undefined> = {
   '~standard': { version: 1, vendor: 'consumer', validate: (value) =>
     value === undefined || typeof value === 'string' ? { value } : { issues: [{ message: 'Expected optional string' }] } }
@@ -436,7 +457,7 @@ void [createExpressEndpoints, initServer, fastify, nest, next, serverless, fetch
       if (profile === 'zod-3-legacy') {
         // Old-Zod compatibility uses the same conditional ESM/CJS declarations.
         // Keep strict checking on an older compiler and the actual old Zod peer.
-        const bridgeSource = `import { toStandardSchema, ZodInputOrType, ZodInferOrType } from '@ts-restless/core/zod3';
+        const bridgeSource = `import { toStandardSchema, ZodInputOrType, ZodInferOrType } from '@ts-restless/core/legacy';
 import { initServer as initLegacyFastify, type RouteHooks } from '@ts-restless/fastify/legacy';
 void initLegacyFastify;
 type LegacyHooks = RouteHooks<import('@ts-restless/core').AppRoute>;
@@ -476,11 +497,19 @@ type LegacyOutput = Expect<Equal<ZodInferOrType<typeof original>, number>>;
 import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
 const require = createRequire(import.meta.url);
-for (const name of ['@ts-restless/core', '@ts-restless/express', '@ts-restless/fastify', '@ts-restless/nest', '@ts-restless/next', '@ts-restless/serverless', '@ts-restless/serverless/fetch', '@ts-restless/serverless/aws', '@ts-restless/serverless/azure', '@ts-restless/serverless/next']) {
+for (const name of ['@ts-restless/core', '@ts-restless/open-api', '@ts-restless/express', '@ts-restless/fastify', '@ts-restless/nest', '@ts-restless/next', '@ts-restless/serverless', '@ts-restless/serverless/fetch', '@ts-restless/serverless/aws', '@ts-restless/serverless/azure', '@ts-restless/serverless/next']) {
   const esm = await import(name); const cjs = require(name);
   assert.deepEqual(Object.keys(esm).filter((key) => key !== 'default').sort(), Object.keys(cjs).sort());
 }
 ${definition.replace('schema: StandardSchemaV1<string, number>', 'schema')}
+for (const openapi of [await import('@ts-restless/open-api'), require('@ts-restless/open-api')]) {
+  const { initContract } = await import('@ts-restless/core');
+  const contract = initContract().router({ convert: { method: 'POST', path: '/openapi', body: schema, responses: { 200: schema } } });
+  const schemaTransformer = ({ schema: input, type }) => input === schema ? { type: type === 'response' ? 'number' : 'string' } : null;
+  const doc = openapi.generateOpenApi(contract, { info: { title: 'Packed API', version: '1' } }, { schemaTransformer });
+  assert.equal(doc.paths['/openapi'].post.requestBody.required, true);
+  assert.deepEqual(await openapi.generateOpenApiAsync(contract, { info: { title: 'Packed API', version: '1' } }, { schemaTransformer: async (args) => schemaTransformer(args) }), doc);
+}
 for (const { validateIfSchema, validateMultiSchemaObject, initClient, tsRestFetchApi, initContract, StandardSchemaError, evaluateResponse, executeQueryRequest, evaluateFetchApiArgs } of [await import('@ts-restless/core'), require('@ts-restless/core')]) {
 {
   let calls = 0;
@@ -666,7 +695,7 @@ await assert.rejects(
   assert.deepEqual(missing.issues[0].path, ['x-count']);
 }
 const nativeFastify = (await import('fastify')).default;
-for (const { initServer } of [await import('@ts-restless/fastify/legacy'), require('@ts-restless/fastify/legacy')]) {
+for (const { initServer } of [await import('${fastifyEntry}'), require('${fastifyEntry}')]) {
   for (const responseValidation of [true, false]) {
     let calls = 0;
     const countedSchema = { '~standard': {
@@ -860,7 +889,7 @@ ${
     ? `
 const original = z.object({ value: z.string() });
 const legacyFailure = original.safeParse({ value: 1 }).error;
-for (const compat of [await import('@ts-restless/core/zod3'), require('@ts-restless/core/zod3')]) {
+for (const compat of [await import('@ts-restless/core/legacy'), require('@ts-restless/core/legacy')]) {
   const adapted = compat.toStandardSchema(original);
   assert.notEqual(adapted, original);
   assert.equal('~standard' in original, false);
@@ -1607,7 +1636,7 @@ dom.window.close();
 // A standalone adapter promise needs its own installed native majors. Nest's
 // platform-fastify dependency does not exercise this integration's declarations.
 test.each(['4.28.0', '5.12.7'])(
-  'packed Fastify %s preserves strict native inference and HTTP lifecycle',
+  'packed Fastify %s preserves strict native inference and HTTP lifecycle without Zod',
   async (fastifyVersion) => {
     const entry =
       '@ts-restless/fastify' +
@@ -1642,6 +1671,14 @@ test.each(['4.28.0', '5.12.7'])(
         'pnpm',
         ['install', '--ignore-scripts', '--strict-peer-dependencies'],
         { cwd: consumer, stdio: 'pipe' },
+      );
+      await assert.rejects(access(join(consumer, 'node_modules/zod')), {
+        code: 'ENOENT',
+      });
+      const installed = await readdir(join(consumer, 'node_modules/.pnpm'));
+      assert.ok(
+        installed.every((name) => !name.startsWith('zod@')),
+        'native Fastify consumers must not install Zod transitively',
       );
       const source = `import Fastify, { type FastifyRequest, type FastifyReply } from 'fastify';
 import { type IncomingMessage, type ServerResponse } from 'node:http';

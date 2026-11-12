@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule } from '@nestjs/swagger';
 import { apiBlog } from '@ts-restless/example-contracts';
-import { generateOpenApi } from '@ts-restless/open-api';
+import { generateOpenApi } from '@ts-restless/open-api/legacy';
 import cors from 'cors';
 import { AppModule } from './app/app.module';
 

@@ -1,12 +1,13 @@
-import { AppRoute } from '@ts-restless/core';
+import { AppRoute, ContractNoBody } from '@ts-restless/core';
 import {
+  resolveSchema,
+  SchemaConversion,
   AsyncAndSyncHelper,
   GetAsyncFunction,
   GetSyncFunction,
   SchemaTransformerAsync,
   SchemaTransformerSync,
 } from '../types';
-import { SchemaObject } from 'openapi3-ts';
 
 type GetBodySchemaHelper = AsyncAndSyncHelper<
   {
@@ -20,7 +21,7 @@ type GetBodySchemaHelper = AsyncAndSyncHelper<
   {
     transformSchema: SchemaTransformerAsync;
   },
-  SchemaObject | null
+  SchemaConversion | null
 >;
 
 const syncFunc: GetSyncFunction<GetBodySchemaHelper> = ({
@@ -30,14 +31,17 @@ const syncFunc: GetSyncFunction<GetBodySchemaHelper> = ({
   concatenatedPath,
 }) => {
   const schema = 'body' in appRoute ? appRoute.body : undefined;
+  if (schema == null || schema === ContractNoBody) return null;
 
-  const transformedSchema = transformSchema({
-    schema,
-    appRoute,
-    id,
-    concatenatedPath,
-    type: 'body',
-  });
+  const transformedSchema = resolveSchema(
+    transformSchema({
+      schema,
+      appRoute,
+      id,
+      concatenatedPath,
+      type: 'body',
+    }),
+  );
 
   if (!transformedSchema) {
     return null;
@@ -53,14 +57,17 @@ const asyncFunc: GetAsyncFunction<GetBodySchemaHelper> = async ({
   concatenatedPath,
 }) => {
   const schema = 'body' in appRoute ? appRoute.body : undefined;
+  if (schema == null || schema === ContractNoBody) return null;
 
-  const transformedSchema = await transformSchema({
-    schema,
-    appRoute,
-    id,
-    concatenatedPath,
-    type: 'body',
-  });
+  const transformedSchema = resolveSchema(
+    await transformSchema({
+      schema,
+      appRoute,
+      id,
+      concatenatedPath,
+      type: 'body',
+    }),
+  );
 
   return transformedSchema;
 };

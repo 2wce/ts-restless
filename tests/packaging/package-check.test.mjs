@@ -104,6 +104,7 @@ test('packed packages preserve their public API and consumer compatibility', asy
     // Install the artifacts through the package manager, including real external peers.
     // Pin those peers to the workspace's installed test versions; never symlink root deps.
     for (const name of [
+      '@anatine/zod-openapi',
       '@azure/functions',
       '@nestjs/common',
       '@nestjs/core',

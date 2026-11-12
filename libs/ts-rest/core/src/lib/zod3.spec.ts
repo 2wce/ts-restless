@@ -5,9 +5,10 @@ import {
   extractZodObjectShape,
   isZodObject,
   zodMerge,
+  RequestValidationErrorSchemaWithoutMessage,
   type ZodInferOrType,
   type ZodInputOrType,
-} from '../zod3';
+} from '../legacy';
 import {
   validateIfSchema,
   validateMultiSchemaObject,
@@ -17,6 +18,32 @@ import type { StandardSchemaV1 } from './standard-schema';
 import type { Equal, Expect } from './test-helpers';
 
 describe('explicit Zod 3 compatibility', () => {
+  it('retains the historical Fastify ZodError payload schema through core legacy', () => {
+    const issue = {
+      code: 'invalid_type',
+      expected: 'string',
+      received: 'undefined',
+      path: ['title'],
+      message: 'Required',
+    };
+    const error = { name: 'ZodError', issues: [issue] };
+    const payload = {
+      pathParameterErrors: null,
+      headerErrors: null,
+      queryParameterErrors: null,
+      bodyErrors: error,
+    };
+    expect(RequestValidationErrorSchemaWithoutMessage.parse(payload)).toEqual(
+      payload,
+    );
+    expect(
+      RequestValidationErrorSchemaWithoutMessage.safeParse({
+        ...payload,
+        bodyErrors: { ...error, name: 'ValidationError' },
+      }).success,
+    ).toBe(false);
+  });
+
   it('preserves transform inference and validation without mutating the original schema', () => {
     const schema = z.string().transform(Number);
     const bridged = toStandardSchema(schema);

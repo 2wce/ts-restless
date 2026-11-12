@@ -1,4 +1,4 @@
-import { toStandardSchema } from '@ts-restless/core/zod3';
+import { toStandardSchema } from '@ts-restless/core/legacy';
 import { z as z4 } from 'zod4';
 import { vi } from 'vitest';
 import {

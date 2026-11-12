@@ -13,7 +13,7 @@
 
 Make default core and adapter entry points validator independent through Standard
 Schema. Remove Zod-specific public inference types and automatic old-Zod detection
-from those entries, and isolate historical Zod helpers under explicit `/zod3`
+from those entries, and isolate historical Zod helpers under explicit `/legacy`
 compatibility entry points.
 
 Default validation failures use StandardSchemaError with the serialized name

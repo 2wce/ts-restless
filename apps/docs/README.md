@@ -48,7 +48,7 @@ Checked snippets retain diagnostics, hover types and completion popups. Examples
 compile against the local workspace SDKs for the fork's unreleased major version.
 They resolve `zod` to the modern Zod 3 `zod3` alias, while Fumadocs itself uses Zod 4.
 The migration guide explains the validator-independent defaults and explicit
-`/zod3` compatibility imports. The hidden nested-router setup in `client/fetch.mdx` preserves literal
+`/legacy` compatibility imports. The hidden nested-router setup in `client/fetch.mdx` preserves literal
 paths with `as const` to avoid the SDK's inference regression on newer compilers.
 Do not disable diagnostics to accommodate SDK or compiler upgrades.
 

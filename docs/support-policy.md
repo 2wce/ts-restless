@@ -8,12 +8,12 @@ Support the newest verified dependency major actively, retain a previous support
 
 Older dependency majors and legacy ts-rest APIs have different retirement conditions.
 
-| Surface                                          | Replacement required before retirement                                                                          |
-| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| Older Express, Nest, Fastify or Next major       | A newer supported framework line with verified runtime behavior, native lifecycle integration and public types. |
-| Older query-library major                        | A supported integration for the newer major with verified query, mutation and cache behavior.                   |
-| Legacy ts-rest helper, wrapper or import path    | An API that covers the supported capabilities, with buildable migration examples.                               |
-| Older Zod 3 bridge or historical `/zod3` helpers | A tested migration to Standard Schema or a supported equivalent for each helper being removed.                  |
+| Surface                                            | Replacement required before retirement                                                                          |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Older Express, Nest, Fastify or Next major         | A newer supported framework line with verified runtime behavior, native lifecycle integration and public types. |
+| Older query-library major                          | A supported integration for the newer major with verified query, mutation and cache behavior.                   |
+| Legacy ts-rest helper, wrapper or import path      | An API that covers the supported capabilities, with buildable migration examples.                               |
+| Older Zod 3 bridge or historical `/legacy` helpers | A tested migration to Standard Schema or a supported equivalent for each helper being removed.                  |
 
 An upstream major release does not automatically establish ts-rest support. Upstream end-of-support triggers a review of the affected line; it does not silently remove compatibility.
 
@@ -38,6 +38,14 @@ This is an initial stable-baseline decision, separate from removing a shipped st
 The 2026-11-11 decision adopts Fastify **5** as the active target and classifies Fastify **4** as legacy/deprecated support through ts-restless **v4**, with removal planned for ts-restless **v5**. Use `@ts-restless/fastify` for native5 and `@ts-restless/fastify/legacy` for native4. The API remains the same, but registration rejects a mismatched native major before adding hooks, routes or an error handler. Package peers apply to both entries together. The peer promise is `^4.0.0 || ^5.0.0`, with strict installed declarations and HTTP lifecycle checks at 4.28.0 and 5.12.7.
 
 Fastify 4 keeps critical security/correctness fixes and compatibility checks during migration; new features target 5. The stable v4 release must include public notice, the verified replacement and [migration guidance](../apps/docs/content/docs/server/fastify.mdx#fastify-4-to-5). Its window begins only when both the notice and stable replacement are released. Earliest removal is six calendar months after that date, in a ts-restless major; the date is not established while stable v4 is unpublished. See [ADR 0011](adr/0011-fastify-legacy-entry.md) for rationale. Fastify5 compatibility in development source does not establish npm availability.
+
+[ADR0015](adr/0015-fastify-validator-independence.md) retains canonical `/legacy` imports for historical helpers, superseding ADR0014's combined Fastify entry. Fastify's native4 `/legacy` and native5 root are validator independent. Historical Fastify payload users import `RequestValidationErrorSchemaWithoutMessage` from core `/legacy`, which requires Zod3. The import migration establishes no helper removal schedule. Retiring the native4 adapter does not itself authorize removing its historical payload helper.
+
+### OpenAPI legacy converter
+
+The OpenAPI root entry uses explicit validator-independent conversion and dialect selection. The old implicit Zod3/OpenAPI 3.0 generator is deprecated compatibility under `@ts-restless/open-api/legacy`, with optional Zod3 and Anatine peers. It keeps critical correctness fixes and compatibility checks during migration; new conversion work targets the explicit root boundary. This classifies the implicit converter behavior, not all Zod3 contracts or core `/legacy` helpers.
+
+The initial v4 migration retains this entry. Any removal requires a separate reviewed major-release decision, a verified replacement and migration guidance under the notice rules below. No removal date or stable retirement clock is established by this source change. See [ADR0013](adr/0013-openapi-conversion.md) and the [OpenAPI migration](../apps/docs/content/docs/standard-schema-migration.mdx#openapi).
 
 ### TypeScript module-resolution baseline
 
@@ -107,15 +115,15 @@ future changes.
 
 The following observations are a checkout snapshot from 2026-11-04, not an adopted support reduction.
 
-| Surface             | Current declaration or boundary                                                            | Next decision                                                                                                                                  |
-| ------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Express             | Peer range permits majors 4 and 5; isolated fixtures cover both.                           | Focus new work on 5; retain 4 until an explicit retirement decision. Verify isolated v5 types as well as runtime.                              |
-| Nest                | Peer ranges permit majors 9 through 12; isolated fixtures cover 9, 10 and 11.              | Focus workspace work on 12; retain broader promises and add isolated 12 coverage before claiming equivalent evidence across lines.             |
-| Next                | First stable v4 peers permit majors 15 and 16, per the 2026-11-06 decision above.          | Maintain verified LTS lines and current examples; review future lifecycle changes before updating published support.                           |
-| Fastify             | Peer range permits major 4 only.                                                           | Deliver and verify support for a newer major before proposing a migration away from 4.                                                         |
-| React Query         | Initial stable baseline permits Query5 only; root and `/v5` share one implementation.      | Verify the initial migration; future support reductions follow the stable retirement policy.                                                   |
-| Vue and Solid Query | Initial stable baseline permits native Query5 only.                                        | Retain native reactivity/lifecycle and verified v5 migration coverage.                                                                         |
-| Zod 3               | Standard Schema is the default boundary; older schemas and historical helpers use `/zod3`. | Keep the bridge through the initial migration. Review bridge and helper retirements separately; modern Zod 3 can use Standard Schema directly. |
+| Surface             | Current declaration or boundary                                                              | Next decision                                                                                                                                  |
+| ------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Express             | Peer range permits majors 4 and 5; isolated fixtures cover both.                             | Focus new work on 5; retain 4 until an explicit retirement decision. Verify isolated v5 types as well as runtime.                              |
+| Nest                | Peer ranges permit majors 9 through 12; isolated fixtures cover 9, 10 and 11.                | Focus workspace work on 12; retain broader promises and add isolated 12 coverage before claiming equivalent evidence across lines.             |
+| Next                | First stable v4 peers permit majors 15 and 16, per the 2026-11-06 decision above.            | Maintain verified LTS lines and current examples; review future lifecycle changes before updating published support.                           |
+| Fastify             | Peer range permits major 4 only.                                                             | Deliver and verify support for a newer major before proposing a migration away from 4.                                                         |
+| React Query         | Initial stable baseline permits Query5 only; root and `/v5` share one implementation.        | Verify the initial migration; future support reductions follow the stable retirement policy.                                                   |
+| Vue and Solid Query | Initial stable baseline permits native Query5 only.                                          | Retain native reactivity/lifecycle and verified v5 migration coverage.                                                                         |
+| Zod 3               | Standard Schema is the default boundary; older schemas and historical helpers use `/legacy`. | Keep the bridge through the initial migration. Review bridge and helper retirements separately; modern Zod 3 can use Standard Schema directly. |
 
 Sources: library [package manifests](../libs/ts-rest), the [isolated CI matrix](../.github/workflows/build-test.yml) and the [Standard Schema migration guide](../apps/docs/content/docs/standard-schema-migration.mdx).
 

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { ZOD_SYNC, ZOD_ASYNC, VALIBOT_ASYNC } from './test-helpers';
 import * as v from 'valibot';
 import { getParamsFromPathOnly, getPathParameterSchema } from './path-params';
-import { ParameterObject } from 'openapi3-ts';
+import { ParameterObject } from '../model';
 import { ContractAnyType } from '@ts-restless/core';
 
 /**
@@ -122,6 +122,7 @@ const CASES: {
       {
         name: 'id',
         in: 'path',
+        required: true,
         schema: {
           type: 'string',
         },
@@ -129,6 +130,7 @@ const CASES: {
       {
         name: 'name',
         in: 'path',
+        required: true,
         schema: {
           type: 'string',
         },
@@ -154,6 +156,7 @@ const CASES: {
       {
         name: 'id',
         in: 'path',
+        required: true,
         schema: {
           type: 'string',
         },
@@ -192,6 +195,7 @@ const CASES: {
       {
         name: 'id',
         in: 'path',
+        required: true,
         schema: {
           type: 'string',
         },

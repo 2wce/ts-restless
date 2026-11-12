@@ -4,6 +4,7 @@ import {
   isAppRouteOtherResponse,
 } from '@ts-restless/core';
 import {
+  resolveSchema,
   AsyncAndSyncHelper,
   GetAsyncFunction,
   GetSyncFunction,
@@ -16,7 +17,7 @@ import { getPathParameterSchema } from './parsers/path-params';
 import { getHeaderParameterSchema } from './parsers/headers';
 import { getQueryParameterSchema } from './parsers/query-params';
 import { getBodySchema } from './parsers/body';
-import { SchemaObject } from 'openapi3-ts';
+import { SchemaObject } from './model';
 
 type PerformContractTraversalHelper = AsyncAndSyncHelper<
   {
@@ -119,7 +120,7 @@ const syncFunc: GetSyncFunction<PerformContractTraversalHelper> = ({
       });
 
       if (responseSchema) {
-        responses[statusCode] = responseSchema;
+        responses[statusCode] = resolveSchema(responseSchema)!.schema;
       }
     }
 
@@ -196,7 +197,7 @@ const asyncFunc: GetAsyncFunction<PerformContractTraversalHelper> = async ({
       });
 
       if (responseSchema) {
-        responses[statusCode] = responseSchema;
+        responses[statusCode] = resolveSchema(responseSchema)!.schema;
       }
     }
 

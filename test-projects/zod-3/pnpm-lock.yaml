@@ -189,6 +189,9 @@ importers:
         specifier: 3.22.3
         version: 3.22.3
     devDependencies:
+      '@anatine/zod-openapi':
+        specifier: 1.14.2
+        version: 1.14.2(openapi3-ts@2.0.2)(zod@3.22.3)
       '@types/body-parser':
         specifier: 1.19.5
         version: 1.19.5

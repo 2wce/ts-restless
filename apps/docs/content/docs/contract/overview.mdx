@@ -537,7 +537,7 @@ Whole-object Standard Schemas, including Zod 4 objects, are also supported.
 Define their input and output header keys in lowercase, matching the headers
 provided by HTTP adapters. ts-restless validates these opaque schemas directly;
 it does not inspect or rewrite their fields. Bridge older Zod 3 objects with
-`toStandardSchema` from `@ts-restless/core/zod3`.
+`toStandardSchema` from `@ts-restless/core/legacy`.
 
 <Tabs items={['Zod', 'Valibot', 'Arktype', 'Plain Types']}>
   <Tab value="Zod">

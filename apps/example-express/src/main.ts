@@ -2,7 +2,7 @@ import express from 'express';
 import { initContract, TsRestResponseValidationError } from '@ts-restless/core';
 import { apiBlog, contractTs } from '@ts-restless/example-contracts';
 import { createExpressEndpoints, initServer } from '@ts-restless/express';
-import { generateOpenApi } from '@ts-restless/open-api';
+import { generateOpenApi } from '@ts-restless/open-api/legacy';
 import bodyParser from 'body-parser';
 import { Request, Response, NextFunction } from 'express';
 import { serve, setup } from 'swagger-ui-express';

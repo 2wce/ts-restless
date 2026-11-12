@@ -25,9 +25,9 @@ Each row identifies a removed support line, moved API or changed behavior and it
 | TanStack Query v4 in React, Vue or Solid | The framework's native Query v5 package | [Query v5 migration](/query-v5-migration), including native options, providers, status flags and pagination. |
 | React root `initQueryClient`, `useTsRestQueryClient` and positional hooks | `initTsrReactQuery`, its providers, object options and `tsr.useQueryClient()` | [React API replacements](/query-v5-migration#react-api-replacements), including mutations, cache access and SSR. |
 | React v4 wrapper types, `includeThrownErrorsInErrorType`, and top-level request `cache` / `next` | Inferred v5 hook/client types, an error union including `Error`, and `queryData.fetchOptions` | [Options and types](/query-v5-migration#react-options-and-types). |
-| Automatic adaptation of old Zod schemas lacking `~standard` | Modern Standard Schema validators, or explicit `toStandardSchema` from `/zod3` | [Older Zod 3](/standard-schema-migration#older-zod-3), including each field in header records. |
-| Zod-specific core helpers and inference types from the root | `/zod3` for historical helpers; `SchemaInputOrType` / `SchemaOutputOrType` for new code | [Moved imports and removed helpers](/standard-schema-migration#historical-helpers). |
-| Historical adapter error schemas/classes from root exports | Portable default errors; historical payload helpers under the adapter's `/zod3` entry | [Exact adapter replacements](/standard-schema-migration#adapter-error-imports). Importing a compatibility helper does not restore old handler behavior. |
+| Automatic adaptation of old Zod schemas lacking `~standard` | Modern Standard Schema validators, or explicit `toStandardSchema` from `/legacy` | [Older Zod 3](/standard-schema-migration#older-zod-3), including each field in header records. |
+| Zod-specific core helpers and inference types from the root | `/legacy` for historical helpers; `SchemaInputOrType` / `SchemaOutputOrType` for new code | [Moved imports and removed helpers](/standard-schema-migration#historical-helpers). |
+| Historical adapter error schemas/classes from root exports | Portable default errors; historical payload helpers under the adapter's `/legacy` entry | [Exact adapter replacements](/standard-schema-migration#adapter-error-imports). Importing a compatibility helper does not restore old handler behavior. |
 | `instanceof ZodError`, serialized `name: 'ZodError'`, `flatten()` / `format()` on default validation failures | `StandardSchemaError`, serialized `name: 'ValidationError'` and portable issue handling | [Validation errors and payloads](/standard-schema-migration#validation-errors). Update clients, middleware and error-response contracts together. |
 | Zod whole-object header override semantics and mixed-case object fields | Validate both whole-object schemas, or merge before bridging; use lowercase whole-object fields | [Whole-object headers](/standard-schema-migration#whole-object-headers). Field records still support route overrides and `null` removals. |
 | Client fetchers performing contract validation, or `c.noBody()` yielding an empty Blob | Shared client execution validates decoded results; no-body yields `undefined` | [Client response-validation migration](/client/fetch#response-validation). F04 is published in alpha.5; stop manually applying contract transforms in custom fetchers. |
@@ -62,11 +62,11 @@ pnpm add @ts-restless/core@alpha @ts-restless/express@alpha
 
 For a pinned evaluation, replace `@alpha` with the exact version selected from the release notes. Preserve native framework and validator dependencies; the scope change does not install or upgrade them for you. Check the lockfile for stale upstream imports in shared workspaces and for duplicated native Query packages.
 
-Use public entry points rather than package-internal `src`, `lib` or `dist` imports. Supported subpaths include core and server adapter `/zod3`, React `/v5` and `/tanstack`, and serverless `/fetch`, `/aws`, `/azure` and `/next`. `react-query-v5` is a private implementation package; consumers use `@ts-restless/react-query`.
+Use public entry points rather than package-internal `src`, `lib` or `dist` imports. Supported subpaths include core and server adapter `/legacy`, React `/v5` and `/tanstack`, and serverless `/fetch`, `/aws`, `/azure` and `/next`. `react-query-v5` is a private implementation package; consumers use `@ts-restless/react-query`.
 
 ```typescript
 import { initClient, initContract } from '@ts-restless/core';
-import { toStandardSchema } from '@ts-restless/core/zod3';
+import { toStandardSchema } from '@ts-restless/core/legacy';
 import { initTsrReactQuery } from '@ts-restless/react-query';
 ```
 
@@ -89,7 +89,7 @@ For an application executed directly by Node, use matching settings in `tsconfig
 
 Node16 with matching `module: "Node16"` and `moduleResolution: "Node16"` is also supported. These settings do not force ESM output: preserve `"type": "commonjs"` (or no `type` field) in your application package for CommonJS `.ts` files; `.cts` files also select CommonJS. Existing `require()` consumers and CommonJS builds remain supported. This change does not require a runtime upgrade solely to load ESM.
 
-For native ESM, use `"type": "module"` in your application package or `.mts` files. Node ESM resolution requires explicit extensions on relative imports, for example `import { contract } from './contract.js'` in TypeScript source. Public package imports such as `@ts-restless/core/zod3` keep their published specifiers.
+For native ESM, use `"type": "module"` in your application package or `.mts` files. Node ESM resolution requires explicit extensions on relative imports, for example `import { contract } from './contract.js'` in TypeScript source. Public package imports such as `@ts-restless/core/legacy` keep their published specifiers.
 
 For an application whose bundler owns module loading, use:
 
@@ -108,7 +108,7 @@ If an older compiler reports TS2742 while emitting declarations for an inferred 
 
 [TypeScript6 deprecates node10 and7 removes it](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-6-0.html). Setting `ignoreDeprecations` does not migrate resolution and cannot restore it on7. Enabling `skipLibCheck`, disabling package-export resolution or importing package-internal declarations is not the migration path.
 
-Reinstall a matched package set, run your normal TypeScript check, build the application and exercise it using the real runtime/test runner. Verify the public subpaths you use, including `/zod3`, React `/v5` and serverless host entries. The old-Zod bridge and framework compatibility support remain; their legacy APIs do not require a legacy resolver. Native runtime/framework requirements still apply independently.
+Reinstall a matched package set, run your normal TypeScript check, build the application and exercise it using the real runtime/test runner. Verify the public subpaths you use, including `/legacy`, React `/v5` and serverless host entries. The old-Zod bridge and framework compatibility support remain; their legacy APIs do not require a legacy resolver. Native runtime/framework requirements still apply independently.
 
 ## Next.js 12–14
 
@@ -135,7 +135,7 @@ manifests on 2026-11-09:
 | React Query v4 root API, or React16/17 | `@ts-restless/*@4.0.0-alpha.2` with native Query4; its React root still exposes the v4 wrapper. |
 | Native Vue/Solid Query4 | `@ts-restless/*@4.0.0-alpha.2` with the corresponding native Query4 dependency. |
 | Next12–14 | `@ts-restless/*@4.0.0-alpha.1`; its Next/serverless manifests retain those majors. Alpha.2 already narrows Next to15/16. |
-| Automatic old-Zod detection or historical default Zod-error behavior | Your existing upstream `@ts-rest/*` v3 release. Fork alpha releases already use the Standard Schema defaults; `/zod3` is explicit compatibility, not an old-handler mode. |
+| Automatic old-Zod detection or historical default Zod-error behavior | Your existing upstream `@ts-rest/*` v3 release. Fork alpha releases already use the Standard Schema defaults; `/legacy` is explicit compatibility, not an old-handler mode. |
 
 Pin the whole used package set to the selected version and keep the matching
 native peers. Existing published artifacts remain unchanged; these fallback
@@ -161,7 +161,7 @@ The repository's Node 26/pnpm 12 development tools are contributor requirements,
 5. For Next, run the production build and exercise your actual Pages/App/Edge handler on the deployment runtime, including provider-header fallbacks.
 6. Generate and compare your OpenAPI document if you publish one. Verify the converter preserves request/response schemas after any validator migration.
 
-Migrate backend error contracts and their consuming clients together. If a temporary application-level compatibility formatter is necessary, make it explicit and test it; `/zod3` imports do not enable a legacy mode in the default adapters.
+Migrate backend error contracts and their consuming clients together. If a temporary application-level compatibility formatter is necessary, make it explicit and test it; `/legacy` imports do not enable a legacy mode in the default adapters.
 
 ## Feedback and attribution
 

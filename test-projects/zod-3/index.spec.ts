@@ -5,7 +5,7 @@ import {
   RequestValidationErrorSchema,
   RequestValidationErrorSchemaForNest,
   RequestValidationErrorSchemaWithoutMessage,
-} from '@ts-restless/core/zod3';
+} from '@ts-restless/core/legacy';
 
 const expectRes = (res: any) => {
   return expect({ body: res.body, status: res.status });
@@ -17,7 +17,7 @@ describe('zod 3', () => {
       expect(openApiSchema).toBeDefined();
 
       expect(
-        openApiSchema.paths['/pokemon/{id}'].get.responses['200'].content,
+        openApiSchema.paths['/pokemon/{id}'].get?.responses['200'].content,
       ).toStrictEqual({
         'application/json': {
           schema: {

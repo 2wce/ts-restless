@@ -1,4 +1,4 @@
-import { SchemaObject } from 'openapi3-ts';
+import { SchemaObject } from '../model';
 import { schemaObjectToParameters } from './utils';
 import { z } from 'zod';
 import { generateSchema } from '@anatine/zod-openapi';
@@ -24,10 +24,11 @@ describe('utils', () => {
       ]);
     });
 
-    it('should return an empty array if the schema is not an object', () => {
+    it('should diagnose schemas that cannot be represented as parameters', () => {
       const schema: SchemaObject = { type: 'string' };
-      const parameters = schemaObjectToParameters(schema, 'query');
-      expect(parameters).toEqual([]);
+      expect(() => schemaObjectToParameters(schema, 'query')).toThrow(
+        /plain object/,
+      );
     });
 
     it('should return optional parameters if the schema is not required', async () => {

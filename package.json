@@ -40,6 +40,7 @@
   "private": true,
   "devDependencies": {
     "@anatine/zod-openapi": "catalog:",
+    "@apidevtools/swagger-parser": "12.1.0",
     "@azure/functions": "catalog:",
     "@changesets/cli": "catalog:",
     "@fetch-mock/vitest": "catalog:",
@@ -56,6 +57,7 @@
     "@testing-library/jest-dom": "catalog:",
     "@testing-library/react": "catalog:",
     "@testing-library/vue": "catalog:",
+    "@ts-restless/build-config": "workspace:*",
     "@types/aws-lambda": "catalog:",
     "@types/express": "catalog:",
     "@types/multer": "catalog:",
@@ -66,8 +68,10 @@
     "@types/supertest": "catalog:",
     "@valibot/to-json-schema": "catalog:",
     "azure-functions-core-tools": "catalog:",
+    "esbuild": "catalog:",
     "express": "catalog:",
     "fastify": "catalog:",
+    "github-slugger": "2.0.0",
     "itty-router": "catalog:",
     "jsdom": "catalog:",
     "multer": "catalog:",
@@ -78,6 +82,9 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "reflect-metadata": "catalog:",
+    "remark": "15.0.1",
+    "remark-gfm": "4.0.1",
+    "remark-mdx": "3.1.1",
     "rxjs": "catalog:",
     "supertest": "catalog:",
     "ts-deepmerge": "catalog:",
@@ -91,13 +98,7 @@
     "vitest": "catalog:",
     "vue": "catalog:",
     "zod": "catalog:",
-    "zod4": "catalog:",
-    "esbuild": "catalog:",
-    "@ts-restless/build-config": "workspace:*",
-    "github-slugger": "2.0.0",
-    "remark": "15.0.1",
-    "remark-gfm": "4.0.1",
-    "remark-mdx": "3.1.1"
+    "zod4": "catalog:"
   },
   "volta": {
     "node": "26.12.0"

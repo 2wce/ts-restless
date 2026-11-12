@@ -123,7 +123,17 @@ If you stay on Fastify 4 when adopting the new package version, move every adapt
 + import { initServer } from '@ts-restless/fastify/legacy';
 ```
 
-The `/legacy` entry is deprecated and scheduled for removal in ts-restless v5 after the stable migration window. It requires a containing release; alpha.5 does not export it. Keep a matched earlier release if the new version is unavailable. The independent `@ts-restless/fastify/zod3` validation-response schema helper stays at that path on either native major.
+The `/legacy` entry is deprecated and scheduled for removal in ts-restless v5 after the stable migration window. It requires a containing release; alpha.5 does not export it. Keep a matched earlier release if the new version is unavailable. Both native4 `/legacy` and native5 root accept Standard Schema contracts without requiring Zod.
+
+The historical `RequestValidationErrorSchema` helper formerly exported from Fastify `/zod3` is available as the identical `RequestValidationErrorSchemaWithoutMessage` in core `/legacy`. Import it separately and alias the name if needed:
+
+```typescript
+import {
+  RequestValidationErrorSchemaWithoutMessage as RequestValidationErrorSchema,
+} from '@ts-restless/core/legacy';
+```
+
+Only applications using that historical helper need Zod 3 (`pnpm add zod@^3.22.3`). Its payload describes historical `ZodError` objects; importing it does not change current handlers' portable `ValidationError` payloads. Define schemas for those current errors in your chosen validator, as shown in the [Standard Schema migration guide](/standard-schema-migration#validation-errors).
 
 To move from legacy support to Fastify 5, upgrade in this order:
 
