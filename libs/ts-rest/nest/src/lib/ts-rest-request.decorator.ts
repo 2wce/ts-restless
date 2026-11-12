@@ -10,11 +10,10 @@ import {
 import {
   AppRoute,
   AppRouteMutation,
-  validateIfSchema,
+  evaluateRequestPart,
   parseJsonQueryObject,
   ServerInferRequest,
   validationErrorResponse,
-  validateMultiSchemaObject,
 } from '@ts-restless/core';
 import type { Request } from 'express';
 import type { FastifyRequest } from 'fastify';
@@ -52,9 +51,11 @@ class TsRestValidatorPipe implements PipeTransform {
     const req: Request | FastifyRequest = ctx.switchToHttp().getRequest();
     const options = evaluateTsRestOptions(this.globalOptions, ctx);
 
-    const pathParamsResult = validateIfSchema(req.params, appRoute.pathParams, {
-      passThroughExtraKeys: true,
-    });
+    const pathParamsResult = evaluateRequestPart(
+      appRoute,
+      'params',
+      req.params,
+    );
 
     if (pathParamsResult.error) {
       throw new BadRequestException(
@@ -62,10 +63,7 @@ class TsRestValidatorPipe implements PipeTransform {
       );
     }
 
-    const headersResult = validateMultiSchemaObject(
-      req.headers,
-      appRoute.headers,
-    );
+    const headersResult = evaluateRequestPart(appRoute, 'headers', req.headers);
 
     if (headersResult.error && options.validateRequestHeaders) {
       throw new BadRequestException(
@@ -77,28 +75,26 @@ class TsRestValidatorPipe implements PipeTransform {
       ? parseJsonQueryObject(req.query as Record<string, string>)
       : req.query;
 
-    const queryResult = validateIfSchema(query, appRoute.query);
+    const queryResult = evaluateRequestPart(appRoute, 'query', query);
     if (queryResult.error && options.validateRequestQuery) {
       throw new BadRequestException(validationErrorResponse(queryResult.error));
     }
 
-    const bodyResult = validateIfSchema(
-      req.body,
-      'body' in appRoute ? appRoute.body : null,
-    );
+    const bodyResult = evaluateRequestPart(appRoute, 'body', req.body);
 
     if (bodyResult.error && options.validateRequestBody) {
       throw new BadRequestException(validationErrorResponse(bodyResult.error));
     }
 
     return {
-      query: queryResult.value || req.query,
+      query: queryResult.error ? req.query : queryResult.value,
       params: pathParamsResult.value as any,
-      body: bodyResult.value || req.body,
-      headers:
-        (headersResult.value as TsRestRequestShape<
-          typeof appRoute
-        >['headers']) || req.headers,
+      body: bodyResult.error ? req.body : bodyResult.value,
+      headers: (headersResult.error
+        ? req.headers
+        : headersResult.value) as TsRestRequestShape<
+        typeof appRoute
+      >['headers'],
     };
   }
 }

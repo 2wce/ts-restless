@@ -31,7 +31,7 @@ import {
   ServerInferResponses,
   StandardSchemaError,
   TsRestResponseError,
-  validateMultiSchemaObject,
+  evaluateRequest,
   validateIfSchema,
 } from '@ts-restless/core';
 import {
@@ -332,25 +332,16 @@ export class TsRestHandlerInterceptor implements NestInterceptor {
 
     const options = evaluateTsRestOptions(this.globalOptions, ctx);
 
-    const paramsResult = validateIfSchema(req.params, appRoute.pathParams, {
-      passThroughExtraKeys: true,
-    });
-
-    const headersResult = validateMultiSchemaObject(
-      req.headers,
-      appRoute.headers,
-    );
-
     const query = options.jsonQuery
       ? parseJsonQueryObject(req.query as Record<string, string>)
       : req.query;
-
-    const queryResult = validateIfSchema(query, appRoute.query);
-
-    const bodyResult = validateIfSchema(
-      req.body,
-      'body' in appRoute ? appRoute.body : null,
-    );
+    const { paramsResult, headersResult, queryResult, bodyResult } =
+      evaluateRequest(appRoute, {
+        params: req.params,
+        headers: req.headers,
+        query,
+        body: req.body,
+      });
 
     const isHeadersInvalid =
       headersResult.error && options.validateRequestHeaders;
@@ -379,9 +370,9 @@ export class TsRestHandlerInterceptor implements NestInterceptor {
         try {
           const res = {
             params: paramsResult.value,
-            query: queryResult.value || req.query,
-            body: bodyResult.value || req.body,
-            headers: headersResult.value || req.headers,
+            query: queryResult.error ? req.query : queryResult.value,
+            body: bodyResult.error ? req.body : bodyResult.value,
+            headers: headersResult.error ? req.headers : headersResult.value,
           };
 
           /**

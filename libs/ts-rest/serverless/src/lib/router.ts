@@ -6,8 +6,7 @@ import {
   evaluateResponse,
   HTTPStatusCode,
   TsRestResponseError,
-  validateIfSchema,
-  validateMultiSchemaObject,
+  evaluateRequest,
 } from '@ts-restless/core';
 import { Router, withParams, cors } from 'itty-router';
 import { TsRestRequest } from './request';
@@ -71,28 +70,20 @@ const validateRequest = <TPlatformArgs, TRequestExtension>(
   appRoute: AppRoute,
   options: ServerlessHandlerOptions<TPlatformArgs, TRequestExtension>,
 ) => {
-  const paramsResult = validateIfSchema(req.params, appRoute.pathParams, {
-    passThroughExtraKeys: true,
-  });
-
   const headers: Record<string, string> = {};
   req.headers.forEach((value, key) => {
     headers[key] = value;
   });
-
-  const headersResult = validateMultiSchemaObject(headers, appRoute.headers);
-
-  const queryResult = validateIfSchema(
-    options.jsonQuery
-      ? parseJsonQueryObject(req.query as Record<string, string>)
-      : req.query,
-    appRoute.query,
-  );
-
-  const bodyResult = validateIfSchema(
-    req.content,
-    'body' in appRoute ? appRoute.body : null,
-  );
+  const query = options.jsonQuery
+    ? parseJsonQueryObject(req.query as Record<string, string>)
+    : req.query;
+  const { paramsResult, headersResult, queryResult, bodyResult } =
+    evaluateRequest(appRoute, {
+      params: req.params,
+      headers,
+      query,
+      body: req.content,
+    });
 
   if (
     paramsResult.error ||

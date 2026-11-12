@@ -1,7 +1,7 @@
 import {
   AppRoute,
   AppRouter,
-  validateIfSchema,
+  evaluateRequest,
   HTTPStatusCode,
   isAppRoute,
   parseJsonQueryObject,
@@ -9,7 +9,6 @@ import {
   evaluateResponse,
   TsRestResponseValidationError,
   parseAsStandardSchema,
-  validateMultiSchemaObject,
 } from '@ts-restless/core';
 import {
   IRouter,
@@ -87,29 +86,18 @@ const recursivelyApplyExpressRouter = ({
 
 const validateRequest = (
   req: Request,
-  res: Response,
   appRoute: AppRoute,
   options: TsRestExpressOptions<AppRouter>,
 ) => {
-  const paramsResult = validateIfSchema(req.params, appRoute.pathParams, {
-    passThroughExtraKeys: true,
-  });
-
-  const headersResult = validateMultiSchemaObject(
-    req.headers,
-    appRoute.headers,
-  );
-
-  const query = options.jsonQuery
-    ? parseJsonQueryObject(req.query as Record<string, string>)
-    : req.query;
-
-  const queryResult = validateIfSchema(query, appRoute.query);
-
-  const bodyResult = validateIfSchema(
-    req.body,
-    'body' in appRoute ? appRoute.body : null,
-  );
+  const { paramsResult, headersResult, queryResult, bodyResult } =
+    evaluateRequest(appRoute, {
+      params: req.params,
+      headers: req.headers,
+      query: options.jsonQuery
+        ? parseJsonQueryObject(req.query as Record<string, string>)
+        : req.query,
+      body: req.body,
+    });
 
   if (
     paramsResult.error ||
@@ -162,7 +150,7 @@ const initializeExpressRoute = ({
 
   const mainReqHandler: RequestHandler = async (req, res, next) => {
     try {
-      const validationResults = validateRequest(req, res, schema, options);
+      const validationResults = validateRequest(req, schema, options);
 
       let result: { status: HTTPStatusCode; body: any };
       try {

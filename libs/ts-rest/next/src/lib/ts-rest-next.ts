@@ -3,7 +3,7 @@ import {
   AppRoute,
   AppRouteQuery,
   AppRouter,
-  validateIfSchema,
+  evaluateRequest,
   HTTPStatusCode,
   isAppRoute,
   parseJsonQueryObject,
@@ -13,7 +13,6 @@ import {
   evaluateResponse,
   TsRestResponseValidationError,
   StandardSchemaError,
-  validateMultiSchemaObject,
 } from '@ts-restless/core';
 import { getPathParamsFromArray } from './path-utils';
 
@@ -291,22 +290,21 @@ const handlerFactory = (
       return;
     }
 
-    const pathParamsResult = validateIfSchema(pathParams, route.pathParams, {
-      passThroughExtraKeys: true,
-    });
-
-    const headersResult = validateMultiSchemaObject(req.headers, route.headers);
-
     query = jsonQuery
       ? parseJsonQueryObject(query as Record<string, string>)
       : req.query;
 
-    const queryResult = validateIfSchema(query, route.query);
-
-    const bodyResult = validateIfSchema(
-      req.body,
-      'body' in route ? route.body : null,
-    );
+    const {
+      paramsResult: pathParamsResult,
+      headersResult,
+      queryResult,
+      bodyResult,
+    } = evaluateRequest(route, {
+      params: pathParams,
+      headers: req.headers,
+      query,
+      body: req.body,
+    });
 
     try {
       if (
