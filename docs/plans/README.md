@@ -8,6 +8,8 @@
 
 ## Retained implementation and design records
 
+- [Untangle codebase design](2026-11-12-untangle-codebase-design.md) and [implementation plan](2026-11-12-untangle-codebase.md).
+
 - [OpenAPI conversion and generator bugs](2026-11-11-openapi.md).
 
 - [Fastify 5 compatibility implementation plan](2026-11-11-fastify5-compatibility.md).
