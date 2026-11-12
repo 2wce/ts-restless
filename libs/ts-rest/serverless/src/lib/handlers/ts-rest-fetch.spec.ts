@@ -1,4 +1,8 @@
-import { TsRestRequestValidationError, RequestValidationError } from '../types';
+import {
+  TsRestRequestValidationError,
+  RequestValidationError,
+  ResponseValidationError,
+} from '../types';
 import { initContract, TsRestResponseError } from '@ts-restless/core';
 import { parse as parseMultipart, getBoundary } from 'parse-multipart-data';
 import { z } from 'zod';
@@ -194,6 +198,104 @@ const newFetchRequestHandler = createFetchHandler(contract, router, options);
 describe('fetchRequestHandler', () => {
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('keeps middleware owned by the caller when creating multiple handlers', async () => {
+    const reusableContract = c.router({
+      get: {
+        method: 'GET',
+        path: '/reused',
+        responses: { 200: c.type<string>() },
+      },
+    });
+    const middleware = tsr.middleware(() => undefined);
+    const implementation = tsr.router(reusableContract, {
+      get: {
+        middleware: [middleware],
+        handler: async () => ({ status: 200, body: 'ok' }),
+      },
+    });
+
+    const firstHandler = createFetchHandler(reusableContract, implementation);
+    const secondHandler = createFetchHandler(reusableContract, implementation);
+    await firstHandler(new Request('http://localhost/reused'));
+    await secondHandler(new Request('http://localhost/reused'));
+
+    expect(implementation.get.middleware).toEqual([middleware]);
+  });
+
+  it('uses each handler validation policy and platform context for a reused implementation', async () => {
+    let validations = 0;
+    const reusableContract = c.router({
+      get: {
+        method: 'GET',
+        path: '/reused',
+        responses: {
+          200: z.object({
+            value: z.string().transform((value) => {
+              validations++;
+              return value.toUpperCase();
+            }),
+            requestId: z.string(),
+          }),
+        },
+      },
+    });
+    const platformTsr = tsr.platformContext<{ requestId: string }>();
+    const implementation = platformTsr.router(reusableContract, {
+      get: {
+        middleware: [platformTsr.middleware(() => undefined)],
+        handler: async (_, { requestId }) => ({
+          status: 200,
+          body: { value: 'hello', requestId },
+        }),
+      },
+    });
+    const rawHandler = createFetchHandler(reusableContract, implementation, {
+      responseValidation: false,
+    });
+    const validatedHandler = createFetchHandler(
+      reusableContract,
+      implementation,
+      {
+        responseValidation: true,
+      },
+    );
+
+    const rawResponse = await rawHandler(
+      new Request('http://localhost/reused'),
+      {
+        requestId: 'raw',
+      },
+    );
+    expect(await rawResponse.json()).toEqual({
+      value: 'hello',
+      requestId: 'raw',
+    });
+    expect(validations).toBe(0);
+
+    const validatedResponse = await validatedHandler(
+      new Request('http://localhost/reused'),
+      { requestId: 'validated' },
+    );
+    expect(await validatedResponse.json()).toEqual({
+      value: 'HELLO',
+      requestId: 'validated',
+    });
+    expect(validations).toBe(1);
+
+    const repeatedResponse = await fetchRequestHandler({
+      contract: reusableContract,
+      router: implementation,
+      options: { responseValidation: true },
+      request: new Request('http://localhost/reused'),
+      platformContext: { requestId: 'single request' },
+    });
+    expect(await repeatedResponse.json()).toEqual({
+      value: 'HELLO',
+      requestId: 'single request',
+    });
+    expect(validations).toBe(2);
   });
 
   it('should handle GET request', async () => {
@@ -408,6 +510,53 @@ describe('fetchRequestHandler', () => {
             received: 'undefined',
             path: ['foo'],
             message: 'Required',
+          },
+        ],
+      },
+    });
+  });
+
+  it('preserves adapter response errors and validator issue details for custom handlers', async () => {
+    const responseContract = c.router({
+      get: {
+        method: 'GET',
+        path: '/invalid-response',
+        responses: {
+          200: z.object({
+            value: z.string().regex(/^valid$/, 'expected valid'),
+          }),
+        },
+      },
+    });
+    let caught: unknown;
+    const handler = createFetchHandler(
+      responseContract,
+      { get: async () => ({ status: 200, body: { value: 'invalid' } }) },
+      {
+        responseValidation: true,
+        errorHandler: (error) => {
+          caught = error;
+        },
+      },
+    );
+
+    const response = await handler(
+      new Request('http://localhost/invalid-response'),
+    );
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ message: 'Server Error' });
+    expect(caught).toBeInstanceOf(ResponseValidationError);
+    expect(caught).toMatchObject({
+      appRoute: responseContract.get,
+      error: {
+        name: 'ValidationError',
+        issues: [
+          {
+            code: 'invalid_string',
+            validation: 'regex',
+            path: ['value'],
+            message: 'expected valid',
           },
         ],
       },

@@ -30,13 +30,6 @@ export function requestMethod(event: ApiGatewayEvent) {
   return event.httpMethod;
 }
 
-export function requestRemoteAddress(event: ApiGatewayEvent) {
-  if (isV2(event)) {
-    return event.requestContext.http.sourceIp;
-  }
-  return event.requestContext.identity.sourceIp;
-}
-
 export function requestHeaders(event: ApiGatewayEvent) {
   const headers = new Headers();
 

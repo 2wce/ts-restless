@@ -65,14 +65,9 @@ export const fetchRequestHandler = <
   request: Request;
   platformContext?: TPlatformContext;
 }) => {
-  const serverlessRouter = createServerlessRouter<
-    T,
-    TPlatformContext,
-    TRequestExtension
-  >(contract, router, options);
-
-  const tsRestRequest = new TsRestRequest(request);
-  return serverlessRouter.fetch(tsRestRequest, {
-    ...platformContext,
-  });
+  return createFetchHandler(
+    contract,
+    router,
+    options,
+  )(request, platformContext);
 };

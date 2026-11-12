@@ -2,11 +2,8 @@ import {
   AppRoute,
   AppRouter,
   isAppRoute,
-  isAppRouteNoBody,
-  isAppRouteOtherResponse,
   parseJsonQueryObject,
-  TsRestResponseValidationError as ResponseValidationErrorCore,
-  validateResponse,
+  evaluateResponse,
   HTTPStatusCode,
   TsRestResponseError,
   validateIfSchema,
@@ -288,55 +285,49 @@ export const createServerlessRouter = <
         }
 
         const statusCode = Number(result.status);
-        let validatedResponseBody = result.body;
+        const evaluation = evaluateResponse({
+          appRoute,
+          response: { status: statusCode, body: result.body },
+          validateBody: options.responseValidation ?? false,
+        });
 
-        if (options.responseValidation) {
-          try {
-            const response = validateResponse({
-              appRoute,
-              response: {
-                status: statusCode,
-                body: result.body,
-              },
-            });
-
-            validatedResponseBody = response.body;
-          } catch (e) {
-            if (e instanceof ResponseValidationErrorCore) {
-              throw new ResponseValidationError(appRoute, e.cause);
-            }
-
-            throw e;
-          }
+        if (!evaluation.success) {
+          throw new ResponseValidationError(appRoute, evaluation.error);
         }
 
-        const responseType = appRoute.responses[statusCode];
+        let validatedResponseBody = evaluation.body;
+        const { metadata } = evaluation;
 
-        if (isAppRouteNoBody(responseType)) {
+        if (metadata.bodyKind === 'none') {
           return new TsRestResponse(null, {
             status: statusCode,
             headers: responseHeaders,
           });
         }
 
-        if (isAppRouteOtherResponse(responseType)) {
+        if (metadata.contentType !== undefined) {
           if (validatedResponseBody instanceof Blob) {
             responseHeaders.set(
               'content-type',
-              validatedResponseBody.type || responseType.contentType,
+              validatedResponseBody.type || metadata.contentType,
             );
 
             validatedResponseBody = await blobToArrayBuffer(
               validatedResponseBody,
             );
           } else {
-            responseHeaders.set('content-type', responseType.contentType);
+            responseHeaders.set('content-type', metadata.contentType);
           }
 
-          return new TsRestResponse(validatedResponseBody, {
-            status: statusCode,
-            headers: responseHeaders,
-          });
+          return new TsRestResponse(
+            validatedResponseBody as ConstructorParameters<
+              typeof TsRestResponse
+            >[0],
+            {
+              status: statusCode,
+              headers: responseHeaders,
+            },
+          );
         }
 
         return TsRestResponse.fromJson(validatedResponseBody, {
@@ -350,7 +341,7 @@ export const createServerlessRouter = <
       const handlers =
         !isAppRouteImplementation(implementationOrOptions) &&
         implementationOrOptions.middleware
-          ? implementationOrOptions.middleware
+          ? [...implementationOrOptions.middleware]
           : [];
 
       handlers.push(routeHandler);

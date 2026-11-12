@@ -4,7 +4,6 @@ import {
   requestFromEvent,
   requestHeaders,
   requestMethod,
-  requestRemoteAddress,
   requestUrl,
 } from './api-gateway';
 import * as apiGatewayEventV1 from './test-data/api-gateway-event-v1.json';
@@ -38,20 +37,6 @@ describe('ApiGateway', () => {
 
     it('should work for v2 event', () => {
       expect(requestMethod(apiGatewayEventV2 as any)).toStrictEqual('GET');
-    });
-  });
-
-  describe('requestRemoteAddress', () => {
-    it('should work for v1 event', () => {
-      expect(requestRemoteAddress(apiGatewayEventV1 as any)).toStrictEqual(
-        '52.255.255.12',
-      );
-    });
-
-    it('should work for v2 event', () => {
-      expect(requestRemoteAddress(apiGatewayEventV2 as any)).toStrictEqual(
-        '205.255.255.176',
-      );
     });
   });
 

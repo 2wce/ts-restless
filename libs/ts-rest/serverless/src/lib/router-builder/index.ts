@@ -62,7 +62,7 @@ export class RouterBuilder<
       this.contract = contractOrBuilder.contract;
       this._requestMiddleware = [...contractOrBuilder._requestMiddleware];
       this._responseHandlers = [...contractOrBuilder._responseHandlers];
-      this._router = Object.assign({}, contractOrBuilder._router);
+      this._router = this.copyRouter(contractOrBuilder._router);
       this._remainingRoutes = new Set(contractOrBuilder._remainingRoutes);
     } else {
       this.contract = contractOrBuilder;
@@ -103,6 +103,27 @@ export class RouterBuilder<
       typeof obj === 'function' ||
       ('handler' in obj && typeof obj.handler === 'function')
     );
+  }
+
+  private copyRouter(
+    router: PartialRouter<
+      TContract,
+      TPlatformContext,
+      TRequestExtensionCumulative
+    >,
+  ): PartialRouter<TContract, TPlatformContext, TRequestExtensionCumulative> {
+    return Object.fromEntries(
+      Object.entries(router).map(([key, value]) => [
+        key,
+        this.isRouteImplementationOrOptions(value)
+          ? value
+          : this.copyRouter(value),
+      ]),
+    ) as PartialRouter<
+      TContract,
+      TPlatformContext,
+      TRequestExtensionCumulative
+    >;
   }
 
   private isContractEndpointOrRouteImplementationOrOptions(
@@ -284,10 +305,6 @@ export class RouterBuilder<
         TRequestExtensionCumulative,
         TNewRemainingRoutes
       > {
-    this.getPathsFromContractOrRouter(partialRouter).forEach((path) => {
-      this._remainingRoutes.delete(path as TRemainingRoutes);
-    });
-
     const mergePartialRouter = (
       targetRouter: any,
       subRouter: any,
@@ -298,7 +315,7 @@ export class RouterBuilder<
       return Object.entries(subRouter).forEach(([key, value]) => {
         if (this.isRouteImplementationOrOptions(value as any)) {
           this._remainingRoutes.delete(
-            `${keyPrefix}.${key}` as TRemainingRoutes,
+            `${keyPrefix}${key}` as TRemainingRoutes,
           );
 
           targetRouter[key] = value;
@@ -307,7 +324,7 @@ export class RouterBuilder<
             targetRouter[key] = {};
           }
 
-          mergePartialRouter(targetRouter[key], value, `${keyPrefix}.${key}`);
+          mergePartialRouter(targetRouter[key], value, `${keyPrefix}${key}`);
         }
       });
     };
@@ -393,7 +410,6 @@ export class RouterBuilder<
     this._router = router;
     this._remainingRoutes.clear();
 
-    // full router passed, convert to Router
     return new CompleteRouter<
       TContract,
       TPlatformContext,
