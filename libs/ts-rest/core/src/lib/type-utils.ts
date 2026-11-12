@@ -109,13 +109,11 @@ type OptionalKeys<T> = T extends unknown
     }[keyof T]
   : never;
 
-// TODO: Replace all usages of this with IfAllPropertiesOptional
-export type AreAllPropertiesOptional<T> =
-  T extends Record<string, unknown>
-    ? Exclude<keyof T, OptionalKeys<T>> extends never
-      ? true
-      : false
-    : false;
+export type AreAllPropertiesOptional<T> = IfAllPropertiesOptional<
+  T,
+  true,
+  false
+>;
 
 export type IfAllPropertiesOptional<T, TIf, TElse> =
   T extends Record<string, unknown>

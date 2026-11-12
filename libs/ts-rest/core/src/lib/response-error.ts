@@ -1,4 +1,4 @@
-import { AppRoute, AppRouter, AppRouteResponse } from './dsl';
+import { AppRoute, AppRouter, AppRouteResponse, FlattenAppRouter } from './dsl';
 import { ResolveResponseType, ServerInferResponses } from './infer-types';
 import { HTTPStatusCode } from './status-codes';
 import { CommonAndEqual, SchemaInputOrType } from './type-utils';
@@ -33,16 +33,6 @@ export class TsRestResponseError<T extends AppRoute | AppRouter> extends Error {
     }
   }
 }
-
-type FlattenAppRouter<T extends AppRouter | AppRoute> = T extends AppRoute
-  ? T
-  : {
-      [TKey in keyof T]: T[TKey] extends AppRoute
-        ? T[TKey]
-        : T[TKey] extends AppRouter
-          ? FlattenAppRouter<T[TKey]>
-          : never;
-    }[keyof T];
 
 type AppRouterCommonResponses<T extends AppRouter> = CommonAndEqual<
   FlattenAppRouter<T>['responses']

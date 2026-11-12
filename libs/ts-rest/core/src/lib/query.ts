@@ -44,16 +44,12 @@ export const encodeQueryParams = (query: unknown) => {
     return '';
   }
 
-  return (
-    Object.keys(query)
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      .flatMap((key) => tokeniseValue(key, query[key]))
-      .map(([key, value]) => {
-        return `${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
-      })
-      .join('&')
-  );
+  return Object.entries(query)
+    .flatMap(([key, value]) => tokeniseValue(key, value))
+    .map(([key, value]) => {
+      return `${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+    })
+    .join('&');
 };
 
 /**
@@ -82,10 +78,8 @@ const tokeniseValue = (key: string, value: unknown): [string, string][] => {
   }
 
   if (typeof value === 'object') {
-    return Object.keys(value).flatMap((k) =>
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      tokeniseValue(`${key}[${k}]`, value[k]),
+    return Object.entries(value).flatMap(([nestedKey, nestedValue]) =>
+      tokeniseValue(`${key}[${nestedKey}]`, nestedValue),
     );
   }
 

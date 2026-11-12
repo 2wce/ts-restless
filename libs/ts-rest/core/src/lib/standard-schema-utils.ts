@@ -267,7 +267,7 @@ export const validateIfSchema = (
   const schemaStandard = parseAsStandardSchema(schema);
 
   if (!schemaStandard) {
-    if (schema !== null && schema !== undefined && typeof schema !== 'symbol') {
+    if (!isContractTypeMarker(schema)) {
       throw new Error(
         'Invalid schema supplied; use a Standard Schema or a contract type marker',
       );
