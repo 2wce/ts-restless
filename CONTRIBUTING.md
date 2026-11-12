@@ -70,6 +70,14 @@ the Nest blog API on port 3334; configure its database and run `pnpm nest`
 separately when using Vue. See the
 [database setup](libs/example-database/README.md#run-a-database-example).
 
+Users accepts `PORT` (default `5002`). Posts accepts `PORT`, then lowercase
+`port` (default `5003`), and calls `USERS_API_BASE_URL` (default
+`http://localhost:5002`). React and Solid read `VITE_POSTS_API_BASE_URL`
+(default `http://localhost:5003`) when Vite starts or builds. The
+[React](apps/example-microservice/web-app/README.md#service-endpoints) and
+[Solid](apps/example-microservice/web-app-solid/README.md#service-endpoints)
+guides show alternate-port commands.
+
 ## Shared configuration
 
 `tsconfig.base.json` contains common compiler settings. Root presets specialize

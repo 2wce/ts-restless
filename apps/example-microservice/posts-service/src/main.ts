@@ -87,7 +87,7 @@ app.get('/api.json', (req, res) => {
   res.json(openApiSchema);
 });
 
-const port = process.env.port || 5003;
+const port = process.env.PORT ?? process.env.port ?? 5003;
 const server = app.listen(port, () => {
   console.log(`Listening at http://localhost:${port}`);
 });

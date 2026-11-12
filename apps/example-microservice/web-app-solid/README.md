@@ -28,6 +28,22 @@ backend services must already be running.
 pnpm --filter example-microservice-web-app-solid dev
 ```
 
+## Service endpoints
+
+The users service accepts `PORT` (default `5002`). The posts service accepts
+`PORT`, then the existing lowercase `port` input (default `5003`), and reads
+`USERS_API_BASE_URL` (default `http://localhost:5002`) when calling users.
+This frontend reads `VITE_POSTS_API_BASE_URL` (default `http://localhost:5003`)
+at development startup or build time.
+
+For alternate ports, start the services in separate terminals from the root:
+
+```sh
+PORT=6502 pnpm --filter example-microservice-users-service dev
+PORT=6503 USERS_API_BASE_URL=http://localhost:6502 pnpm --filter example-microservice-posts-service dev
+VITE_POSTS_API_BASE_URL=http://localhost:6503 pnpm --filter example-microservice-web-app-solid dev
+```
+
 ## Building
 
 ```sh
