@@ -1,5 +1,5 @@
 import { getHttpVerbDecorator } from './route-decoration';
-import { ROUTE_ARGS_METADATA } from '@nestjs/common/constants';
+import { ROUTE_ARGS_METADATA } from '@nestjs/common/constants.js';
 import { Reflector } from '@nestjs/core';
 import { mergeMap, Observable } from 'rxjs';
 import type { Request, Response } from 'express';

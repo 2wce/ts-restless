@@ -24,7 +24,6 @@ function parseChangelogContent(content, packageName) {
 
     const versionMatch = line.match(/^## (\d+\.\d+\.\d+.*?)$/);
     if (versionMatch) {
-
       if (currentEntry && currentVersion) {
         entries.push(currentEntry);
       }
@@ -66,7 +65,6 @@ function parseChangelogContent(content, packageName) {
     }
 
     if (line.trim() && !line.startsWith('#') && inContent) {
-
       if (
         !currentEntry.hasContent &&
         (line.includes('-') || line.trim().length > 0)
@@ -191,7 +189,6 @@ description: Combined ts-restless changelog, including historical upstream ts-re
           content += `- ([${change.hash}](${githubUrl})) **${entry.package}**: ${change.description}\n`;
         }
       } else if (entry.hasContent) {
-
         content += `- **${entry.package}**: Updated\n`;
       }
     }
