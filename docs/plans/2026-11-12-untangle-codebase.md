@@ -233,10 +233,10 @@ type NullableOutput = Expect<
 
 **Files:** Review artifacts and necessary fixes only; evidence in this plan.
 
-- [ ] Run `pnpm check`, `pnpm test:packages`, `pnpm docs:lint`, `pnpm --filter @ts-restless/docs test`, affected example builds and host checks. Save full logs; report actual exits/counts. Repeat only after changes/failures justify it.
-- [ ] Verify declaration/runtime artifact boundaries, no-Zod profiles, React directives/Nest metadata and all moved packaging scenario families. Independent root-free compatibility matrix remains the CI gate before integration; run relevant fixtures locally where feasible and label limits.
-- [ ] Dispatch independent subagent reviews of special cases/hidden links/needless links/surplus against the final diff. Include spec compliance and code quality; resolve worthwhile findings, repeat affected checks and review until none remain worth fixing within approved scope.
-- [ ] Preserve intentional native/compatibility special cases with rationale. Record final verified evidence and remaining external CI/publication limits, then commit all cohesive changes. No merge/publish operation is part of this task.
+- [x] Run `pnpm check`, `pnpm test:packages`, `pnpm docs:lint`, `pnpm --filter @ts-restless/docs test`, affected example builds and host checks. Save full logs; report actual exits/counts. Repeat only after changes/failures justify it.
+- [x] Verify declaration/runtime artifact boundaries, no-Zod profiles, React directives/Nest metadata and all moved packaging scenario families. Independent root-free compatibility matrix remains the CI gate before integration; run relevant fixtures locally where feasible and label limits.
+- [x] Dispatch independent subagent reviews of special cases/hidden links/needless links/surplus against the final diff. Include spec compliance and code quality; resolve worthwhile findings, repeat affected checks and review until none remain worth fixing within approved scope.
+- [x] Preserve intentional native/compatibility special cases with rationale. Record final verified evidence and remaining external CI/publication limits, then commit all cohesive changes. No merge/publish operation is part of this task.
 
 ## Pre-execution conflict scan
 
@@ -279,12 +279,27 @@ The approved baseline remains `2ff1faee`, fetched on2026-11-12. Branch commits a
 
 Task12 completes full combined checks and final structural review. Earlier task counts describe their recorded code, not a fresh claim for the eventual branch head. The independent root-free compatibility matrix remains a CI gate before integration. Known upstream Next declaration diagnostics retain exact matching; existing native expected-error logs and lint warnings are reported separately from failures. Supported APIs/native ownership, release guards and coordinated versions remain unchanged.
 
-### Final verification checkpoint (2026-11-13)
+### Final verification (2026-11-13)
 
-- `pnpm check`: exit0, 883 source tests in56 files and15 successful tasks; 0 lint errors, 366 existing warnings.
-- `pnpm test:packages`: exit0, 38 tests in9 files after extraction, minor review corrections and the final Nest ESM fix. All25 moved cases remain; strict modern-resolution/no-Zod/directive/native consumer checks are retained.
+- `pnpm check`: exit0, 883 source tests in56 files and15 successful tasks; 0 lint errors, 365 warnings after the final surplus cleanup.
+- `pnpm test:packages`: exit0, 38 tests in9 files after extraction, minor review corrections, the Nest ESM fix and the final contract-walker cleanup. All25 moved cases remain; strict modern-resolution/no-Zod/directive/native consumer checks are retained.
 - `pnpm --filter @ts-restless/docs test`: exit0, production build, type/snippet checks,80 static checks and12 consent tests.
 - `pnpm build:examples`: exit0, all13 tasks successful.
 - Root-free Nest9/10/11: exact current tarballs installed in temporary workspaces without root node_modules, each passed2 runtime tests and native build. This caught an extensionless native constant import missed by source checks; using the explicit `.js` path restored ESM loading. The Nest assertion compiler and2 changelog tests passed after final source/spacing corrections.
 
-`pnpm test:hosts` passed14 tests in2 files, both tasks successful. `5849e791` contains the independently reviewed ESM fix and generator spacing cleanup. A final combined check after those changes and the whole-branch structural review remain pending at this checkpoint. Full logs are saved under `/private/tmp/untangle-final-*.log`; the final record will consolidate the command results. The complete ten-fixture root-free compatibility matrix remains a CI gate before integration. Existing type-aware lint, experimental TypeScript API and docs build warnings remain; successful checks do not imply publication.
+`pnpm test:hosts` passed14 tests in2 files, both tasks successful. `5849e791` contains the independently reviewed ESM fix and generator spacing cleanup. The final combined check, current packed-consumer suite and rebuilt native host journeys all passed after the contract-walker cleanup; both independent final reviews and the scoped fix review are approved. Full logs are saved under `/private/tmp/untangle-final-*.log`. The final source and package logs end in `check-walker.log` and `packages-walker.log`; the rebuilt host log ends in `hosts-walker.log`. Documentation lint passes523 links/anchors across125 documents. The complete ten-fixture root-free compatibility matrix remains a CI gate before integration. Existing type-aware lint, experimental TypeScript API and docs build warnings remain; successful checks do not imply publication.
+
+### Final review and execution rulings
+
+The whole-branch review and independent repeated structural audit both approved spec compliance and quality, with the same minor surplus finding: initial remaining-route discovery accepted implementations even though all callers supply contracts. `6a0f2487` removes its two obsolete private classifiers and uses `isAppRoute` in a contract-only walker. All103 serverless tests and its assertion compiler passed; the scoped re-review approved the fix with no new findings. The final combined check again passed883 tests/56 files and15 tasks, with0 lint errors and365 warnings. The production import ownership map covers112 files: core imports no native integration, adapters depend on core, and React bundles its private React5 implementation. Native routing, legacy validation order, host serialization, supported version/dialect branches, exact Next diagnostics and bounded observable-state polling retain documented reasons to exist.
+
+All controller rulings are retained here before removing the plan's temporary review workspace:
+
+- Ruling: inherited-context dispatch used because isolated dispatch produced opaque task payloads. No shared-file concurrent implementation. Cost if wrong: larger inherited context and review routing rework.
+- Ruling: root may progress disjoint Task4 files while single Task1 implementer owns serverless; Task4 serverless adoption waits for Task1 review. No concurrent git index mutations or shared-file edits. Cost if wrong: task-scoped implementation rework.
+- Ruling: Task5 metadata export verification includes admitted Nest12 in addition to plan-listed9/10/11 — current peer range includes12 and scope preserves existing support; cost if wrong is extra read-only verification.
+- Ruling: root may progress disjoint Task9 example files while Task3 child owns build configs — independent ownership avoids idle time; shared contributor docs, builds and index operations stay serialized. Cost if wrong is task-scoped rework.
+- Ruling: docs own their UI test config/task rather than coupling consent tests to the root examples project — root RTL resolves React18 while docs useReact19, causing all12 renderer failures. Native doc-local ReactDOM tests avoid mixing runtime versions; docs task runs them, root examples exclude docs. Cost if wrong is test orchestration rework.
+- Ruling: controller continues new task implementation after repeated unusable worker delivery; per-task independent reviews remain mandatory. Cost if wrong is reduced separation of implementation context.
+
+All twelve implementation/verification tasks are complete locally. No worthwhile structural findings remain open within the approved scope. The branch is kept for integration review; no PR, merge, versioning or publication was performed. The ten-fixture compatibility matrix remains required in CI before integration, alongside the established pipeline gates.
