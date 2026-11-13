@@ -70,9 +70,7 @@ export class RouterBuilder<
       this._responseHandlers = [];
       this._router = {};
       this._remainingRoutes = new Set(
-        this.getPathsFromContractOrRouter(
-          contractOrBuilder,
-        ) as TRemainingRoutes[],
+        this.getPathsFromContract(contractOrBuilder) as TRemainingRoutes[],
       );
     }
   }
@@ -84,25 +82,6 @@ export class RouterBuilder<
       TRequestExtensionCumulative,
       TRemainingRoutes
     >(this);
-  }
-
-  private isRouteImplementationOrOptions(
-    obj:
-      | PartialRouter<TContract, TPlatformContext, TRequestExtensionCumulative>
-      | AppRouteImplementationOrOptions<
-          AppRoute,
-          TPlatformContext,
-          TRequestExtensionCumulative
-        >,
-  ): obj is AppRouteImplementationOrOptions<
-    AppRoute,
-    TPlatformContext,
-    TRequestExtensionCumulative
-  > {
-    return (
-      typeof obj === 'function' ||
-      ('handler' in obj && typeof obj.handler === 'function')
-    );
   }
 
   private copyRouter(
@@ -127,46 +106,14 @@ export class RouterBuilder<
     >;
   }
 
-  private isContractEndpointOrRouteImplementationOrOptions(
-    obj:
-      | AppRoute
-      | PartialRouter<TContract, TPlatformContext, TRequestExtensionCumulative>
-      | AppRouteImplementationOrOptions<
-          AppRoute,
-          TPlatformContext,
-          TRequestExtensionCumulative
-        >,
-  ): obj is
-    | AppRoute
-    | AppRouteImplementationOrOptions<
-        AppRoute,
-        TPlatformContext,
-        TRequestExtensionCumulative
-      > {
-    return (
-      ('method' in obj && 'path' in obj) ||
-      this.isRouteImplementationOrOptions(obj)
-    );
-  }
-
-  private getPathsFromContractOrRouter(
-    contractOrRouter:
-      | AppRouter
-      | PartialRouter<TContract, TPlatformContext, TRequestExtensionCumulative>,
-    parentPath = '',
-  ) {
+  private getPathsFromContract(contract: AppRouter, parentPath = '') {
     const keyPrefix = parentPath === '' ? '' : `${parentPath}.`;
 
-    return Object.entries(contractOrRouter).reduce((acc, [key, value]) => {
-      if (this.isContractEndpointOrRouteImplementationOrOptions(value)) {
+    return Object.entries(contract).reduce((acc, [key, value]) => {
+      if (isAppRoute(value)) {
         acc.push(`${keyPrefix}${key}`);
       } else {
-        acc.push(
-          ...this.getPathsFromContractOrRouter(
-            contractOrRouter[key] as any,
-            `${keyPrefix}${key}`,
-          ),
-        );
+        acc.push(...this.getPathsFromContract(value, `${keyPrefix}${key}`));
       }
 
       return acc;
