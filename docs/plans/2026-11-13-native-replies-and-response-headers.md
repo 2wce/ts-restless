@@ -1,0 +1,136 @@
+# Native replies and returned serverless headers implementation plan
+
+> **For agentic workers:** Use superpowers:subagent-driven-development to implement the tasks and review the complete change. Steps use checkbox syntax for tracking.
+
+**Goal:** Resolve [#38](https://github.com/2wce/ts-restless/issues/38) and [#42](https://github.com/2wce/ts-restless/issues/42) without changing core contract metadata or other adapters' response APIs.
+
+**Architecture:** Fastify retains ownership once its native reply is sent or hijacked. Serverless accepts optional native Fetch `HeadersInit` on handler responses and merges it at its existing response-writing boundary. Core still owns status/body evaluation only.
+
+**Tech stack:** Node 26.12.0, pnpm 12.14.0, TypeScript, Standard Schema, Fastify 4/5, native Fetch and existing Vite+ source/packed-consumer suites.
+
+**Spec:** The issue acceptance criteria and the design below. The user requested both fixes on a new branch and delegated the returned-header API choice; the recommendation is support with explicit native merge rules.
+
+## Design and constraints
+
+Baseline is fetched main `6f2cbb7b`, containing PR48. Branch: `feat/fix-native-replies-and-response-headers`. Baseline Fastify/serverless suites pass 153 tests in 11 files. Temporary source reproductions confirmed both issues on this baseline, including Fastify 4.28.0 and 5.12.7.
+
+- After awaiting the handler and translating an existing `TsRestResponseError`, Fastify checks `reply.sent` before evaluating or writing the returned envelope. Native Fastify makes this true for both sent and hijacked replies. Preserve native errors, hooks, response-validation behavior and ordinary adapter writes.
+- Serverless handler return types add `headers?: HeadersInit` through an intersection with their existing `ServerInferResponses<T>`. Keep core inference, thrown response-error envelopes and all other adapters unchanged.
+- Returned headers form the base; context headers override ordinary names case-insensitively. Append context `Set-Cookie` values after returned values, preserving distinct cookies and commas in expiry dates. Reuse the existing cookie splitting utility where runtime header iteration combines values.
+- Preserve current JSON/text/Blob/no-body content-type policy after merging. Caller-owned header objects must not be mutated. With no returned headers, retain the existing context header object and behavior. Response middleware and CORS continue to operate after response construction.
+- This is native serverless response customization, not a portable contract response-header declaration. Record why support is preferable to rejecting the previously accepted shape; the broader portable metadata proposal remains deferred.
+- Preserve Fastify root/native5 and `/legacy`/native4, no-Zod entries, strict ESM/CommonJS consumers, supported versions, release guards, raw requests and platform mappings. Add Changesets but do not version, merge or publish.
+- Extend existing suites and consumer fixtures; no tests for source text or mere helper presence.
+
+## Task 1: Respect completed Fastify replies
+
+**Files:** `libs/ts-rest/fastify/src/lib/ts-rest-fastify.ts`, its existing `.spec.ts`, `tests/packaging/fixtures/fastify-runtime.mjs.fixture`, `apps/docs/content/docs/server/fastify.mdx`, `.changeset/respect-native-fastify-replies.md`.
+
+**Interface:** Existing handler signatures and native reply object; no new public API.
+
+- [x] Extend the response-evaluation suite with real native send and hijack scenarios, with validation enabled/disabled. Use a Standard Schema response validator counter, native logger stream, native response headers and HTTP injection. Assert native status/body/headers survive, the validator runs zero times, and no second-send warning appears. A hijacked handler explicitly completes `reply.raw`; no arbitrary waits.
+
+```ts
+reply.status(202).header('x-native', 'sent').send({ early: true });
+return { status: 201, body: { late: true } };
+// Native response: 202 / { early: true }; validationCalls === 0.
+// Hijack variant: reply.hijack(); reply.raw.writeHead(...); reply.raw.end(...).
+```
+
+- [x] Run `pnpm exec vp test run --project fastify` and verify the new assertions fail for the second-write/validation behavior, not fixture errors.
+- [x] Add the native ownership guard immediately before response evaluation:
+
+```ts
+if (reply.sent) {
+  return reply;
+}
+```
+
+- [x] Extend the existing packed Fastify runtime fixture with send/hijack validation-counter assertions. Its existing loops cover Fastify4/5, ESM/CommonJS and both registration paths; retain all original cases and no-Zod behavior.
+- [x] Document the native ownership rule and add a patch Changeset for `@ts-restless/fastify`.
+- [x] Format touched source/docs and rerun Fastify source tests. Record RED/GREEN logs; obtain independent task review before the cohesive commit.
+
+## Task 2: Support returned headers at the serverless boundary
+
+**Files:** `libs/ts-rest/serverless/src/lib/types.ts`, `router.ts`, existing Fetch and Lambda suites, `response-headers.assertions.ts`, the owning assertion config, `tests/packaging/fixtures/validator-types.ts.fixture`, `validator-runtime.mjs.fixture`, serverless router guide, ADR/index/roadmap records, `.changeset/serverless-returned-headers.md`.
+
+**Interface:** Optional Fetch-native header input on the existing handler output:
+
+```ts
+) => Promise<ServerInferResponses<T> & { headers?: HeadersInit }>;
+```
+
+- [x] Add Fetch regressions for records, tuple arrays and `Headers`; ordinary context precedence; repeated cookies with expiry commas; caller header identity/content preservation; JSON, text, Blob and no-body responses; response validation enabled/disabled. Use actual response headers/body, not helper comparisons. Add Lambda V1/V2 regressions proving returned/context cookies reach their existing native maps separately.
+- [x] Add compiler assertions for output `headers?: HeadersInit`, valid inputs and rejection of numeric header values; include the assertion file in its owning config. Run the Fetch tests and compiler before implementation and record the missing-header failures.
+- [x] Extend the local handler return type and runtime result type. Merge at the existing response construction boundary:
+
+```ts
+function mergeResponseHeaders(
+  returned: HeadersInit | undefined,
+  context: Headers,
+) {
+  if (returned === undefined) return context;
+  const merged = new Headers(returned);
+  context.forEach((value, name) => {
+    if (name === 'set-cookie') {
+      for (const cookie of splitCookiesString(value))
+        merged.append(name, cookie);
+    } else {
+      merged.set(name, value);
+    }
+  });
+  return merged;
+}
+```
+
+Create the context header object before calling the handler, then merge `result.headers` into the final response header object before existing status/body/content-type processing. Preserve the no-returned-header path and exception policies.
+
+- [x] Extend the existing validator profile type/runtime fixtures with returned-header input and actual Fetch output assertions. They already install all affected packages and exercise strict ESM/CommonJS across profiles; do not add an unrelated installation harness.
+- [x] Document support, merge precedence, additive cookies, protocol-owned content types and context customization. Add a short ADR for the scoped native API and a minor Changeset for `@ts-restless/serverless`. Link the plan/ADR and distinguish local delivery from publication.
+- [x] Format, run `pnpm exec vp test run --project serverless` and `pnpm --filter @ts-restless/serverless typecheck`, record RED/GREEN and obtain independent task review before the cohesive commit.
+
+## Task 3: Verify and finish
+
+- [x] Run `pnpm check`, `pnpm test:packages`, `pnpm docs:lint`, `pnpm --filter @ts-restless/docs test` and `pnpm test:hosts`; retain exact compiler diagnostics and native version matrices.
+- [x] Review the complete diff independently for native ownership, precedence, cookies, type inference and compatibility. Fix actionable findings and repeat affected checks.
+- [x] Record actual test counts, warnings and remaining integration CI/publication limits. Keep the new branch locally for review; no merge/publication is authorized.
+
+## Execution evidence
+
+Evidence and review outcomes are appended as tasks complete. Baseline log: `/private/tmp/native-replies-baseline.log`.
+
+Task 1: native send/hijack regressions failed before the guard (four expected failures, 50 passing) and passed after it (54 tests in 2 files). Independent spec and quality review approved the change; a minor wording clarification is applied before final review. Packed runtime execution remains part of Task 3. Controller logs: `/private/tmp/native-replies-fastify-full.log`, `/private/tmp/native-replies-fastify-green.log`.
+
+Task 2: 13 expected runtime failures and missing-header compiler diagnostics turned green. Serverless source tests pass 116/9, inference assertions pass, and independent task review is approved. The integration checker caught a Lambda test union-narrowing error; a two-file correction passed focused Lambda/compiler/native checks and scoped re-review. Production behavior was unchanged by that correction. Full installed-package verification passes 38/9, including the extended Fastify and serverless fixtures.
+
+Final gates on the reviewed source:
+
+- `pnpm check`: exit 0; 900 source tests in 56 files, formatting/inference checks passed, zero errors and 365 existing lint warnings. Log `/private/tmp/native-replies-check-final.log`.
+- `pnpm test:packages`: exit 0; 38 installed-package tests in 9 files, including native Fastify 4/5, strict ESM/CommonJS declarations and returned serverless header/cookie fixtures. Log `/private/tmp/native-replies-packages.log`.
+- `pnpm docs:lint`: exit 0; 531 links/anchors across 127 documents. Log `/private/tmp/native-replies-docs-lint.log`.
+- `pnpm --filter @ts-restless/docs test`: exit 0; production build/typecheck, 80 public-document/export checks and 12 checker fixtures passed. CSS optimizer and chunk-size advisories were emitted. Log `/private/tmp/native-replies-docs-test.log`.
+- `pnpm test:hosts`: exit 0; 14 native Azure/Cloudflare host tests in 2 files. Log `/private/tmp/native-replies-hosts.log`.
+
+Task reviews, the two-file Lambda/assertion correction review and final whole-branch review are approved with no open findings. The full independent compatibility matrix remains a CI gate. The fixes are committed locally on the requested branch; no containing publication is verified.
+
+Execution decisions: review/implementation agents inherited context after isolated dispatch delivery failures, trading larger contexts for usable reports. The serverless API is native optional `HeadersInit` with context precedence and additive cookies; revising the merge contract later would require compatibility work.
+
+## Approved header merge follow-up
+
+Approved on 2026-11-13 after focused source probes reproduced duplicate cookies when returned headers are the same context object, lost `Vary` dependencies/wildcards on ordinary replacement, and `Vary: *, Origin` after CORS processing. Keep ordinary context precedence and additive independent cookies. Copy shared input once; merge `Vary` field names case-insensitively, retaining first occurrence order and treating `*` as authoritative. Reuse the same private operation for CORS variation. Preserve caller inputs, core inference and existing serialization.
+
+- [x] Extend existing Fetch/Lambda and packed runtime fixtures, then verify the expected failures before source changes.
+- [x] Correct the native merge/CORS boundary, update ADR0017, guide and the existing serverless Changeset.
+- [x] Run source/type/lint checks, installed consumers, production docs and native hosts; obtain independent review and record actual results before committing.
+
+Installed-consumer follow-up: eight profile cases exposed an admitted itty-router dependency difference. Workspace 5.0.18 calls the response subclass's `clone()`; installed 5.0.24 constructs a plain `Response`, losing `rawBody` before AWS serialization. The new native Fetch/AWS CORS fixture reproduced this without weakening diagnostics or changing peers. The existing CORS boundary now restores the adapter response using its original raw body and the native CORS response's status/headers. Focused source tests against 5.0.24 failed twice before the correction and all 30 Lambda tests pass after it. The installed fixture also asserts JSON body and encoding preservation.
+
+Follow-up verification: initial native RED had 10 expected failures and 116 passes; corrected native suite passes126/9. The additional dependency-boundary RED failed both gateways against itty-router5.0.24; all30 Lambda tests pass against that dependency after the CORS correction. Independent review approved the merge changes and the separate CORS correction with no findings. Final gates on the reviewed source:
+
+- `pnpm check`: exit0; 910 source tests in56 files; formatting/inference checks pass, zero errors and365 existing warnings. `/private/tmp/header-merge-followup-check-final.log`.
+- `pnpm test:packages`: exit0; 38 tests in9 files, including extended strict ESM/CommonJS native Fetch/AWS cases. The initial eight profile failures were traced to CORS body-data loss and corrected without changing peers or suppressing compiler diagnostics. `/private/tmp/header-merge-followup-packages-final.log`.
+- `pnpm docs:lint`: exit0;531 links/anchors across127 documents. `/private/tmp/header-merge-followup-docs-lint.log`.
+- `pnpm --filter @ts-restless/docs test`: exit0; production build/typecheck,80 public checks and12 checker fixtures pass. CSS optimizer/chunk-size advisories remain. `/private/tmp/header-merge-followup-docs.log`.
+- `pnpm test:hosts`: exit0;14 native host tests in2 files. `/private/tmp/header-merge-followup-hosts.log`.
+
+The full independent compatibility matrix remains a CI gate; containing publication remains unverified. The follow-up is kept on the requested local branch.

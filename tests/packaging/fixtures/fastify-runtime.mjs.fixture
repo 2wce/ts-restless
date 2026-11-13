@@ -172,5 +172,44 @@ for (const load of [name => import(name), name => Promise.resolve(require(name))
       const invalid = await fetch(address + '/items/42/untouched?count=3', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
       assert.equal(invalid.status, 422); assert.equal(invalid.headers.get('x-custom'), 'validation'); assert.deepEqual(await invalid.json(), { invalid: true });
     } finally { await custom.close(); }
+    for (const responseValidation of [true, false]) {
+      let validationCalls = 0;
+      const logs = [];
+      const nativeSchema = { '~standard': {
+        version: 1, vendor: 'native-reply-fixture',
+        validate: value => { validationCalls++; return { value }; },
+      } };
+      const nativeContract = c.router({
+        send: { method: 'GET', path: '/native-send', responses: { 201: nativeSchema } },
+        hijack: { method: 'GET', path: '/native-hijack', responses: { 201: nativeSchema } },
+      });
+      const nativeApp = Fastify({ logger: { level: 'warn', stream: { write: message => logs.push(message) } } });
+      const nativeRouter = s.router(nativeContract, {
+        send: async ({ reply }) => {
+          reply.status(202).header('x-native', 'send').send({ early: true });
+          return { status: 201, body: { late: true } };
+        },
+        hijack: async ({ reply }) => {
+          reply.hijack();
+          reply.raw.writeHead(202, { 'content-type': 'application/json', 'x-native': 'hijack' });
+          reply.raw.end(JSON.stringify({ early: true }));
+          return { status: 201, body: { late: true } };
+        },
+      });
+      const nativeOptions = { responseValidation, logInitialization: false };
+      if (registration === 'plugin') nativeApp.register(s.plugin(nativeRouter), nativeOptions);
+      else s.registerRouter(nativeContract, nativeRouter, nativeApp, nativeOptions);
+      try {
+        for (const nativeReply of ['send', 'hijack']) {
+          const result = await nativeApp.inject('/native-' + nativeReply);
+          assert.equal(result.statusCode, 202);
+          assert.deepEqual(result.json(), { early: true });
+          assert.equal(result.headers['x-native'], nativeReply);
+          assert.match(result.headers['content-type'], /^application\/json/);
+          assert.equal(validationCalls, 0);
+          assert.deepEqual(logs, []);
+        }
+      } finally { await nativeApp.close(); }
+    }
   }
 }

@@ -88,6 +88,8 @@ s.registerRouter(contract, router, app, {
 });
 ```
 
+After the handler resolves, the adapter checks native `reply.sent`. If the response is already sent or has been hijacked with `reply.hijack()`, the adapter skips validation and writing of the handler's returned response envelope. With `reply.hijack()`, your handler must complete the raw response itself. This behavior applies to both the Fastify 5 entry and the Fastify 4 `/legacy` entry in development source; check the containing release before relying on it in an installed package.
+
 ### Request Validation Error Handling
 
 The default functionality of handling request validation errors is `combined` which returns a 400 response with all validation errors in the body in this form.

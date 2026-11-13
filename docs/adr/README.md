@@ -25,6 +25,8 @@ ADRs preserve consequential choices and their rationale. Use short Markdown reco
 
 | [0016](0016-parsed-request-ownership.md) | Neutral parsed-request evaluation, native policy and construction-owned mutable state. |
 
+| [0017](0017-serverless-response-headers.md) | Native returned Fetch headers, context precedence and additive cookies in serverless. |
+
 These initial records extract already approved decisions from existing documents; they do not newly approve roadmap proposals.
 
 ## Writing an ADR
