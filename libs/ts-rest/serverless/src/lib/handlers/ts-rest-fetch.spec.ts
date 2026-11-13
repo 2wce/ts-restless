@@ -251,16 +251,20 @@ describe('fetchRequestHandler', () => {
         }),
       },
     });
-    const rawHandler = createFetchHandler(reusableContract, implementation, {
+    const rawHandler = createFetchHandler<
+      typeof reusableContract,
+      {},
+      { requestId: string }
+    >(reusableContract, implementation, {
       responseValidation: false,
     });
-    const validatedHandler = createFetchHandler(
-      reusableContract,
-      implementation,
-      {
-        responseValidation: true,
-      },
-    );
+    const validatedHandler = createFetchHandler<
+      typeof reusableContract,
+      {},
+      { requestId: string }
+    >(reusableContract, implementation, {
+      responseValidation: true,
+    });
 
     const rawResponse = await rawHandler(
       new Request('http://localhost/reused'),

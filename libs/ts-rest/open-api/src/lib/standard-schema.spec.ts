@@ -1130,7 +1130,7 @@ describe('sync/async preparation and converter ordering', () => {
         concatenatedPath,
         type,
         schema,
-      }) => {
+      }): ReturnType<SchemaTransformerSync> => {
         expect(appRoute).toBe(
           id === 'create' ? routes.nested.create : routes.nested.status,
         );
