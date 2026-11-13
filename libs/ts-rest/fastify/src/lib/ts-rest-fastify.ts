@@ -372,6 +372,10 @@ const registerRoute = <TAppRoute extends AppRoute>(
         }
       }
 
+      if (reply.sent) {
+        return reply;
+      }
+
       const evaluation = evaluateResponse({
         appRoute,
         response: { status: result.status, body: result.body },

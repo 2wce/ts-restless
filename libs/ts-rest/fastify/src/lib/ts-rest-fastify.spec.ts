@@ -166,14 +166,81 @@ describe('Fastify entry boundary', () => {
 describe('response evaluation compatibility', () => {
   const s = initServer();
   let app: FastifyInstance;
+  let logMessages: string[];
 
   beforeEach(() => {
-    app = fastify({ logger: false });
+    logMessages = [];
+    app = fastify({
+      logger: {
+        level: 'warn',
+        stream: { write: (message) => logMessages.push(message) },
+      },
+    });
   });
 
   afterEach(async () => {
     await app.close();
   });
+
+  it.each([
+    { nativeReply: 'send', responseValidation: true },
+    { nativeReply: 'send', responseValidation: false },
+    { nativeReply: 'hijack', responseValidation: true },
+    { nativeReply: 'hijack', responseValidation: false },
+  ])(
+    'leaves a native $nativeReply response untouched (validation: $responseValidation)',
+    async ({ nativeReply, responseValidation }) => {
+      let validationCalls = 0;
+      const schema: StandardSchemaV1<{ late: boolean }> = {
+        '~standard': {
+          version: 1,
+          vendor: 'fastify-native-reply-test',
+          validate(value) {
+            validationCalls += 1;
+            return { value: value as { late: boolean } };
+          },
+        },
+      };
+      const contract = c.router({
+        get: {
+          method: 'GET',
+          path: '/native-reply',
+          responses: { 201: schema },
+        },
+      });
+      s.registerRouter(
+        contract,
+        s.router(contract, {
+          get: async ({ reply }) => {
+            if (nativeReply === 'send') {
+              reply
+                .status(202)
+                .header('x-native', 'send')
+                .send({ early: true });
+            } else {
+              reply.hijack();
+              reply.raw.writeHead(202, {
+                'content-type': 'application/json',
+                'x-native': 'hijack',
+              });
+              reply.raw.end(JSON.stringify({ early: true }));
+            }
+            return { status: 201, body: { late: true } };
+          },
+        }),
+        app,
+        { responseValidation, logInitialization: false },
+      );
+
+      const response = await app.inject('/native-reply');
+      expect(response.statusCode).toBe(202);
+      expect(response.json()).toEqual({ early: true });
+      expect(response.headers['x-native']).toBe(nativeReply);
+      expect(response.headers['content-type']).toMatch(/^application\/json/);
+      expect(validationCalls).toBe(0);
+      expect(logMessages).toEqual([]);
+    },
+  );
 
   it.each([
     {
