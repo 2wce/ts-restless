@@ -91,9 +91,9 @@ Create the context header object before calling the handler, then merge `result.
 
 ## Task 3: Verify and finish
 
-- [ ] Run `pnpm check`, `pnpm test:packages`, `pnpm docs:lint`, `pnpm --filter @ts-restless/docs test` and `pnpm test:hosts`; retain exact compiler diagnostics and native version matrices.
-- [ ] Review the complete diff independently for native ownership, precedence, cookies, type inference and compatibility. Fix actionable findings and repeat affected checks.
-- [ ] Record actual test counts, warnings and remaining integration CI/publication limits. Keep the new branch locally for review; no merge/publication is authorized.
+- [x] Run `pnpm check`, `pnpm test:packages`, `pnpm docs:lint`, `pnpm --filter @ts-restless/docs test` and `pnpm test:hosts`; retain exact compiler diagnostics and native version matrices.
+- [x] Review the complete diff independently for native ownership, precedence, cookies, type inference and compatibility. Fix actionable findings and repeat affected checks.
+- [x] Record actual test counts, warnings and remaining integration CI/publication limits. Keep the new branch locally for review; no merge/publication is authorized.
 
 ## Execution evidence
 
@@ -102,3 +102,15 @@ Evidence and review outcomes are appended as tasks complete. Baseline log: `/pri
 Task 1: native send/hijack regressions failed before the guard (four expected failures, 50 passing) and passed after it (54 tests in 2 files). Independent spec and quality review approved the change; a minor wording clarification is applied before final review. Packed runtime execution remains part of Task 3. Controller logs: `/private/tmp/native-replies-fastify-full.log`, `/private/tmp/native-replies-fastify-green.log`.
 
 Task 2: 13 expected runtime failures and missing-header compiler diagnostics turned green. Serverless source tests pass 116/9, inference assertions pass, and independent task review is approved. The integration checker caught a Lambda test union-narrowing error; a two-file correction passed focused Lambda/compiler/native checks and scoped re-review. Production behavior was unchanged by that correction. Full installed-package verification passes 38/9, including the extended Fastify and serverless fixtures.
+
+Final gates on the reviewed source:
+
+- `pnpm check`: exit 0; 900 source tests in 56 files, formatting/inference checks passed, zero errors and 365 existing lint warnings. Log `/private/tmp/native-replies-check-final.log`.
+- `pnpm test:packages`: exit 0; 38 installed-package tests in 9 files, including native Fastify 4/5, strict ESM/CommonJS declarations and returned serverless header/cookie fixtures. Log `/private/tmp/native-replies-packages.log`.
+- `pnpm docs:lint`: exit 0; 531 links/anchors across 127 documents. Log `/private/tmp/native-replies-docs-lint.log`.
+- `pnpm --filter @ts-restless/docs test`: exit 0; production build/typecheck, 80 public-document/export checks and 12 checker fixtures passed. CSS optimizer and chunk-size advisories were emitted. Log `/private/tmp/native-replies-docs-test.log`.
+- `pnpm test:hosts`: exit 0; 14 native Azure/Cloudflare host tests in 2 files. Log `/private/tmp/native-replies-hosts.log`.
+
+Task reviews, the two-file Lambda/assertion correction review and final whole-branch review are approved with no open findings. The full independent compatibility matrix remains a CI gate. The fixes are committed locally on the requested branch; no containing publication is verified.
+
+Execution decisions: review/implementation agents inherited context after isolated dispatch delivery failures, trading larger contexts for usable reports. The serverless API is native optional `HeadersInit` with context precedence and additive cookies; revising the merge contract later would require compatibility work.
