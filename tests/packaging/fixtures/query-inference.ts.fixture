@@ -1,0 +1,25 @@
+import { initContract } from '@ts-restless/core';
+import { initTsrReactQuery } from '@ts-restless/react-query/v5';
+import { initQueryClient } from '@ts-restless/vue-query';
+const c = initContract();
+const contract = c.router({
+  read: {
+    method: 'GET',
+    path: '/a11/:id',
+    responses: { 200: c.type<{ value: string }>() },
+  },
+});
+const react = initTsrReactQuery(contract, { baseUrl: 'https://a11.example' });
+react.read.useQuery({
+  queryKey: ['a11'],
+  queryData: { params: { id: '1' } },
+  select: (r) => r.body.value,
+});
+// @ts-expect-error required path param is missing
+react.read.useQuery({ queryKey: ['a11'] });
+const vue = initQueryClient(contract, { baseUrl: 'https://a11.example' });
+vue.read.useQuery(['a11'], () => ({ params: { id: '1' } }), {
+  select: (r) => r.body.value,
+});
+// @ts-expect-error required request mapper is missing
+vue.read.useQuery(['a11']);

@@ -1,0 +1,55 @@
+import Fastify, { type FastifyRequest, type FastifyReply } from 'fastify';
+import { type IncomingMessage, type ServerResponse } from 'node:http';
+import { initContract } from '@ts-restless/core';
+import { initServer, type RouteHooks } from '{{entry}}';
+import * as v from 'valibot';
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type Expect<T extends true> = T;
+const c = initContract();
+const contract = c.router({ read: {
+  method: 'POST', path: '/items/:id',
+  pathParams: v.object({ id: v.pipe(v.string(), v.transform(Number)) }),
+  query: v.object({ count: v.number() }),
+  headers: v.object({ 'x-token': v.string() }),
+  body: v.object({ name: v.string() }),
+  responses: { 200: c.type<{ value: number }>(), 404: c.type<{ missing: true }>() },
+} });
+const s = initServer();
+const hooks: RouteHooks<typeof contract.read> = {
+  onRequest: async (request, reply) => {
+    const method: 'POST' = request.routeOptions.config.tsRestRoute.method;
+    const nativeRequest: IncomingMessage = request.raw;
+    const nativeReply: ServerResponse = reply.raw;
+    // @ts-expect-error route method remains literal
+    const wrongMethod: 'DELETE' = request.routeOptions.config.tsRestRoute.method;
+    void [method, nativeRequest, nativeReply, wrongMethod];
+  },
+  preHandler: async (request, reply) => { reply.header('x-path', request.routeOptions.config.tsRestRoute.path); },
+};
+const implementation = s.router(contract, { read: {
+  hooks,
+  handler: s.route(contract.read, async ({ params, query, body, headers, request, reply, appRoute }) => {
+    type Id = Expect<Equal<typeof params.id, number>>;
+    type Count = Expect<Equal<typeof query.count, number>>;
+    const name: string = body.name;
+    const token: string = headers['x-token'];
+    const nativeRequest: FastifyRequest = request;
+    const nativeReply: FastifyReply = reply;
+    const rawRequest: IncomingMessage = request.raw;
+    const rawReply: ServerResponse = reply.raw;
+    const metadata: typeof contract.read = request.routeOptions.config.tsRestRoute;
+    const route: typeof contract.read = appRoute;
+    // @ts-expect-error native reply raw type is ServerResponse
+    const wrongRaw: string = reply.raw;
+    // @ts-expect-error validated params are transformed numbers
+    const wrongId: string = params.id;
+    void [name, token, nativeRequest, nativeReply, rawRequest, rawReply, metadata, route, wrongRaw, wrongId];
+    reply.header('x-native', 'retained');
+    return { status: 200, body: { value: params.id + query.count } };
+  }),
+} });
+s.registerRouter(contract, implementation, Fastify(), { hooks: {
+  onRoute: (route) => { const metadata: typeof contract.read = route.config!.tsRestRoute; void metadata; },
+  onRequest: async (request) => { const metadata: typeof contract.read = request.routeOptions.config.tsRestRoute; void metadata; },
+} });
+Fastify().register(s.plugin(implementation));

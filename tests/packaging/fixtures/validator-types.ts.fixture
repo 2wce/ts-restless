@@ -1,0 +1,155 @@
+import { initClient, initContract, executeQueryRequest, evaluateFetchApiArgs, evaluateResponse, ResponseMetadata, ResponseEvaluation, StandardSchemaV1, SchemaInputOrType, SchemaOutputOrType, ServerInferRequest, ClientInferRequest, ClientInferResponseBody } from '@ts-restless/core';
+import type { ClientArgs } from '@ts-restless/core';
+import { generateOpenApi, type SchemaTransformerSync } from '@ts-restless/open-api';
+import { createExpressEndpoints, initServer } from '@ts-restless/express';
+import * as fastify from '{{fastifyEntry}}';
+import * as nest from '@ts-restless/nest';
+import * as next from '@ts-restless/next';
+import * as serverless from '@ts-restless/serverless';
+import * as fetch from '@ts-restless/serverless/fetch';
+import * as aws from '@ts-restless/serverless/aws';
+import * as azure from '@ts-restless/serverless/azure';
+import * as serverlessNext from '@ts-restless/serverless/next';
+{{definition}}
+const openApiContract = initContract().router({ convert: { method: 'POST', path: '/openapi', body: schema, responses: { 200: schema } } });
+const converter: SchemaTransformerSync = ({ schema: input, type }) => input === schema ? { type: type === 'response' ? 'number' : 'string' } : null;
+const document = generateOpenApi(openApiContract, { info: { title: 'Packed API', version: '1' } }, { schemaTransformer: converter });
+void document;
+const optionalHeader: StandardSchemaV1<string | undefined> = {
+  '~standard': { version: 1, vendor: 'consumer', validate: (value) =>
+    value === undefined || typeof value === 'string' ? { value } : { issues: [{ message: 'Expected optional string' }] } }
+};
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type Expect<T extends true> = T;
+type Input = Expect<Equal<SchemaInputOrType<typeof schema>, string>>;
+type Output = Expect<Equal<SchemaOutputOrType<typeof schema>, number>>;
+const responseContract = initContract().router({
+  text: { method: 'GET', path: '/text', responses: { 200: initContract().otherResponse({ contentType: 'text/plain', body: schema }) } },
+  empty: { method: 'GET', path: '/empty', responses: { 204: initContract().noBody() } },
+});
+const responseClient = initClient(responseContract, { baseUrl: 'https://consumer.example', validateResponse: true });
+type TextOutput = Expect<Equal<Extract<Awaited<ReturnType<typeof responseClient.text>>, { status: 200 }>['body'], number>>;
+type EmptyOutput = Expect<Equal<Extract<Awaited<ReturnType<typeof responseClient.empty>>, { status: 204 }>['body'], undefined>>;
+const contract = initContract().router({ convert: { method: 'POST', path: '/convert', body: schema, headers: { 'X-Count': schema, 'X-Note': optionalHeader }, responses: { 200: schema } } });
+const asyncHeaderClient = initClient(contract, {
+  baseUrl: 'https://consumer.example',
+  baseHeaders: { 'X-Count': async () => '12', 'X-Note': async (): Promise<string | undefined> => undefined },
+});
+type AsyncHeaderInput = Expect<Equal<NonNullable<Parameters<typeof asyncHeaderClient.convert>[0]>['headers'], { 'x-count'?: string; 'x-note'?: string } | undefined>>;
+asyncHeaderClient.convert({ body: '12' });
+const staticPromise: ClientArgs = {
+  baseUrl: 'https://consumer.example',
+  baseHeaders: {
+    // @ts-expect-error asynchronous header values must use per-request callbacks
+    'X-Count': Promise.resolve('12'),
+  },
+};
+void staticPromise;
+const evaluated: ResponseEvaluation = evaluateResponse({
+  appRoute: contract.convert,
+  response: { status: 200, body: '12' },
+  validateBody: true,
+});
+const responseMetadata: ResponseMetadata = evaluated.metadata;
+if (evaluated.success) {
+  const evaluatedBody: unknown = evaluated.body;
+  void evaluatedBody;
+} else {
+  const issueMessage: string = evaluated.error.issues[0].message;
+  void issueMessage;
+}
+// @ts-expect-error callers must explicitly choose validation enablement
+evaluateResponse({ appRoute: contract.convert, response: { status: 200, body: '12' } });
+void responseMetadata;
+type ServerBody = Expect<Equal<ServerInferRequest<typeof contract.convert>['body'], number>>;
+type ClientBody = Expect<Equal<ClientInferRequest<typeof contract.convert>['body'], string>>;
+type ResponseBody = Expect<Equal<ClientInferResponseBody<typeof contract.convert, 200>, number>>;
+type ClientHeaders = Expect<Equal<ClientInferRequest<typeof contract.convert>['headers'], { 'x-count': string; 'x-note'?: string }>>;
+type ServerHeaders = Expect<Equal<ServerInferRequest<typeof contract.convert>['headers'], { 'x-count': number; 'x-note'?: string }>>;
+const c = initContract();
+const emptySchema: StandardSchemaV1<undefined> = { '~standard': { version: 1, vendor: 'packed-empty', validate: (value) => value === undefined ? { value } : { issues: [{ message: 'Expected absent body' }] } } };
+const emptyContract = c.router({ empty: { method: 'POST', path: '/packed-empty', body: emptySchema, responses: { 200: emptySchema } } });
+const emptyFetchHandler = fetch.createFetchHandler(emptyContract, { empty: async () => {
+  type EmptyResponse = Expect<Equal<ClientInferResponseBody<typeof emptyContract.empty, 200>, undefined>>;
+  return { status: 200, body: undefined };
+} }, { responseValidation: true });
+const emptyAwsHandler = aws.createLambdaHandler(emptyContract, { empty: async () => ({ status: 200, body: undefined }) }, { responseValidation: true });
+void [emptyFetchHandler, emptyAwsHandler];
+const plain = c.router({ get: { method: 'GET', path: '/plain', headers: c.type<{ 'x-key': 'route' }>(), responses: { 200: null } } }, { baseHeaders: c.type<{ 'X-Key': string; 'X-Note'?: string }>() });
+type PlainInput = Expect<Equal<ClientInferRequest<typeof plain.get>['headers'], { 'x-key': 'route'; 'x-note'?: string }>>;
+type PlainOutput = Expect<Equal<ServerInferRequest<typeof plain.get>['headers'], { 'x-key': 'route'; 'x-note'?: string }>>;
+const valid: ClientInferRequest<typeof contract.convert> = { body: '12', headers: { 'x-count': '12' } };
+// @ts-expect-error required transformed header cannot be omitted
+const missing: ClientInferRequest<typeof contract.convert> = { body: '12', headers: {} };
+// @ts-expect-error client must supply the schema input type
+const wrong: ClientInferRequest<typeof contract.convert> = { body: '12', headers: { 'x-count': 12 } };
+void [valid, missing, wrong];
+const implementation = initServer().router(contract, { convert: async ({ body, headers }) => {
+  type HandlerBody = Expect<Equal<typeof body, number>>;
+  type HandlerHeaders = Expect<Equal<typeof headers['x-count'], number>>;
+  return { status: 200, body: body.toString() };
+} });
+void implementation;
+const fastifyImplementation = fastify.initServer().router(contract, {
+  convert: async ({ body, headers, request, reply, appRoute }) => {
+    type HandlerBody = Expect<Equal<typeof body, number>>;
+    type HandlerHeaders = Expect<Equal<typeof headers['x-count'], number>>;
+    const nativeBody: unknown = request.body;
+    const nativeReplyRequest: import('fastify').FastifyRequest = reply.request;
+    type NativeMethod = Expect<Equal<typeof request.method, string>>;
+    type NativeStatus = Expect<Equal<typeof reply.statusCode, number>>;
+    const route: typeof contract.convert = appRoute;
+    const nativeRoute: typeof contract.convert = request.routeOptions.config.tsRestRoute;
+    void [nativeBody, nativeReplyRequest, route, nativeRoute];
+    return { status: 200, body: body.toString() };
+  },
+});
+void fastifyImplementation;
+const nextImplementation = next.createNextRoute(contract, {
+  convert: async ({ body, headers, req, res }) => {
+    type HandlerBody = Expect<Equal<typeof body, number>>;
+    type HandlerHeaders = Expect<Equal<typeof headers['x-count'], number>>;
+    const nativeRequest: import('next').NextApiRequest = req;
+    const nativeResponse: import('next').NextApiResponse = res;
+    void [nativeRequest, nativeResponse];
+    return { status: 200, body: body.toString() };
+  },
+});
+const nextRouter = next.createNextRouter(contract, nextImplementation, { responseValidation: true });
+const nextSingle = next.createSingleRouteHandler(contract.convert, async ({ body, headers, req, res }) => {
+  type HandlerBody = Expect<Equal<typeof body, number>>;
+  type HandlerHeaders = Expect<Equal<typeof headers['x-count'], number>>;
+  const nativeRequest: import('next').NextApiRequest = req;
+  const nativeResponse: import('next').NextApiResponse = res;
+  void [nativeRequest, nativeResponse];
+  return { status: 200, body: body.toString() };
+}, { responseValidation: true });
+void [nextRouter, nextSingle];
+const serverlessNextHandler = serverlessNext.createNextHandler(contract, {
+  convert: async ({ body, headers }, { nextRequest }) => {
+    type HandlerBody = Expect<Equal<typeof body, number>>;
+    type HandlerHeaders = Expect<Equal<typeof headers['x-count'], number>>;
+    const nativeRequest: import('next/server.js').NextRequest = nextRequest;
+    void nativeRequest;
+    return { status: 200, body: body.toString() };
+  },
+}, { handlerType: 'app-router', responseValidation: true });
+void serverlessNextHandler;
+const executionRoute = initContract().router({
+  read: {
+    method: 'GET',
+    path: '/a11',
+    responses: { 200: initContract().type<{ value: string }>() },
+  },
+}).read;
+const execution = executeQueryRequest({
+  ...evaluateFetchApiArgs(executionRoute, { baseUrl: 'https://a11.example' }),
+  route: executionRoute,
+});
+type ExecutionBody = Expect<
+  Equal<Awaited<typeof execution>['body'], { value: string }>
+>;
+type ExecutionStatus = Expect<Equal<Awaited<typeof execution>['status'], 200>>;
+// @ts-expect-error successful body value is a string
+const incorrect: Promise<{ body: { value: number } }> = execution;
+void [createExpressEndpoints, initServer, fastify, nest, next, serverless, fetch, aws, azure, serverlessNext];

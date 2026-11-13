@@ -1,0 +1,43 @@
+import { initContract } from '@ts-restless/core';
+import { initQueryClient as initVue } from '@ts-restless/vue-query';
+import { initQueryClient as initSolid } from '@ts-restless/solid-query';
+import { ref, computed } from 'vue';
+import { createSignal } from 'solid-js';
+type Equal<A,B> = (<T>() => T extends A ? 1:2) extends (<T>() => T extends B ? 1:2) ? true:false;
+type Expect<T extends true> = T;
+const c = initContract();
+const contract = c.router({
+ read: { method:'GET', path:'/items/:id', responses:{200:c.type<{value:string}>(),404:c.type<{missing:true}>()} },
+ pages: { method:'GET', path:'/pages', query:c.type<{cursor:number}>(), responses:{200:c.type<{next:number}>()} },
+ write: { method:'POST', path:'/items', body:c.type<{value:string}>(), responses:{200:c.type<{value:string}>()} },
+});
+const vue = initVue(contract,{baseUrl:'https://native.example'});
+const solid = initSolid(contract,{baseUrl:'https://native.example'});
+const id = ref('1');
+const v = vue.read.useQuery(computed(() => ['items',id.value]), () => ({params:{id:id.value}}), {select:r => r.body.value});
+type VueSelected = Expect<Equal<typeof v.data.value,string|undefined>>;
+const vp = vue.pages.useInfiniteQuery(['pages'], ({pageParam}) => { const cursor:number=pageParam;return {query:{cursor}}; }, {initialPageParam:0,getNextPageParam:last => last.body.next});
+const vpSelected = vue.pages.useInfiniteQuery(['pages-selected'], ({pageParam}) => ({query:{cursor:pageParam}}), {initialPageParam:0,getNextPageParam:last => last.body.next,select:r => r.pages.map(p => p.body.next)});
+type VuePage = Expect<Equal<NonNullable<typeof vp.data.value>['pages'][number]['body'],{next:number}>>;
+type VuePageSelect = Expect<Equal<typeof vpSelected.data.value,number[]|undefined>>;
+const [sid] = createSignal('1');
+const sq = solid.read.createQuery(() => ['items',sid()], () => ({params:{id:sid()}}), () => ({select:r => r.body.value}));
+type SolidSelected = Expect<Equal<typeof sq.data,string|undefined>>;
+const sp = solid.pages.createInfiniteQuery(() => ['pages'], ({pageParam}) => { const cursor:number=pageParam;return {query:{cursor}}; }, {initialPageParam:0,getNextPageParam:last => last.body.next});
+const spSelected = solid.pages.createInfiniteQuery(() => ['pages-selected'], ({pageParam}) => ({query:{cursor:pageParam}}), {initialPageParam:0,getNextPageParam:last => last.body.next,select:r => r.pages.map(p => p.body.next)});
+type SolidPage = Expect<Equal<NonNullable<typeof sp.data>['pages'][number]['body'],{next:number}>>;
+type SolidPageSelect = Expect<Equal<typeof spSelected.data,number[]|undefined>>;
+vue.write.useMutation().mutate({body:{value:'ok'}});
+solid.write.createMutation().mutate({body:{value:'ok'}});
+// @ts-expect-error route input remains required
+vue.read.useQuery(['invalid']);
+// @ts-expect-error route input remains required
+solid.read.createQuery(() => ['invalid'], {});
+// @ts-expect-error initialPageParam is required in v5
+vue.pages.useInfiniteQuery(['invalid-pages'],() => ({query:{cursor:0}}),{getNextPageParam:last => last.body.next});
+// @ts-expect-error initialPageParam is required in v5
+solid.pages.createInfiniteQuery(() => ['invalid-pages'],() => ({query:{cursor:0}}),{getNextPageParam:last => last.body.next});
+// @ts-expect-error mutation body must match contract
+vue.write.useMutation().mutate({body:{value:1}});
+// @ts-expect-error mutation body must match contract
+solid.write.createMutation().mutate({body:{value:1}});
