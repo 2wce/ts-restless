@@ -1,0 +1,14 @@
+
+const original = z.object({ value: z.string() });
+const legacyFailure = original.safeParse({ value: 1 }).error;
+for (const compat of [await import('@ts-restless/core/legacy'), require('@ts-restless/core/legacy')]) {
+  const adapted = compat.toStandardSchema(original);
+  assert.notEqual(adapted, original);
+  assert.equal('~standard' in original, false);
+  assert.equal(compat.isZodObject(adapted), true);
+  const historical = compat.zodErrorResponse(legacyFailure);
+  assert.equal(historical.name, 'ZodError');
+  assert.equal(compat.ZodErrorSchema.safeParse(historical).success, true);
+  assert.equal(compat.ZodErrorSchema.safeParse({ ...historical, name: 'ValidationError' }).success, false);
+  assert.deepEqual(adapted['~standard'].validate({ value: 1 }).issues, legacyFailure.issues);
+}

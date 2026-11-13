@@ -2,15 +2,11 @@ import {
   AppRoute,
   AppRouter,
   isAppRoute,
-  isAppRouteNoBody,
-  isAppRouteOtherResponse,
   parseJsonQueryObject,
-  TsRestResponseValidationError as ResponseValidationErrorCore,
-  validateResponse,
+  evaluateResponse,
   HTTPStatusCode,
   TsRestResponseError,
-  validateIfSchema,
-  validateMultiSchemaObject,
+  evaluateRequest,
 } from '@ts-restless/core';
 import { Router, withParams, cors } from 'itty-router';
 import { TsRestRequest } from './request';
@@ -47,24 +43,25 @@ const recursivelyProcessContract = ({
     schema: AppRoute,
   ) => void;
 }): void => {
-  if (isRouterImplementation(router)) {
+  if (!isAppRoute(schema)) {
+    if (typeof router !== 'object') {
+      throw new Error(`[ts-rest] Expected AppRoute but received AppRouter`);
+    }
     for (const key in router) {
-      if (isAppRoute(schema)) {
-        throw new Error(`[ts-rest] Expected AppRouter but received AppRoute`);
-      }
-
       recursivelyProcessContract({
         schema: schema[key],
-        router: router[key],
+        router: (router as RouterImplementation<any, any, any>)[key],
         processRoute,
       });
     }
   } else {
-    if (!isAppRoute(schema)) {
-      throw new Error(`[ts-rest] Expected AppRoute but received AppRouter`);
+    if (isRouterImplementation(router)) {
+      throw new Error(`[ts-rest] Expected AppRouter but received AppRoute`);
     }
-
-    processRoute(router, schema);
+    processRoute(
+      router as AppRouteImplementationOrOptions<AppRoute, any, any>,
+      schema,
+    );
   }
 };
 
@@ -73,28 +70,20 @@ const validateRequest = <TPlatformArgs, TRequestExtension>(
   appRoute: AppRoute,
   options: ServerlessHandlerOptions<TPlatformArgs, TRequestExtension>,
 ) => {
-  const paramsResult = validateIfSchema(req.params, appRoute.pathParams, {
-    passThroughExtraKeys: true,
-  });
-
   const headers: Record<string, string> = {};
   req.headers.forEach((value, key) => {
     headers[key] = value;
   });
-
-  const headersResult = validateMultiSchemaObject(headers, appRoute.headers);
-
-  const queryResult = validateIfSchema(
-    options.jsonQuery
-      ? parseJsonQueryObject(req.query as Record<string, string>)
-      : req.query,
-    appRoute.query,
-  );
-
-  const bodyResult = validateIfSchema(
-    req.content,
-    'body' in appRoute ? appRoute.body : null,
-  );
+  const query = options.jsonQuery
+    ? parseJsonQueryObject(req.query as Record<string, string>)
+    : req.query;
+  const { paramsResult, headersResult, queryResult, bodyResult } =
+    evaluateRequest(appRoute, {
+      params: req.params,
+      headers,
+      query,
+      body: req.content,
+    });
 
   if (
     paramsResult.error ||
@@ -288,55 +277,49 @@ export const createServerlessRouter = <
         }
 
         const statusCode = Number(result.status);
-        let validatedResponseBody = result.body;
+        const evaluation = evaluateResponse({
+          appRoute,
+          response: { status: statusCode, body: result.body },
+          validateBody: options.responseValidation ?? false,
+        });
 
-        if (options.responseValidation) {
-          try {
-            const response = validateResponse({
-              appRoute,
-              response: {
-                status: statusCode,
-                body: result.body,
-              },
-            });
-
-            validatedResponseBody = response.body;
-          } catch (e) {
-            if (e instanceof ResponseValidationErrorCore) {
-              throw new ResponseValidationError(appRoute, e.cause);
-            }
-
-            throw e;
-          }
+        if (!evaluation.success) {
+          throw new ResponseValidationError(appRoute, evaluation.error);
         }
 
-        const responseType = appRoute.responses[statusCode];
+        let validatedResponseBody = evaluation.body;
+        const { metadata } = evaluation;
 
-        if (isAppRouteNoBody(responseType)) {
+        if (metadata.bodyKind === 'none') {
           return new TsRestResponse(null, {
             status: statusCode,
             headers: responseHeaders,
           });
         }
 
-        if (isAppRouteOtherResponse(responseType)) {
+        if (metadata.contentType !== undefined) {
           if (validatedResponseBody instanceof Blob) {
             responseHeaders.set(
               'content-type',
-              validatedResponseBody.type || responseType.contentType,
+              validatedResponseBody.type || metadata.contentType,
             );
 
             validatedResponseBody = await blobToArrayBuffer(
               validatedResponseBody,
             );
           } else {
-            responseHeaders.set('content-type', responseType.contentType);
+            responseHeaders.set('content-type', metadata.contentType);
           }
 
-          return new TsRestResponse(validatedResponseBody, {
-            status: statusCode,
-            headers: responseHeaders,
-          });
+          return new TsRestResponse(
+            validatedResponseBody as ConstructorParameters<
+              typeof TsRestResponse
+            >[0],
+            {
+              status: statusCode,
+              headers: responseHeaders,
+            },
+          );
         }
 
         return TsRestResponse.fromJson(validatedResponseBody, {
@@ -350,7 +333,7 @@ export const createServerlessRouter = <
       const handlers =
         !isAppRouteImplementation(implementationOrOptions) &&
         implementationOrOptions.middleware
-          ? implementationOrOptions.middleware
+          ? [...implementationOrOptions.middleware]
           : [];
 
       handlers.push(routeHandler);

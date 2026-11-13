@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 export const tsr = initTsrReactQuery(postsApi, {
-  baseUrl: 'http://localhost:5003',
+  baseUrl: import.meta.env.VITE_POSTS_API_BASE_URL ?? 'http://localhost:5003',
   baseHeaders: {},
 });
 

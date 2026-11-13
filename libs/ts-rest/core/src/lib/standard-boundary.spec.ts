@@ -30,6 +30,26 @@ describe('validator-independent validation', () => {
 });
 
 describe('explicit Standard Schema boundary', () => {
+  it.each([null, undefined, Symbol('contract-type')])(
+    'passes raw values through a top-level contract marker: %s',
+    (schema) => {
+      const input = { value: 'unchanged' };
+      const result = validateIfSchema(input, schema);
+      expect(result.value).toBe(input);
+      expect(result.schemasUsed).toEqual([]);
+      expect(result.error).toBeUndefined();
+    },
+  );
+
+  it.each([{}, Object.create(null), false, 0, 'schema'])(
+    'rejects a non-schema top-level value instead of treating it as a marker: %s',
+    (schema) => {
+      expect(() => validateIfSchema({ value: 'unchanged' }, schema)).toThrow(
+        'Invalid schema supplied; use a Standard Schema or a contract type marker',
+      );
+    },
+  );
+
   it('rejects a supplied safeParse-only schema rather than mutating it or skipping validation', () => {
     const schema = z.string();
     expect(() => validateIfSchema('hello', schema)).toThrow(/Standard Schema/);

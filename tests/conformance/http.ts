@@ -7,6 +7,12 @@ import type supertest from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod4';
 
+const validationCalls: string[] = [];
+const recordValidation = <T>(location: string, value: T): T => {
+  validationCalls.push(location);
+  return value;
+};
+
 const c = initContract();
 const numericString = z.string().regex(/^\d+$/).transform(Number);
 
@@ -14,25 +20,34 @@ export const httpContract = c.router({
   transform: {
     method: 'POST',
     path: '/conformance/items/:id/:slug',
-    pathParams: z.object({ id: numericString }),
+    pathParams: z
+      .object({ id: numericString })
+      .transform((value) => recordValidation('params', value)),
     query: z
       .object({
         count: numericString,
         limit: z.string().default('5').transform(Number),
         note: z.string().optional(),
       })
-      .passthrough(),
+      .passthrough()
+      .transform((value) => recordValidation('query', value)),
     headers: {
-      'X-Count': numericString,
+      'X-Count': numericString.transform((value) =>
+        recordValidation('headers.count', value),
+      ),
       'X-Default': z
         .string()
         .default('fallback')
-        .transform((s) => s.toUpperCase()),
-      'X-Note': z.string().optional(),
+        .transform((s) => recordValidation('headers.default', s.toUpperCase())),
+      'X-Note': z
+        .string()
+        .optional()
+        .transform((value) => recordValidation('headers.note', value)),
     },
     body: z
       .object({ title: z.string().transform((s) => s.trim().toUpperCase()) })
-      .passthrough(),
+      .passthrough()
+      .transform((value) => recordValidation('body', value)),
     responses: {
       200: c.type<{
         id: number;
@@ -244,6 +259,7 @@ export const describeHttpConformance = (makeHost: () => Promise<HttpHost>) => {
   describe('shared HTTP conformance', () => {
     let host: HttpHost;
     beforeEach(async () => {
+      validationCalls.length = 0;
       host = await makeHost();
     });
     afterEach(async () => {
@@ -254,6 +270,14 @@ export const describeHttpConformance = (makeHost: () => Promise<HttpHost>) => {
       const result = await host.request(validRequest);
       expect(result.status).toBe(200);
       expect(result.body).toEqual(expectedBody);
+      expect(validationCalls).toEqual([
+        'params',
+        'headers.count',
+        'headers.default',
+        'headers.note',
+        'query',
+        'body',
+      ]);
       expect(host.inputs).toHaveLength(1);
       expect(host.inputs[0]).toMatchObject({
         params: { id: 42, slug: 'untouched' },

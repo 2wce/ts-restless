@@ -6,7 +6,7 @@ import {
 
 const usersClient = initClient(usersApi, {
   baseHeaders: {},
-  baseUrl: 'http://localhost:5002',
+  baseUrl: process.env.USERS_API_BASE_URL ?? 'http://localhost:5002',
 });
 
 export const userAdapter = {

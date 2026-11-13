@@ -7,6 +7,7 @@ import {
   GetSyncFunction,
   SchemaTransformerAsync,
   SchemaTransformerSync,
+  SchemaTransformerArgs,
 } from '../types';
 
 type GetBodySchemaHelper = AsyncAndSyncHelper<
@@ -24,52 +25,27 @@ type GetBodySchemaHelper = AsyncAndSyncHelper<
   SchemaConversion | null
 >;
 
-const syncFunc: GetSyncFunction<GetBodySchemaHelper> = ({
-  transformSchema,
+const prepareBody = ({
   appRoute,
   id,
   concatenatedPath,
-}) => {
+}: Pick<
+  SchemaTransformerArgs,
+  'appRoute' | 'id' | 'concatenatedPath'
+>): SchemaTransformerArgs | null => {
   const schema = 'body' in appRoute ? appRoute.body : undefined;
   if (schema == null || schema === ContractNoBody) return null;
-
-  const transformedSchema = resolveSchema(
-    transformSchema({
-      schema,
-      appRoute,
-      id,
-      concatenatedPath,
-      type: 'body',
-    }),
-  );
-
-  if (!transformedSchema) {
-    return null;
-  }
-
-  return transformedSchema;
+  return { schema, appRoute, id, concatenatedPath, type: 'body' };
 };
 
-const asyncFunc: GetAsyncFunction<GetBodySchemaHelper> = async ({
-  transformSchema,
-  appRoute,
-  id,
-  concatenatedPath,
-}) => {
-  const schema = 'body' in appRoute ? appRoute.body : undefined;
-  if (schema == null || schema === ContractNoBody) return null;
+const syncFunc: GetSyncFunction<GetBodySchemaHelper> = (args) => {
+  const context = prepareBody(args);
+  return context ? resolveSchema(args.transformSchema(context)) : null;
+};
 
-  const transformedSchema = resolveSchema(
-    await transformSchema({
-      schema,
-      appRoute,
-      id,
-      concatenatedPath,
-      type: 'body',
-    }),
-  );
-
-  return transformedSchema;
+const asyncFunc: GetAsyncFunction<GetBodySchemaHelper> = async (args) => {
+  const context = prepareBody(args);
+  return context ? resolveSchema(await args.transformSchema(context)) : null;
 };
 
 export const getBodySchema: GetBodySchemaHelper = {

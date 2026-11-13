@@ -1,14 +1,5 @@
-import { getNestRoutePaths } from './route-paths';
-import {
-  applyDecorators,
-  Delete,
-  Get,
-  Patch,
-  Post,
-  Put,
-  SetMetadata,
-  UseInterceptors,
-} from '@nestjs/common';
+import { getHttpVerbDecorator } from './route-decoration';
+import { applyDecorators, SetMetadata, UseInterceptors } from '@nestjs/common';
 import { AppRoute } from '@ts-restless/core';
 import { TsRestInterceptor } from './ts-rest.interceptor';
 import {
@@ -42,7 +33,7 @@ export const TsRest: TsRestType = (
     decorators.push(
       ...[
         SetMetadata(TsRestAppRouteMetadataKey, appRouteOrOptions),
-        getMethodDecorator(appRouteOrOptions),
+        getHttpVerbDecorator(appRouteOrOptions),
         UseInterceptors(TsRestInterceptor),
       ],
     );
@@ -53,21 +44,6 @@ export const TsRest: TsRestType = (
   }
 
   return applyDecorators(...decorators);
-};
-
-const getMethodDecorator = (appRoute: AppRoute) => {
-  switch (appRoute.method) {
-    case 'DELETE':
-      return Delete(getNestRoutePaths(appRoute.path));
-    case 'GET':
-      return Get(getNestRoutePaths(appRoute.path));
-    case 'POST':
-      return Post(getNestRoutePaths(appRoute.path));
-    case 'PATCH':
-      return Patch(getNestRoutePaths(appRoute.path));
-    case 'PUT':
-      return Put(getNestRoutePaths(appRoute.path));
-  }
 };
 
 /**

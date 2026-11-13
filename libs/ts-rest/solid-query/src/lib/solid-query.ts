@@ -57,14 +57,12 @@ type UseQueryArgs<
     : never;
 };
 
-// Data response if it's a 2XX
 type DataResponse<TAppRoute extends AppRoute> = ClientInferResponses<
   TAppRoute,
   SuccessfulHttpStatusCode,
   'force'
 >;
 
-// Error response if it's not a 2XX
 type ErrorResponse<TAppRoute extends AppRoute> = ClientInferResponses<
   TAppRoute,
   ErrorHttpStatusCode,

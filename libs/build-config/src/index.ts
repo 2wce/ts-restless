@@ -1,10 +1,9 @@
 import { mergeConfig, type UserConfig } from 'vite-plus';
 import type { PackUserConfig } from 'vite-plus/pack';
-import swc, { type Options } from 'unplugin-swc';
+import type { Options } from 'unplugin-swc';
 
 // Vite+ tasks are declared per package; share policy through a normal Vite config.
 export function libraryConfig(
-  name: string,
   entry: Record<string, string>,
   options: { pack?: PackUserConfig; workspaceInputs?: string[] } = {},
 ): UserConfig {
@@ -37,16 +36,13 @@ export function libraryConfig(
         },
       },
     },
-    pack: libraryPack(name, entry),
+    pack: libraryPack(entry),
   };
   return mergeConfig(config, { pack: options.pack ?? {} });
 }
 
 // Publishing metadata lives in package.json; pnpm applies it when packing.
-function libraryPack(
-  name: string,
-  entry: Record<string, string>,
-): PackUserConfig {
+function libraryPack(entry: Record<string, string>): PackUserConfig {
   return {
     entry,
     outDir: 'dist',
@@ -55,16 +51,11 @@ function libraryPack(
     dts: true,
     tsconfig: 'tsconfig.lib.json',
     sourcemap: true,
-    unbundle: name === 'react-query',
     deps: { neverBundle: [/^@ts-restless\//], dts: { neverBundle: true } },
     outExtensions: ({ format }: { format: string }) => ({
       js: format === 'es' ? '.esm.mjs' : '.cjs.js',
       dts: format === 'es' ? '.esm.d.mts' : '.cjs.d.ts',
     }),
-    plugins:
-      name === 'nest'
-        ? [swc.rollup(decoratorOptions('tsconfig.lib.json'))]
-        : [],
   };
 }
 

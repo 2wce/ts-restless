@@ -1,7 +1,7 @@
 import {
   AppRoute,
   AppRouter,
-  validateIfSchema,
+  evaluateRequest,
   FlattenAppRouter,
   HTTPStatusCode,
   parseJsonQueryObject,
@@ -11,7 +11,6 @@ import {
   evaluateResponse,
   TsRestResponseValidationError,
   StandardSchemaError,
-  validateMultiSchemaObject,
 } from '@ts-restless/core';
 import * as fastify from 'fastify';
 
@@ -129,30 +128,18 @@ const isAppRouteImplementation = <TRoute extends AppRoute>(
 
 const validateRequest = (
   request: fastify.FastifyRequest,
-  reply: fastify.FastifyReply,
   appRoute: AppRoute,
   options: BaseRegisterRouterOptions,
 ) => {
-  const paramsResult = validateIfSchema(request.params, appRoute.pathParams, {
-    passThroughExtraKeys: true,
-  });
-
-  const headersResult = validateMultiSchemaObject(
-    request.headers,
-    appRoute.headers,
-  );
-
-  const queryResult = validateIfSchema(
-    options.jsonQuery
-      ? parseJsonQueryObject(request.query as Record<string, string>)
-      : request.query,
-    appRoute.query,
-  );
-
-  const bodyResult = validateIfSchema(
-    request.body,
-    'body' in appRoute ? appRoute.body : null,
-  );
+  const { paramsResult, headersResult, queryResult, bodyResult } =
+    evaluateRequest(appRoute, {
+      params: request.params,
+      headers: request.headers,
+      query: options.jsonQuery
+        ? parseJsonQueryObject(request.query as Record<string, string>)
+        : request.query,
+      body: request.body,
+    });
 
   if (
     paramsResult.error ||
@@ -358,12 +345,7 @@ const registerRoute = <TAppRoute extends AppRoute>(
       tsRestRoute: appRoute,
     },
     handler: async (request, reply) => {
-      const validationResults = validateRequest(
-        request,
-        reply,
-        appRoute,
-        options,
-      );
+      const validationResults = validateRequest(request, appRoute, options);
 
       let result: { status: HTTPStatusCode; body: unknown };
       try {

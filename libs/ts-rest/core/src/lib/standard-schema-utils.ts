@@ -73,7 +73,6 @@ export const validateMultiSchemaObject = (
   assertHeaderSchema(schemaObject);
   const schema = parseAsStandardSchema(schemaObject);
 
-  // If the top level is not null we know it's a valid schema we can validate against
   if (schema !== null) {
     const result = validateAgainstStandardSchema(data, schema, {
       passThroughExtraKeys: true,
@@ -267,7 +266,7 @@ export const validateIfSchema = (
   const schemaStandard = parseAsStandardSchema(schema);
 
   if (!schemaStandard) {
-    if (schema !== null && schema !== undefined && typeof schema !== 'symbol') {
+    if (!isContractTypeMarker(schema)) {
       throw new Error(
         'Invalid schema supplied; use a Standard Schema or a contract type marker',
       );

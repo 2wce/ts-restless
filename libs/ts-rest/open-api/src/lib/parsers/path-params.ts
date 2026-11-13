@@ -6,6 +6,8 @@ import {
   GetSyncFunction,
   SchemaTransformerAsync,
   SchemaTransformerSync,
+  SchemaTransformerArgs,
+  SchemaTransformerResult,
 } from '../types';
 import { ParameterObject } from '../model';
 import { schemaObjectToParameters } from './utils';
@@ -73,82 +75,54 @@ const mergeParams = (
   return Array.from(resultMap.values());
 };
 
-const syncFunc: GetSyncFunction<GetPathParameterHelper> = ({
-  transformSchema,
+const preparePath = ({
   appRoute,
   id,
   concatenatedPath,
-}) => {
+}: Pick<SchemaTransformerArgs, 'appRoute' | 'id' | 'concatenatedPath'>) => {
   const schema = appRoute.pathParams;
+  const params = getParamsFromPathOnly(appRoute.path);
+  return {
+    params,
+    context: { schema, appRoute, id, concatenatedPath, type: 'path' as const },
+  };
+};
 
-  const paramsMap = getParamsFromPathOnly(appRoute.path);
-
-  const transformedSchema = resolveSchema(
-    transformSchema({
-      schema,
-      appRoute,
-      id,
-      concatenatedPath,
-      type: 'path',
-    }),
-  )?.schema;
-
-  if (!transformedSchema) {
-    return Array.from(paramsMap.values());
-  }
-
+const assemblePath = (
+  params: Map<string, ParameterObject>,
+  concatenatedPath: string,
+  result: SchemaTransformerResult,
+): ParameterObject[] => {
+  const schema = resolveSchema(result)?.schema;
+  if (!schema) return Array.from(params.values());
   const schemaParams = schemaObjectToParameters(
-    transformedSchema,
+    schema,
     'path',
     false,
     concatenatedPath,
   );
-
-  const schemaParamsMap = new Map(
-    schemaParams.map((param) => [param.name, param]),
+  return mergeParams(
+    params,
+    new Map(schemaParams.map((param) => [param.name, param])),
   );
-
-  return mergeParams(paramsMap, schemaParamsMap);
 };
 
-const asyncFunc: GetAsyncFunction<GetPathParameterHelper> = async ({
-  transformSchema,
-  appRoute,
-  id,
-  concatenatedPath,
-}) => {
-  const schema = appRoute.pathParams;
-
-  const paramsMap = getParamsFromPathOnly(appRoute.path);
-
-  const transformedSchema = resolveSchema(
-    await transformSchema({
-      schema,
-      appRoute,
-      id,
-      concatenatedPath,
-      type: 'path',
-    }),
-  )?.schema;
-
-  if (!transformedSchema) {
-    return Array.from(paramsMap.values());
-  }
-
-  const schemaParams = schemaObjectToParameters(
-    transformedSchema,
-    'path',
-    false,
-    concatenatedPath,
+const syncFunc: GetSyncFunction<GetPathParameterHelper> = (args) => {
+  const { params, context } = preparePath(args);
+  return assemblePath(
+    params,
+    args.concatenatedPath,
+    args.transformSchema(context),
   );
-
-  const schemaParamsMap = new Map(
-    schemaParams.map((param) => [param.name, param]),
-  );
-
-  return mergeParams(paramsMap, schemaParamsMap);
 };
-
+const asyncFunc: GetAsyncFunction<GetPathParameterHelper> = async (args) => {
+  const { params, context } = preparePath(args);
+  return assemblePath(
+    params,
+    args.concatenatedPath,
+    await args.transformSchema(context),
+  );
+};
 export const getPathParameterSchema: GetPathParameterHelper = {
   sync: syncFunc,
   async: asyncFunc,

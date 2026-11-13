@@ -1,0 +1,14 @@
+import { toStandardSchema, ZodInputOrType, ZodInferOrType } from '@ts-restless/core/legacy';
+import { initServer as initLegacyFastify, type RouteHooks } from '@ts-restless/fastify/legacy';
+void initLegacyFastify;
+type LegacyHooks = RouteHooks<import('@ts-restless/core').AppRoute>;
+import { SchemaInputOrType, SchemaOutputOrType } from '@ts-restless/core';
+import { z } from 'zod';
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type Expect<T extends true> = T;
+const original = z.string().transform(Number);
+const schema = toStandardSchema(original);
+type Input = Expect<Equal<SchemaInputOrType<typeof schema>, string>>;
+type Output = Expect<Equal<SchemaOutputOrType<typeof schema>, number>>;
+type LegacyInput = Expect<Equal<ZodInputOrType<typeof original>, string>>;
+type LegacyOutput = Expect<Equal<ZodInferOrType<typeof original>, number>>;

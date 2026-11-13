@@ -4,7 +4,7 @@ import posthog from 'posthog-js';
 import { PostHogProvider as PHProvider, usePostHog } from 'posthog-js/react';
 import { useEffect } from 'react';
 import { useLocation } from '@tanstack/react-router';
-import { cookieConsentGiven } from './CookieBanner';
+import { cookieConsentGiven, consentPersistence } from '../lib/consent';
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -13,12 +13,11 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     posthog.init(key, {
       api_host: import.meta.env.VITE_POSTHOG_HOST ?? 'https://eu.i.posthog.com',
       ui_host: 'https://eu.posthog.com',
-      capture_pageview: false, // We capture pageviews manually
-      capture_pageleave: true, // Enable pageleave capture
-      capture_exceptions: true, // This enables capturing exceptions using Error Tracking, set to false if you don't want this
+      capture_pageview: false,
+      capture_pageleave: true,
+      capture_exceptions: true,
       debug: import.meta.env.DEV,
-      persistence:
-        cookieConsentGiven() === 'yes' ? 'localStorage+cookie' : 'memory',
+      persistence: consentPersistence(cookieConsentGiven()),
     });
   }, []);
 

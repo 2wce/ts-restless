@@ -1,4 +1,8 @@
-import { initContract, TsRestResponseError } from '@ts-restless/core';
+import {
+  initContract,
+  TsRestResponseError,
+  StandardSchemaV1,
+} from '@ts-restless/core';
 import {
   nestControllerContract,
   NestControllerInterface,
@@ -117,6 +121,244 @@ describe('request validation', () => {
 
     return app.getHttpServer();
   };
+
+  describe.each(['modern', 'legacy'] as const)(
+    '%s request evaluation',
+    (api) => {
+      it.each([
+        {
+          label: 'false',
+          output: false,
+          expected: {
+            body: false,
+            query: false,
+            headers: false,
+            undefinedOutput: false,
+          },
+        },
+        {
+          label: 'zero',
+          output: 0,
+          expected: { body: 0, query: 0, headers: 0, undefinedOutput: false },
+        },
+        {
+          label: 'empty string',
+          output: '',
+          expected: {
+            body: '',
+            query: '',
+            headers: '',
+            undefinedOutput: false,
+          },
+        },
+        {
+          label: 'undefined',
+          output: undefined,
+          expected: { undefinedOutput: true },
+        },
+      ])(
+        'retains successful $label transforms in the HTTP handler',
+        async ({ output, expected }) => {
+          const transform: StandardSchemaV1<unknown, unknown> = {
+            '~standard': {
+              version: 1,
+              vendor: 'native-request-regression',
+              validate: () => ({ value: output }),
+            },
+          };
+          const route = c.router({
+            create: {
+              method: 'POST',
+              path: '/transformed',
+              headers: transform,
+              query: transform,
+              body: transform,
+              responses: { 200: c.type<Record<string, unknown>>() },
+            },
+          }).create;
+          const echo = ({
+            body,
+            query,
+            headers,
+          }: {
+            body: unknown;
+            query: unknown;
+            headers: unknown;
+          }) => ({
+            status: 200 as const,
+            body: {
+              body,
+              query,
+              headers,
+              undefinedOutput:
+                body === undefined &&
+                query === undefined &&
+                headers === undefined,
+            },
+          });
+          @Controller()
+          class ModernController {
+            @TsRestHandler(route)
+            handler() {
+              return tsRestHandler(route, async (request) => echo(request));
+            }
+          }
+          @Controller()
+          class LegacyController {
+            @TsRest(route)
+            handler(
+              @TsRestRequest() request: {
+                body: unknown;
+                query: unknown;
+                headers: unknown;
+              },
+            ) {
+              return echo(request);
+            }
+          }
+          const server = await initializeApp(
+            api === 'modern' ? ModernController : LegacyController,
+          );
+          const response = await supertest(server)
+            .post('/transformed?raw=query')
+            .set('x-raw', 'header')
+            .send({ raw: 'body' });
+          expect(response.status).toBe(200);
+          expect(response.body).toEqual(expected);
+        },
+      );
+
+      it('passes raw values for failed locations when rejection is disabled', async () => {
+        const reject: StandardSchemaV1 = {
+          '~standard': {
+            version: 1,
+            vendor: 'disabled-validation',
+            validate: () => ({ issues: [{ message: 'rejected' }] }),
+          },
+        };
+        const route = c.router({
+          create: {
+            method: 'POST',
+            path: '/disabled',
+            headers: reject,
+            query: reject,
+            body: reject,
+            responses: { 200: c.type<Record<string, unknown>>() },
+          },
+        }).create;
+        const options = {
+          validateRequestHeaders: false,
+          validateRequestQuery: false,
+          validateRequestBody: false,
+          jsonQuery: true,
+        };
+        const echo = (request: {
+          body: unknown;
+          query: unknown;
+          headers: unknown;
+        }) => ({
+          status: 200 as const,
+          body: {
+            body: request.body,
+            query: request.query,
+            header: (request.headers as Record<string, string>)['x-raw'],
+          },
+        });
+        @Controller()
+        class ModernController {
+          @TsRestHandler(route, options)
+          handler() {
+            return tsRestHandler(route, async (request) => echo(request));
+          }
+        }
+        @Controller()
+        class LegacyController {
+          @TsRest(route, options)
+          handler(
+            @TsRestRequest() request: {
+              body: unknown;
+              query: unknown;
+              headers: unknown;
+            },
+          ) {
+            return echo(request);
+          }
+        }
+        const server = await initializeApp(
+          api === 'modern' ? ModernController : LegacyController,
+        );
+        const response = await supertest(server)
+          .post('/disabled?count=3')
+          .set('x-raw', 'header')
+          .send({ raw: 'body' });
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual({
+          body: { raw: 'body' },
+          query: { count: '3' },
+          header: 'header',
+        });
+      });
+
+      it('preserves validation order and the native rejection policy', async () => {
+        const calls: string[] = [];
+        const schema = (
+          location: string,
+          reject = false,
+        ): StandardSchemaV1 => ({
+          '~standard': {
+            version: 1,
+            vendor: 'native-request-order',
+            validate(input) {
+              calls.push(location);
+              return reject
+                ? { issues: [{ message: 'invalid path' }] }
+                : { value: input };
+            },
+          },
+        });
+        const route = c.router({
+          create: {
+            method: 'POST',
+            path: '/order/:id',
+            pathParams: schema('params', true),
+            headers: schema('headers'),
+            query: schema('query'),
+            body: schema('body'),
+            responses: { 200: c.type<string>() },
+          },
+        }).create;
+        @Controller()
+        class ModernController {
+          @TsRestHandler(route)
+          handler() {
+            return tsRestHandler(route, async () => ({
+              status: 200,
+              body: 'unreachable',
+            }));
+          }
+        }
+        @Controller()
+        class LegacyController {
+          @TsRest(route)
+          handler(@TsRestRequest() request: unknown) {
+            return { status: 200, body: 'unreachable' };
+          }
+        }
+        const server = await initializeApp(
+          api === 'modern' ? ModernController : LegacyController,
+        );
+        const response = await supertest(server)
+          .post('/order/42')
+          .send({ raw: 'body' });
+        expect(response.status).toBe(400);
+        expect(calls).toEqual(
+          api === 'modern'
+            ? ['params', 'headers', 'query', 'body']
+            : ['params'],
+        );
+      });
+    },
+  );
 
   const contract = initContract().router({
     withBody: {
@@ -430,6 +672,51 @@ describe('ts-rest-nest', () => {
 
     return app.getHttpServer();
   };
+
+  it.each([
+    ['express', true],
+    ['express', false],
+    ['fastify', true],
+    ['fastify', false],
+  ] as const)(
+    'evaluates a legacy response once when enabled on %s (validation %s)',
+    async (adapter, validateResponses) => {
+      let validations = 0;
+      const contract = c.router({
+        route: {
+          method: 'GET',
+          path: '/response-transform',
+          responses: {
+            200: c.otherResponse({
+              contentType: 'text/plain',
+              body: z.string().transform((value) => {
+                validations++;
+                return `${value}!`;
+              }),
+            }),
+          },
+        },
+      });
+
+      @Controller()
+      class ResponseController {
+        @TsRest(contract.route, { validateResponses })
+        async handler() {
+          return { status: 200 as const, body: 'input' };
+        }
+      }
+
+      const server = await initializeApp(
+        { controllers: [ResponseController] },
+        adapter,
+      );
+      const response = await supertest(server).get('/response-transform');
+      expect(response.status).toBe(200);
+      expect(response.text).toBe(validateResponses ? 'input!' : 'input');
+      expect(response.headers['content-type']).toMatch(/^text\/plain/);
+      expect(validations).toBe(validateResponses ? 1 : 0);
+    },
+  );
 
   describe('should handle non-json response types from contract', () => {
     const c = initContract();

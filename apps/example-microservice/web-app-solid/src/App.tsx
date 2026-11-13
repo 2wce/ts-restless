@@ -7,7 +7,7 @@ import { initQueryClient } from '@ts-restless/solid-query';
 import { ApiFetcherArgs, tsRestFetchApi } from '@ts-restless/core';
 
 const client = initQueryClient(postsApi, {
-  baseUrl: 'http://localhost:5003',
+  baseUrl: import.meta.env.VITE_POSTS_API_BASE_URL ?? 'http://localhost:5003',
   baseHeaders: {},
   api: async (args: ApiFetcherArgs & { test?: string }) => {
     return tsRestFetchApi(args);

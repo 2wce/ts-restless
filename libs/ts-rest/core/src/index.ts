@@ -7,6 +7,7 @@ export * from './lib/type-utils';
 export * from './lib/server';
 export { evaluateResponse } from './lib/response';
 export type { ResponseMetadata, ResponseEvaluation } from './lib/response';
+export * from './lib/request';
 export * from './lib/response-validation-error';
 export * from './lib/unknown-status-error';
 export * from './lib/infer-types';

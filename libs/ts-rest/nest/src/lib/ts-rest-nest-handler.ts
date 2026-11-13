@@ -1,14 +1,14 @@
-import { getNestRoutePaths } from './route-paths';
+import { getHttpVerbDecorator } from './route-decoration';
+import { ROUTE_ARGS_METADATA } from '@nestjs/common/constants.js';
 import { Reflector } from '@nestjs/core';
 import { mergeMap, Observable } from 'rxjs';
 import type { Request, Response } from 'express';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import {
+  applyDecorators,
   BadRequestException,
   CallHandler,
-  Delete,
   ExecutionContext,
-  Get,
   HttpException,
   HttpExceptionOptions,
   Inject,
@@ -16,9 +16,6 @@ import {
   InternalServerErrorException,
   NestInterceptor,
   Optional,
-  Patch,
-  Post,
-  Put,
   SetMetadata,
   UseInterceptors,
 } from '@nestjs/common';
@@ -31,8 +28,8 @@ import {
   ServerInferResponses,
   StandardSchemaError,
   TsRestResponseError,
-  validateMultiSchemaObject,
-  validateIfSchema,
+  evaluateRequest,
+  evaluateResponse,
 } from '@ts-restless/core';
 import {
   TsRestAppRouteMetadataKey,
@@ -93,20 +90,19 @@ export class TsRestResponseValidationError extends InternalServerErrorException 
 
 export { TsRestResponseValidationError as ResponseValidationError };
 
-const getHttpVerbDecorator = (route: AppRoute) => {
-  switch (route.method) {
-    case 'GET':
-      return Get(getNestRoutePaths(route.path));
-    case 'POST':
-      return Post(getNestRoutePaths(route.path));
-    case 'PUT':
-      return Put(getNestRoutePaths(route.path));
-    case 'PATCH':
-      return Patch(getNestRoutePaths(route.path));
-    case 'DELETE':
-      return Delete(getNestRoutePaths(route.path));
-  }
-};
+const applyHandlerMetadata = (
+  route: AppRoute,
+  routeKey: string | null,
+  options: TsRestOptions | undefined,
+): MethodDecorator =>
+  applyDecorators(
+    ...(options ? [SetMetadata(TsRestOptionsMetadataKey, options)] : []),
+    SetMetadata(TsRestAppRouteMetadataKey, {
+      appRoute: route,
+      routeKey,
+    } satisfies TsRestAppRouteMetadata),
+    UseInterceptors(TsRestHandlerInterceptor),
+  );
 
 export const TsRestHandler = (
   appRouterOrRoute: AppRouter | AppRoute,
@@ -119,25 +115,10 @@ export const TsRestHandler = (
   ) => {
     const isMultiHandler = !isAppRoute(appRouterOrRoute);
 
-    /**
-     * To make multi handler work we've got to do a trick with virtual methods in the class:
-     *
-     * Originally we used the @All decorator on the original method, but this has issues with different controllers conflicting
-     *
-     * Now, we make a new method for each route in the router, and apply the appropriate decorator to it.
-     *
-     * e.g. say there is a contract with two methods, `getPost` and `updatePost`
-     *
-     * we create two new methods in the class, `handler_getPost` and `handler_updatePost`
-     * and decorate @Get on the first and @Put on the second
-     *
-     * Then, we call the original method from the new method
-     */
+    // A single @All handler let different controllers conflict in Nest.
     if (isMultiHandler) {
       const originalMethod = descriptor.value;
 
-      // Get parameter metadata using Nest's internal key
-      const ROUTE_ARGS_METADATA = '__routeArguments__';
       const originalParamMetadata = Reflect.getMetadata(
         ROUTE_ARGS_METADATA,
         target.constructor,
@@ -148,7 +129,6 @@ export const TsRestHandler = (
         if (isAppRoute(route)) {
           const methodName = `${String(propertyKey)}_${routeKey}`;
 
-          // Create new method that calls original
           target[methodName] = async function (...args: any[]) {
             return originalMethod.apply(this, args);
           };
@@ -176,8 +156,7 @@ export const TsRestHandler = (
             );
           }
 
-          const HttpVerbDecorator = getHttpVerbDecorator(route);
-          HttpVerbDecorator(
+          getHttpVerbDecorator(route)(
             target,
             methodName,
             Object.getOwnPropertyDescriptor(target, methodName)!,
@@ -188,33 +167,14 @@ export const TsRestHandler = (
 
           metadataKeys.forEach((key) => {
             const metadata = reflector.get(key, descriptor.value);
-            if (metadata) {
-              SetMetadata(key, metadata)(
-                target,
-                methodName,
-                Object.getOwnPropertyDescriptor(target, methodName)!,
-              );
-            }
-          });
-
-          if (options) {
-            SetMetadata(TsRestOptionsMetadataKey, options)(
+            SetMetadata(key, metadata)(
               target,
               methodName,
               Object.getOwnPropertyDescriptor(target, methodName)!,
             );
-          }
+          });
 
-          SetMetadata(TsRestAppRouteMetadataKey, {
-            appRoute: route,
-            routeKey,
-          } satisfies TsRestAppRouteMetadata)(
-            target,
-            methodName,
-            Object.getOwnPropertyDescriptor(target, methodName)!,
-          );
-
-          UseInterceptors(TsRestHandlerInterceptor)(
+          applyHandlerMetadata(route, routeKey, options)(
             target,
             methodName,
             Object.getOwnPropertyDescriptor(target, methodName)!,
@@ -224,29 +184,12 @@ export const TsRestHandler = (
 
       return descriptor;
     } else {
-      /**
-       * On the single handler we can just apply the HttpVerb decorator to the original method
-       */
       if (!isAppRoute(appRouterOrRoute)) {
         throw new Error('Expected app route but received app router');
       }
 
-      const HttpVerbDecorator = getHttpVerbDecorator(appRouterOrRoute);
-      HttpVerbDecorator(target, propertyKey, descriptor);
-
-      if (options) {
-        SetMetadata(TsRestOptionsMetadataKey, options)(
-          target,
-          propertyKey,
-          descriptor,
-        );
-      }
-
-      SetMetadata(TsRestAppRouteMetadataKey, {
-        appRoute: appRouterOrRoute,
-        routeKey: null,
-      } satisfies TsRestAppRouteMetadata)(target, propertyKey, descriptor);
-      UseInterceptors(TsRestHandlerInterceptor)(
+      getHttpVerbDecorator(appRouterOrRoute)(target, propertyKey, descriptor);
+      applyHandlerMetadata(appRouterOrRoute, null, options)(
         target,
         propertyKey,
         descriptor,
@@ -301,9 +244,6 @@ export class TsRestHandlerInterceptor implements NestInterceptor {
     private globalOptions: MaybeTsRestOptions,
   ) {}
 
-  /**
-   * We use metadata to store the route, and the key of the route in a router on a given method
-   */
   private getAppRouteFromContext(
     ctx: ExecutionContext,
   ): TsRestAppRouteMetadata {
@@ -332,25 +272,16 @@ export class TsRestHandlerInterceptor implements NestInterceptor {
 
     const options = evaluateTsRestOptions(this.globalOptions, ctx);
 
-    const paramsResult = validateIfSchema(req.params, appRoute.pathParams, {
-      passThroughExtraKeys: true,
-    });
-
-    const headersResult = validateMultiSchemaObject(
-      req.headers,
-      appRoute.headers,
-    );
-
     const query = options.jsonQuery
       ? parseJsonQueryObject(req.query as Record<string, string>)
       : req.query;
-
-    const queryResult = validateIfSchema(query, appRoute.query);
-
-    const bodyResult = validateIfSchema(
-      req.body,
-      'body' in appRoute ? appRoute.body : null,
-    );
+    const { paramsResult, headersResult, queryResult, bodyResult } =
+      evaluateRequest(appRoute, {
+        params: req.params,
+        headers: req.headers,
+        query,
+        body: req.body,
+      });
 
     const isHeadersInvalid =
       headersResult.error && options.validateRequestHeaders;
@@ -379,15 +310,11 @@ export class TsRestHandlerInterceptor implements NestInterceptor {
         try {
           const res = {
             params: paramsResult.value,
-            query: queryResult.value || req.query,
-            body: bodyResult.value || req.body,
-            headers: headersResult.value || req.headers,
+            query: queryResult.error ? req.query : queryResult.value,
+            body: bodyResult.error ? req.body : bodyResult.value,
+            headers: headersResult.error ? req.headers : headersResult.value,
           };
 
-          /**
-           * If we have a routeKey that means we're in a multi handler, and therefore we
-           * need to call the appropriate method WITHIN the implementation object
-           */
           result = routeKey ? await impl[routeKey](res) : await impl(res);
         } catch (e) {
           if (e instanceof TsRestException) {
@@ -406,64 +333,44 @@ export class TsRestHandlerInterceptor implements NestInterceptor {
           }
         }
 
-        const responseAfterValidation = options.validateResponses
-          ? validateResponse(appRoute, result)
-          : result;
-
         const responseType = appRoute.responses[result.status];
+        const responseSchema = isAppRouteOtherResponse(responseType)
+          ? responseType.body
+          : responseType;
+        // Modern Nest treats a missing or null declaration as a configuration error.
+        if (options.validateResponses && !responseSchema) {
+          throw new InternalServerErrorException(
+            `[ts-rest] Couldn't find a response schema for ${result.status} on route ${appRoute.path}`,
+          );
+        }
+        const evaluated = evaluateResponse({
+          appRoute,
+          response: result,
+          validateBody: options.validateResponses,
+        });
+        if (!evaluated.success) {
+          throw new TsRestResponseValidationError(appRoute, evaluated.error);
+        }
 
         if (result.error) {
           throw new HttpException(
-            responseAfterValidation.body,
-            responseAfterValidation.status,
-            {
-              cause: result.error,
-            },
+            evaluated.body as string | Record<string, unknown>,
+            evaluated.metadata.status,
+            { cause: result.error },
           );
         }
 
-        if (isAppRouteOtherResponse(responseType)) {
+        if (evaluated.metadata.contentType !== undefined) {
           if ('setHeader' in res) {
-            res.setHeader('content-type', responseType.contentType);
+            res.setHeader('content-type', evaluated.metadata.contentType);
           } else {
-            res.header('content-type', responseType.contentType);
+            res.header('content-type', evaluated.metadata.contentType);
           }
         }
 
-        res.status(responseAfterValidation.status);
-        return responseAfterValidation.body;
+        res.status(evaluated.metadata.status);
+        return evaluated.body;
       }),
     );
   }
 }
-
-const validateResponse = (
-  appRoute: AppRoute,
-  response: { status: number; body?: unknown },
-): { body: unknown; status: number } => {
-  const { body } = response;
-
-  const responseType = appRoute.responses[response.status];
-  const responseSchema = isAppRouteOtherResponse(responseType)
-    ? responseType.body
-    : responseType;
-
-  if (!responseSchema) {
-    throw new InternalServerErrorException(
-      `[ts-rest] Couldn't find a response schema for ${response.status} on route ${appRoute.path}`,
-    );
-  }
-
-  const responseValidation = validateIfSchema(body, responseSchema);
-
-  if (responseValidation.error) {
-    const { error } = responseValidation;
-
-    throw new TsRestResponseValidationError(appRoute, error);
-  }
-
-  return {
-    status: response.status,
-    body: responseValidation.value,
-  };
-};

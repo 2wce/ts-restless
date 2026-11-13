@@ -266,7 +266,6 @@ export const fetchApi = async (options: FetchApiOptions) => {
     ...normalizeHeaders(headers),
   } as Record<string, string>;
 
-  // Remove any headers that are set to undefined
   Object.keys(combinedHeaders).forEach((key) => {
     if (combinedHeaders[key] === undefined) {
       delete combinedHeaders[key];
@@ -384,14 +383,12 @@ export const evaluateFetchApiArgs = <TAppRoute extends AppRoute>(
     // TODO: remove in 4.0
     next,
 
-    // extra input args
     ...extraInputArgs
   } =
     (inputArgs as ClientInferRequest<AppRouteMutation, ClientArgs> & {
       next?: any;
     }) || {};
 
-  // assert that we removed all non-extra args
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   type AssertExtraInputArgsEmpty = Expect<Equal<typeof extraInputArgs, {}>>;
 

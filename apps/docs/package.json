@@ -8,6 +8,7 @@
     "start": "vp run start-app",
     "postinstall": "fumadocs-mdx",
     "generate-changelog": "node ./generate-changelog.cjs",
+    "check-changelog": "node ./generate-changelog.cjs --check",
     "typecheck": "tsc --noEmit",
     "test": "vp run test-site"
   },

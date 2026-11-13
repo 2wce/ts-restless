@@ -1,5 +1,6 @@
 import {
   AppRouter,
+  AppRoute,
   isAppRoute,
   isAppRouteOtherResponse,
 } from '@ts-restless/core';
@@ -12,6 +13,8 @@ import {
   RouterPath,
   SchemaTransformerAsync,
   SchemaTransformerSync,
+  SchemaTransformerArgs,
+  SchemaTransformerResult,
 } from './types';
 import { getPathParameterSchema } from './parsers/path-params';
 import { getHeaderParameterSchema } from './parsers/headers';
@@ -62,80 +65,70 @@ const getPathsFromRouter = (
   return paths;
 };
 
+type RouteContext = Pick<
+  SchemaTransformerArgs,
+  'appRoute' | 'id' | 'concatenatedPath'
+>;
+const prepareRoute = (path: RouterPath): RouteContext => ({
+  appRoute: path.route,
+  id: path.id,
+  concatenatedPath: [...path.paths, path.id].join('.'),
+});
+const prepareResponse = (
+  context: RouteContext,
+  response: AppRoute['responses'][number],
+): SchemaTransformerArgs => ({
+  schema: isAppRouteOtherResponse(response) ? response.body : response,
+  ...context,
+  type: 'response',
+});
+const responseSchema = (result: SchemaTransformerResult) =>
+  result ? resolveSchema(result)!.schema : null;
+const assembleResponses = (
+  entries: Array<[string, SchemaObject | null]>,
+): Record<string, SchemaObject> => {
+  const responses: Record<string, SchemaObject> = {};
+  for (const [status, schema] of entries)
+    if (schema) responses[status] = schema;
+  return responses;
+};
+const assembleRoute = (path: RouterPath, schemaResults: PathSchemaResults) => ({
+  ...path,
+  schemaResults,
+});
+
 const syncFunc: GetSyncFunction<PerformContractTraversalHelper> = ({
   contract,
   transformSchema,
   jsonQuery,
 }) => {
-  const paths = getPathsFromRouter(contract);
-
   const results: Array<RouterPath & { schemaResults: PathSchemaResults }> = [];
-
-  for (const path of paths) {
-    const concatenatedPath = [...path.paths, path.id].join('.');
-
-    const pathParams = getPathParameterSchema.sync({
-      transformSchema,
-      appRoute: path.route,
-      id: path.id,
-      concatenatedPath,
-    });
-
-    const headerParams = getHeaderParameterSchema.sync({
-      transformSchema,
-      appRoute: path.route,
-      id: path.id,
-      concatenatedPath,
-    });
-
-    const querySchema = getQueryParameterSchema.sync({
-      transformSchema,
-      appRoute: path.route,
-      id: path.id,
-      concatenatedPath,
+  for (const path of getPathsFromRouter(contract)) {
+    const context = prepareRoute(path);
+    const args = { ...context, transformSchema };
+    const pathParams = getPathParameterSchema.sync(args);
+    const headers = getHeaderParameterSchema.sync(args);
+    const query = getQueryParameterSchema.sync({
+      ...args,
       jsonQuery: !!jsonQuery,
     });
-
-    const bodySchema = getBodySchema.sync({
-      transformSchema,
-      appRoute: path.route,
-      id: path.id,
-      concatenatedPath,
-    });
-
-    const responses: Record<string, SchemaObject> = {};
-    for (const [statusCode, _response] of Object.entries(
-      path.route.responses,
-    )) {
-      const schemaValidator = isAppRouteOtherResponse(_response)
-        ? _response.body
-        : _response;
-
-      const responseSchema = transformSchema({
-        schema: schemaValidator,
-        appRoute: path.route,
-        id: path.id,
-        concatenatedPath,
-        type: 'response',
-      });
-
-      if (responseSchema) {
-        responses[statusCode] = resolveSchema(responseSchema)!.schema;
-      }
-    }
-
-    results.push({
-      ...path,
-      schemaResults: {
+    const body = getBodySchema.sync(args);
+    const responses = assembleResponses(
+      Object.entries(path.route.responses).map(([status, response]) => [
+        status,
+        responseSchema(transformSchema(prepareResponse(context, response))),
+      ]),
+    );
+    results.push(
+      assembleRoute(path, {
         path: pathParams,
-        headers: headerParams,
-        query: querySchema,
-        body: bodySchema,
+        headers,
+        query,
+        body,
         responses,
-      },
-    });
+      }),
+    );
   }
-
   return results;
 };
 
@@ -144,78 +137,39 @@ const asyncFunc: GetAsyncFunction<PerformContractTraversalHelper> = async ({
   transformSchema,
   jsonQuery,
 }) => {
-  const paths = getPathsFromRouter(contract);
-
   const results: Array<RouterPath & { schemaResults: PathSchemaResults }> = [];
-
-  for (const path of paths) {
-    const concatenatedPath = [...path.paths, path.id].join('.');
-
-    const pathParams = await getPathParameterSchema.async({
-      transformSchema,
-      appRoute: path.route,
-      id: path.id,
-      concatenatedPath,
-    });
-
-    const headerParams = await getHeaderParameterSchema.async({
-      transformSchema,
-      appRoute: path.route,
-      id: path.id,
-      concatenatedPath,
-    });
-
-    const querySchema = await getQueryParameterSchema.async({
-      transformSchema,
-      appRoute: path.route,
-      id: path.id,
-      concatenatedPath,
+  for (const path of getPathsFromRouter(contract)) {
+    const context = prepareRoute(path);
+    const args = { ...context, transformSchema };
+    const pathParams = await getPathParameterSchema.async(args);
+    const headers = await getHeaderParameterSchema.async(args);
+    const query = await getQueryParameterSchema.async({
+      ...args,
       jsonQuery: !!jsonQuery,
     });
-
-    const bodySchema = await getBodySchema.async({
-      transformSchema,
-      appRoute: path.route,
-      id: path.id,
-      concatenatedPath,
-    });
-
-    const responses: Record<string, SchemaObject> = {};
-    for (const [statusCode, _response] of Object.entries(
-      path.route.responses,
-    )) {
-      const schemaValidator = isAppRouteOtherResponse(_response)
-        ? _response.body
-        : _response;
-
-      const responseSchema = await transformSchema({
-        schema: schemaValidator,
-        appRoute: path.route,
-        id: path.id,
-        concatenatedPath,
-        type: 'response',
-      });
-
-      if (responseSchema) {
-        responses[statusCode] = resolveSchema(responseSchema)!.schema;
-      }
+    const body = await getBodySchema.async(args);
+    const responseEntries: Array<[string, SchemaObject | null]> = [];
+    for (const [status, response] of Object.entries(path.route.responses)) {
+      responseEntries.push([
+        status,
+        responseSchema(
+          await transformSchema(prepareResponse(context, response)),
+        ),
+      ]);
     }
-
-    results.push({
-      ...path,
-      schemaResults: {
+    const responses = assembleResponses(responseEntries);
+    results.push(
+      assembleRoute(path, {
         path: pathParams,
-        headers: headerParams,
-        query: querySchema,
-        body: bodySchema,
+        headers,
+        query,
+        body,
         responses,
-      },
-    });
+      }),
+    );
   }
-
   return results;
 };
-
 export const performContractTraversal: PerformContractTraversalHelper = {
   sync: syncFunc,
   async: asyncFunc,

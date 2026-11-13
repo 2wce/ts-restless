@@ -18,7 +18,6 @@ export const getPathParamsFromArray = (
     pathParams[pathAsArr[index]] = baseUrlPart;
   });
 
-  // remove pathParams where key doesn't start with :
   return Object.entries(pathParams).reduce(
     (acc, [key, value]) => {
       if (key.startsWith(':')) {

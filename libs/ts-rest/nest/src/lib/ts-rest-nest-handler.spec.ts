@@ -18,6 +18,7 @@ import {
   ArgumentsHost,
   Body,
   CallHandler,
+  CanActivate,
   Catch,
   Controller,
   ExceptionFilter,
@@ -30,7 +31,9 @@ import {
   Post,
   Query,
   Res,
+  SetMetadata,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -77,6 +80,230 @@ const RequestValidationErrorSchema = z.object({
 });
 
 describe('ts-rest-nest-handler', () => {
+  it.each(['express', 'fastify'] as const)(
+    'retains original native path metadata precedence on %s',
+    async (adapter) => {
+      const c = initContract();
+      const contract = c.router({
+        route: {
+          method: 'GET',
+          path: '/contract',
+          responses: { 200: c.type<{ ok: true }>() },
+        },
+      });
+      @Controller()
+      class AliasController {
+        @SetMetadata('path', undefined)
+        @TsRestHandler(contract)
+        @SetMetadata('path', '/alias')
+        async handler() {
+          return tsRestHandler(contract, {
+            route: async () => ({ status: 200, body: { ok: true } }),
+          });
+        }
+      }
+      const moduleRef = await Test.createTestingModule({
+        controllers: [AliasController],
+      }).compile();
+      const app =
+        adapter === 'express'
+          ? moduleRef.createNestApplication()
+          : moduleRef.createNestApplication<NestFastifyApplication>(
+              new FastifyAdapter(),
+            );
+      try {
+        await app.init();
+        if (adapter === 'fastify')
+          await app.getHttpAdapter().getInstance().ready();
+        const alias = await supertest(app.getHttpServer()).get('/alias');
+        expect(alias.status).toBe(200);
+        expect(alias.body).toEqual({ ok: true });
+        expect(
+          (await supertest(app.getHttpServer()).get('/contract')).status,
+        ).toBe(404);
+      } finally {
+        await app.close();
+      }
+    },
+  );
+
+  it.each([
+    ['single', 'express'],
+    ['multi', 'express'],
+    ['single', 'fastify'],
+    ['multi', 'fastify'],
+  ] as const)(
+    'preserves falsy metadata, parameters and lifecycle order for %s handlers on %s',
+    async (mode, adapter) => {
+      const c = initContract();
+      const contract = c.router({
+        route: {
+          method: 'GET',
+          path: '/metadata',
+          responses: { 200: z.object({ header: z.string() }) },
+        },
+      });
+      const events: string[] = [];
+
+      @Injectable()
+      class MetadataGuard implements CanActivate {
+        canActivate(context: ExecutionContext) {
+          events.push('guard');
+          const handler = context.getHandler();
+          return [
+            ['false', false],
+            ['zero', 0],
+            ['empty', ''],
+            ['null', null],
+            ['undefined', undefined],
+          ].every(
+            ([key, value]) =>
+              Reflect.hasMetadata(key, handler) &&
+              Reflect.getMetadata(key, handler) === value,
+          );
+        }
+      }
+
+      @Injectable()
+      class LifecycleInterceptor implements NestInterceptor {
+        intercept(context: ExecutionContext, next: CallHandler) {
+          events.push('interceptor:before');
+          return next.handle().pipe(
+            map((body) => {
+              events.push('interceptor:after');
+              return body;
+            }),
+          );
+        }
+      }
+
+      @Controller()
+      class MetadataController {
+        @TsRestHandler(mode === 'multi' ? contract : contract.route)
+        @UseGuards(MetadataGuard)
+        @UseInterceptors(LifecycleInterceptor)
+        @SetMetadata('false', false)
+        @SetMetadata('zero', 0)
+        @SetMetadata('empty', '')
+        @SetMetadata('null', null)
+        @SetMetadata('undefined', undefined)
+        async handler(@Headers('x-value') header: string) {
+          events.push('factory');
+          const implementation = async () => {
+            events.push('implementation');
+            return { status: 200 as const, body: { header } };
+          };
+          return mode === 'multi'
+            ? tsRestHandler(contract, { route: implementation })
+            : tsRestHandler(contract.route, implementation);
+        }
+      }
+
+      const moduleRef = await Test.createTestingModule({
+        controllers: [MetadataController],
+      }).compile();
+      const app =
+        adapter === 'express'
+          ? moduleRef.createNestApplication()
+          : moduleRef.createNestApplication<NestFastifyApplication>(
+              new FastifyAdapter(),
+            );
+      try {
+        await app.init();
+        if (adapter === 'fastify') {
+          await app.getHttpAdapter().getInstance().ready();
+        }
+        const response = await supertest(app.getHttpServer())
+          .get('/metadata')
+          .set('x-value', 'native parameter');
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual({ header: 'native parameter' });
+        expect(events).toEqual([
+          'guard',
+          'interceptor:before',
+          'factory',
+          'implementation',
+          'interceptor:after',
+        ]);
+      } finally {
+        await app.close();
+      }
+    },
+  );
+
+  it.each([
+    ['single', 'express', true],
+    ['single', 'express', false],
+    ['multi', 'express', true],
+    ['multi', 'express', false],
+    ['single', 'fastify', true],
+    ['single', 'fastify', false],
+    ['multi', 'fastify', true],
+    ['multi', 'fastify', false],
+  ] as const)(
+    'evaluates a response once when enabled for %s handlers on %s (validation %s)',
+    async (mode, adapter, validateResponses) => {
+      let validations = 0;
+      const c = initContract();
+      const contract = c.router({
+        route: {
+          method: 'GET',
+          path: '/response-transform',
+          responses: {
+            200: c.otherResponse({
+              contentType: 'text/plain',
+              body: z.string().transform((value) => {
+                validations++;
+                return `${value}!`;
+              }),
+            }),
+          },
+        },
+      });
+
+      @Controller()
+      class ResponseController {
+        @TsRestHandler(mode === 'multi' ? contract : contract.route, {
+          validateResponses,
+        })
+        async handler() {
+          const implementation = async () => ({
+            status: 200 as const,
+            body: 'input',
+          });
+          return mode === 'multi'
+            ? tsRestHandler(contract, { route: implementation })
+            : tsRestHandler(contract.route, implementation);
+        }
+      }
+
+      const moduleRef = await Test.createTestingModule({
+        controllers: [ResponseController],
+      }).compile();
+      const app =
+        adapter === 'express'
+          ? moduleRef.createNestApplication()
+          : moduleRef.createNestApplication<NestFastifyApplication>(
+              new FastifyAdapter(),
+            );
+      try {
+        await app.init();
+        if (adapter === 'fastify') {
+          await app.getHttpAdapter().getInstance().ready();
+        }
+        const response = await supertest(app.getHttpServer()).get(
+          '/response-transform',
+        );
+        expect(response.status).toBe(200);
+        expect(response.text).toBe(validateResponses ? 'input!' : 'input');
+        expect(response.headers['content-type']).toMatch(/^text\/plain/);
+        expect(validations).toBe(validateResponses ? 1 : 0);
+      } finally {
+        await app.close();
+      }
+    },
+  );
+
   describe('multi-handler api', () => {
     it('should be able to implement a whole contract', async () => {
       const c = initContract();

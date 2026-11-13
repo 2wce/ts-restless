@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { initContract } from '@ts-restless/core';
-import { tsr } from '../handlers/ts-rest-fetch';
+import { createFetchHandler, tsr } from '../handlers/ts-rest-fetch';
 import { ContractSubContractPaths } from './types';
 import { getBoundary, parse as parseMultipart } from 'parse-multipart-data';
 import { CompleteRouter, RouterBuilder } from './index';
@@ -82,6 +82,125 @@ describe('RouterBuilder', () => {
 
   beforeEach(() => {
     routerBuilder = routerBuilderBase.clone();
+  });
+
+  describe('clone ownership', () => {
+    const cloneContract = c.router({
+      nested: {
+        first: {
+          method: 'GET',
+          path: '/first',
+          responses: { 200: c.type<string>() },
+        },
+        second: {
+          method: 'GET',
+          path: '/second',
+          responses: { 200: c.type<string>() },
+        },
+      },
+    });
+
+    it('keeps original nested handlers when a completed clone is replaced', async () => {
+      const original = tsr.routerBuilder(cloneContract).fullRouter({
+        nested: {
+          first: async () => ({ status: 200, body: 'original first' }),
+          second: async () => ({ status: 200, body: 'original second' }),
+        },
+      });
+      const cloned = original.clone().partialRouter({
+        nested: {
+          first: async () => ({ status: 200, body: 'replacement' }),
+        },
+      });
+
+      const originalHandler = createFetchHandler(cloneContract, original);
+      const clonedHandler = createFetchHandler(cloneContract, cloned);
+      const originalResponse = await originalHandler(
+        new Request('http://localhost/first'),
+      );
+      const clonedResponse = await clonedHandler(
+        new Request('http://localhost/first'),
+      );
+
+      expect(await originalResponse.json()).toBe('original first');
+      expect(await clonedResponse.json()).toBe('replacement');
+    });
+
+    it('completes nested routes independently in an original and its clone', async () => {
+      const partial = tsr.routerBuilder(cloneContract).partialRouter({
+        nested: {
+          first: async () => ({ status: 200, body: 'shared first' }),
+        },
+      });
+      const cloned = partial.clone().route('nested.second', async () => ({
+        status: 200,
+        body: 'clone second',
+      }));
+      const original = partial.route('nested.second', async () => ({
+        status: 200,
+        body: 'original second',
+      }));
+
+      const originalResponse = await createFetchHandler(
+        cloneContract,
+        original,
+      )(new Request('http://localhost/second'));
+      const clonedResponse = await createFetchHandler(
+        cloneContract,
+        cloned,
+      )(new Request('http://localhost/second'));
+
+      expect(await originalResponse.json()).toBe('original second');
+      expect(await clonedResponse.json()).toBe('clone second');
+    });
+
+    it.each(['route', 'partialRouter'] as const)(
+      'keeps a nested endpoint named handler independent through %s',
+      async (entry) => {
+        const handlerContract = c.router({
+          nested: {
+            handler: cloneContract.nested.first,
+            second: cloneContract.nested.second,
+          },
+        });
+        const partial =
+          entry === 'route'
+            ? tsr
+                .routerBuilder(handlerContract)
+                .route('nested.handler', async () => ({
+                  status: 200,
+                  body: 'shared handler',
+                }))
+            : tsr.routerBuilder(handlerContract).partialRouter({
+                nested: {
+                  handler: async () => ({
+                    status: 200,
+                    body: 'shared handler',
+                  }),
+                },
+              });
+        const cloned = partial.clone().route('nested.second', async () => ({
+          status: 200,
+          body: 'clone second',
+        }));
+        const original = partial.route('nested.second', async () => ({
+          status: 200,
+          body: 'original second',
+        }));
+
+        const originalResponse = await createFetchHandler(
+          handlerContract,
+          original,
+        )(new Request('http://localhost/second'));
+        const clonedResponse = await createFetchHandler(
+          handlerContract,
+          cloned,
+        )(new Request('http://localhost/second'));
+
+        expect(await originalResponse.json()).toBe('original second');
+        expect(await clonedResponse.json()).toBe('clone second');
+      },
+    );
   });
 
   const healthHandler = async () => {

@@ -8,6 +8,8 @@
 
 ## Retained implementation and design records
 
+- [Untangle codebase design](2026-11-12-untangle-codebase-design.md) and [implementation plan](2026-11-12-untangle-codebase.md), implementing the parsed-request/native ownership boundary in [ADR0016](../adr/0016-parsed-request-ownership.md) and the canonical adapter-maintenance slices.
+
 - [OpenAPI conversion and generator bugs](2026-11-11-openapi.md).
 
 - [Fastify 5 compatibility implementation plan](2026-11-11-fastify5-compatibility.md).

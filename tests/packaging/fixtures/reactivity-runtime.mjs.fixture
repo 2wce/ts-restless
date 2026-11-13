@@ -1,0 +1,51 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {JSDOM} from 'jsdom';
+const require=createRequire(import.meta.url);
+const dom=new JSDOM('<!doctype html><html><body></body></html>');
+for(const key of ['window','document','Element','SVGElement','HTMLElement','Node']) globalThis[key]=dom.window[key];
+const delay=() => new Promise(resolve => setTimeout(resolve,10));
+async function until(check) { for(let n=0;n<250;n++){try{check();return;}catch(error){if(n===249)throw error;await delay();}} }
+for (const load of [name => import(name),name => Promise.resolve(require(name))]) {
+ const {initContract}=await load('@ts-restless/core');const c=initContract();
+ const contract=c.router({read:{method:'GET',path:'/items/:id',responses:{200:c.type()}},pages:{method:'GET',path:'/pages',query:c.type(),responses:{200:c.type(),404:c.type()}},write:{method:'POST',path:'/items',body:c.type(),responses:{200:c.type(),404:c.type()}}});
+ for (const framework of ['vue','solid']) {
+  const {initQueryClient}=await load('@ts-restless/'+framework+'-query');
+  const native=await load('@tanstack/'+framework+'-query');
+  const failure={status:404,body:{missing:true},headers:new Headers()};const calls=[];
+  const api=async args => {calls.push(args);if(args.route===contract.pages){const cursor=args.rawQuery.cursor;return cursor<2?{status:200,body:{next:cursor+1},headers:new Headers()}:failure;}if(args.route===contract.write && args.rawBody.value==='fail') return failure;return {status:200,body:{value:args.path},headers:new Headers()};};
+  const client=initQueryClient(contract,{baseUrl:'https://native.example',api});
+  const queryClient=new native.QueryClient({defaultOptions:{queries:{retry:false,gcTime:Infinity,staleTime:Infinity},mutations:{retry:false,gcTime:Infinity}}});
+  let query,pages,mutation,change,dispose;
+  if(framework==='vue') {
+   const vue=await load('vue');const id=vue.ref('1');change=() => {id.value='2';};
+   const app=vue.createApp({setup(){query=client.read.useQuery(vue.computed(() => ['items',id.value]),() => ({params:{id:id.value}}),{select:r => r.body.value});pages=client.pages.useInfiniteQuery(['pages'],({pageParam}) => ({query:{cursor:pageParam}}),{initialPageParam:0,getNextPageParam:r => r.body.next});mutation=client.write.useMutation();return () => null;}});
+   app.use(native.VueQueryPlugin,{queryClient});app.mount(document.createElement('div'));dispose=() => app.unmount();
+  } else {
+   const solid=await load('solid-js');const [id,setId]=solid.createSignal('1');change=() => setId('2');
+   solid.createRoot(stop => {dispose=stop;native.QueryClientProvider({client:queryClient,get children(){query=client.read.createQuery(() => ['items',id()],() => ({params:{id:id()}}),{select:r => r.body.value});pages=client.pages.createInfiniteQuery(() => ['pages'],({pageParam}) => ({query:{cursor:pageParam}}),{initialPageParam:0,getNextPageParam:r => r.body.next});mutation=client.write.createMutation();return null;}});});
+  }
+  const value=(obj,key) => framework==='vue'?obj[key].value:obj[key];
+  try {
+   await until(() => {assert.equal(value(query,'data'),'https://native.example/items/1');assert.equal(value(pages,'isSuccess'),true);});
+   change();await until(() => assert.equal(value(query,'data'),'https://native.example/items/2',framework+' key change '+JSON.stringify(calls.map(a=>a.path))));
+   await pages.fetchNextPage();assert.deepEqual(value(pages,'data').pages.map(p => p.body.next),[1,2]);
+   await pages.fetchNextPage();assert.equal(queryClient.getQueryState(['pages']).error,failure);
+   await mutation.mutateAsync({body:{value:'save'}});const args=calls.find(a => a.route===contract.write);assert.equal(args.body,JSON.stringify({value:'save'}));assert.equal(args.fetchOptions.signal,undefined);await assert.rejects(mutation.mutateAsync({body:{value:'fail'}}),error => error===failure);
+   const pageCalls=calls.filter(a => a.route===contract.pages);assert.deepEqual(pageCalls.map(a => a.rawQuery.cursor),[0,1,2]);assert.ok(pageCalls.every(a => a.fetchOptions.signal instanceof AbortSignal));
+  } finally {dispose();queryClient.clear();}
+  // Active native cancellation must reach the installed binding's transport.
+  let notifyStarted,aborted=0,cancelDispose;
+  const started=new Promise(resolve => {notifyStarted=resolve;});
+  const cancelApi=args => {notifyStarted();return new Promise((_resolve,reject) => args.fetchOptions.signal.addEventListener('abort',() => {aborted++;reject(new DOMException('Aborted','AbortError'));},{once:true}));};
+  const cancelClient=initQueryClient(contract,{baseUrl:'https://native.example',api:cancelApi});
+  const cancelNative=new native.QueryClient({defaultOptions:{queries:{retry:false,gcTime:Infinity}}});
+  if(framework==='vue') {
+   const vue=await load('vue');const app=vue.createApp({setup(){cancelClient.read.useQuery(['cancel'],() => ({params:{id:'1'}}));return () => null;}});app.use(native.VueQueryPlugin,{queryClient:cancelNative});app.mount(document.createElement('div'));cancelDispose=() => app.unmount();
+  } else {
+   const solid=await load('solid-js');solid.createRoot(stop => {cancelDispose=stop;native.QueryClientProvider({client:cancelNative,get children(){cancelClient.read.createQuery(() => ['cancel'],{params:{id:'1'}});return null;}});});
+  }
+  try {await started;await cancelNative.cancelQueries({queryKey:['cancel']});assert.equal(aborted,1);}finally{cancelDispose();cancelNative.clear();}
+ }
+}
+dom.window.close();

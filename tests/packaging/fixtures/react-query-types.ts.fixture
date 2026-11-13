@@ -1,0 +1,125 @@
+import { initContract } from '@ts-restless/core';
+import { initTsrReactQuery } from '@ts-restless/react-query';
+import { QueryClient } from '@tanstack/react-query';
+import { createElement, type PropsWithChildren } from 'react';
+
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends
+  (<T>() => T extends B ? 1 : 2) ? true : false;
+type Expect<T extends true> = T;
+const c = initContract();
+const contract = c.router({
+  pages: {
+    method: 'GET',
+    path: '/pages',
+    query: c.type<{ cursor: number }>(),
+    responses: {
+      200: c.type<{ next: number; value: string }>(),
+      404: c.type<{ missing: true }>(),
+    },
+  },
+  write: {
+    method: 'POST',
+    path: '/pages',
+    body: c.type<{ value: string }>(),
+    responses: {
+      200: c.type<{ saved: string }>(),
+      404: c.type<{ missing: true }>(),
+    },
+  },
+});
+const api = initTsrReactQuery(contract, { baseUrl: 'https://example.test' });
+const normal = api.pages.useQuery({
+  queryKey: ['normal'],
+  queryData: { query: { cursor: 0 } },
+  select: response => response.body.value,
+});
+type Normal = Expect<Equal<typeof normal.data, string | undefined>>;
+type DeclaredError = Expect<Equal<
+  Extract<NonNullable<typeof normal.error>, { status: 404 }>['body'],
+  { missing: true }
+>>;
+const mutation = api.write.useMutation({}, new QueryClient());
+// @ts-expect-error the second argument must be a native QueryClient
+api.write.useMutation({}, {});
+type MutationBody = Expect<Equal<
+  Parameters<typeof mutation.mutate>[0]['body'], { value: string }
+>>;
+type MutationData = Expect<Equal<
+  NonNullable<typeof mutation.data>['body'], { saved: string }
+>>;
+mutation.mutate({ body: { value: 'saved' } });
+// @ts-expect-error mutation body is contract typed
+mutation.mutate({ body: { value: 1 } });
+// @ts-expect-error mutation variables are not wrapped in queryData
+mutation.mutate({ queryData: { body: { value: 'saved' } } });
+const Provider = ({ children }: PropsWithChildren) =>
+  createElement(api.ReactQueryProvider, null, children);
+const cache = api.useQueryClient();
+const cached = cache.pages.getQueryData(['normal']);
+type CachedBody = Expect<Equal<
+  NonNullable<typeof cached>['body'], { next: number; value: string }
+>>;
+const infiniteCached = cache.pages.getInfiniteQueryData<number>(['infinite']);
+type InfiniteCachedBody = Expect<Equal<
+  NonNullable<typeof infiniteCached>['pages'][number]['body'], { next: number; value: string }
+>>;
+type InfiniteParams = Expect<Equal<
+  NonNullable<typeof infiniteCached>['pageParams'], number[]
+>>;
+const unknownInfinite = cache.pages.getInfiniteQueryData(['infinite']);
+type UnknownParams = Expect<Equal<NonNullable<typeof unknownInfinite>['pageParams'], unknown[]>>;
+// @ts-expect-error an infinite cache has no single-response body
+infiniteCached?.body;
+cache.pages.setInfiniteQueryData<number>(['infinite'], old => {
+  type Old = Expect<Equal<typeof old, typeof infiniteCached>>;
+  return old && { ...old, pageParams: [0, 1] };
+});
+cache.pages.setInfiniteQueryData<number>(['infinite'], {
+  pages: [{ status: 200, body: { next: 1, value: 'first' }, headers: new Headers() }], pageParams: [0],
+});
+// @ts-expect-error pages preserve the contract's response body
+cache.pages.setInfiniteQueryData(['infinite'], { pages: [{ status: 200, body: { next: 1, value: 123 }, headers: new Headers() }], pageParams: [0] });
+// @ts-expect-error explicit page parameters are numeric
+cache.pages.setInfiniteQueryData<number>(['infinite'], { pages: [], pageParams: ['bad'] });
+// @ts-expect-error updater return values preserve page parameter types
+cache.pages.setInfiniteQueriesData<number>({}, old => old && { ...old, pageParams: ['bad'] });
+const infiniteEntries = cache.pages.getInfiniteQueriesData<number>({ queryKey: ['infinite'] });
+type EntryData = Expect<Equal<typeof infiniteEntries[number][1], typeof infiniteCached>>;
+const updatedEntries = cache.pages.setInfiniteQueriesData<number>({ queryKey: ['infinite'] }, old => old);
+type UpdatedEntryData = Expect<Equal<typeof updatedEntries[number][1], typeof infiniteCached>>;
+const infiniteState = cache.pages.getInfiniteQueryState<number>(['infinite']);
+type InfiniteStateData = Expect<Equal<NonNullable<typeof infiniteState>['data'], typeof infiniteCached>>;
+type InfiniteStateError = Expect<Equal<
+  Extract<NonNullable<NonNullable<typeof infiniteState>['error']>, { status: 404 }>['body'], { missing: true }
+>>;
+const infinite = api.pages.useInfiniteQuery({
+  queryKey: ['infinite'],
+  initialPageParam: 0,
+  queryData: ({ pageParam }) => {
+    type Page = Expect<Equal<typeof pageParam, number>>;
+    return { query: { cursor: pageParam } };
+  },
+  getNextPageParam: last => last.body.next,
+  select: data => data.pages.map(page => page.body.value),
+});
+type Infinite = Expect<Equal<typeof infinite.data, string[] | undefined>>;
+const suspense = api.pages.useSuspenseInfiniteQuery({
+  queryKey: ['suspense'],
+  initialPageParam: 0,
+  queryData: ({ pageParam }) => ({ query: { cursor: pageParam } }),
+  getNextPageParam: last => last.body.next,
+  select: data => data.pages.map(page => page.body.value),
+});
+type Suspense = Expect<Equal<typeof suspense.data, string[]>>;
+// @ts-expect-error request cursor must be numeric
+api.pages.useQuery({ queryKey: ['bad'], queryData: { query: { cursor: 'bad' } } });
+
+const initial = api.pages.useInfiniteQuery({
+  queryKey: ['initial'],
+  initialPageParam: 0,
+  initialData: { pages: [{ status: 200, body: { next: 1, value: 'first' }, headers: new Headers() }], pageParams: [0] },
+  queryData: ({ pageParam }) => ({ query: { cursor: pageParam } }),
+  getNextPageParam: last => last.body.next,
+  select: data => data.pages.map(page => page.body.value),
+});
+type Initial = Expect<Equal<typeof initial.data, string[]>>;

@@ -1,4 +1,4 @@
-import { AppRoute, AppRouter } from '@ts-restless/core';
+import { AppRoute, AppRouter, isAppRoute } from '@ts-restless/core';
 import { RequestHandler } from 'itty-router';
 import { TsRestRequest } from '../request';
 import {
@@ -62,7 +62,7 @@ export class RouterBuilder<
       this.contract = contractOrBuilder.contract;
       this._requestMiddleware = [...contractOrBuilder._requestMiddleware];
       this._responseHandlers = [...contractOrBuilder._responseHandlers];
-      this._router = Object.assign({}, contractOrBuilder._router);
+      this._router = this.copyRouter(contractOrBuilder._router, this.contract);
       this._remainingRoutes = new Set(contractOrBuilder._remainingRoutes);
     } else {
       this.contract = contractOrBuilder;
@@ -70,9 +70,7 @@ export class RouterBuilder<
       this._responseHandlers = [];
       this._router = {};
       this._remainingRoutes = new Set(
-        this.getPathsFromContractOrRouter(
-          contractOrBuilder,
-        ) as TRemainingRoutes[],
+        this.getPathsFromContract(contractOrBuilder) as TRemainingRoutes[],
       );
     }
   }
@@ -86,65 +84,36 @@ export class RouterBuilder<
     >(this);
   }
 
-  private isRouteImplementationOrOptions(
-    obj:
-      | PartialRouter<TContract, TPlatformContext, TRequestExtensionCumulative>
-      | AppRouteImplementationOrOptions<
-          AppRoute,
-          TPlatformContext,
-          TRequestExtensionCumulative
-        >,
-  ): obj is AppRouteImplementationOrOptions<
-    AppRoute,
-    TPlatformContext,
-    TRequestExtensionCumulative
-  > {
-    return (
-      typeof obj === 'function' ||
-      ('handler' in obj && typeof obj.handler === 'function')
-    );
+  private copyRouter(
+    router: PartialRouter<
+      TContract,
+      TPlatformContext,
+      TRequestExtensionCumulative
+    >,
+    contract: AppRouter,
+  ): PartialRouter<TContract, TPlatformContext, TRequestExtensionCumulative> {
+    return Object.fromEntries(
+      Object.entries(router).map(([key, value]) => [
+        key,
+        isAppRoute(contract[key])
+          ? value
+          : this.copyRouter(value as any, contract[key] as AppRouter),
+      ]),
+    ) as PartialRouter<
+      TContract,
+      TPlatformContext,
+      TRequestExtensionCumulative
+    >;
   }
 
-  private isContractEndpointOrRouteImplementationOrOptions(
-    obj:
-      | AppRoute
-      | PartialRouter<TContract, TPlatformContext, TRequestExtensionCumulative>
-      | AppRouteImplementationOrOptions<
-          AppRoute,
-          TPlatformContext,
-          TRequestExtensionCumulative
-        >,
-  ): obj is
-    | AppRoute
-    | AppRouteImplementationOrOptions<
-        AppRoute,
-        TPlatformContext,
-        TRequestExtensionCumulative
-      > {
-    return (
-      ('method' in obj && 'path' in obj) ||
-      this.isRouteImplementationOrOptions(obj)
-    );
-  }
-
-  private getPathsFromContractOrRouter(
-    contractOrRouter:
-      | AppRouter
-      | PartialRouter<TContract, TPlatformContext, TRequestExtensionCumulative>,
-    parentPath = '',
-  ) {
+  private getPathsFromContract(contract: AppRouter, parentPath = '') {
     const keyPrefix = parentPath === '' ? '' : `${parentPath}.`;
 
-    return Object.entries(contractOrRouter).reduce((acc, [key, value]) => {
-      if (this.isContractEndpointOrRouteImplementationOrOptions(value)) {
+    return Object.entries(contract).reduce((acc, [key, value]) => {
+      if (isAppRoute(value)) {
         acc.push(`${keyPrefix}${key}`);
       } else {
-        acc.push(
-          ...this.getPathsFromContractOrRouter(
-            contractOrRouter[key] as any,
-            `${keyPrefix}${key}`,
-          ),
-        );
+        acc.push(...this.getPathsFromContract(value, `${keyPrefix}${key}`));
       }
 
       return acc;
@@ -284,21 +253,18 @@ export class RouterBuilder<
         TRequestExtensionCumulative,
         TNewRemainingRoutes
       > {
-    this.getPathsFromContractOrRouter(partialRouter).forEach((path) => {
-      this._remainingRoutes.delete(path as TRemainingRoutes);
-    });
-
     const mergePartialRouter = (
       targetRouter: any,
       subRouter: any,
+      contract: AppRouter,
       parentPath = '',
     ) => {
       const keyPrefix = parentPath === '' ? '' : `${parentPath}.`;
 
       return Object.entries(subRouter).forEach(([key, value]) => {
-        if (this.isRouteImplementationOrOptions(value as any)) {
+        if (isAppRoute(contract[key])) {
           this._remainingRoutes.delete(
-            `${keyPrefix}.${key}` as TRemainingRoutes,
+            `${keyPrefix}${key}` as TRemainingRoutes,
           );
 
           targetRouter[key] = value;
@@ -307,12 +273,17 @@ export class RouterBuilder<
             targetRouter[key] = {};
           }
 
-          mergePartialRouter(targetRouter[key], value, `${keyPrefix}.${key}`);
+          mergePartialRouter(
+            targetRouter[key],
+            value,
+            contract[key] as AppRouter,
+            `${keyPrefix}${key}`,
+          );
         }
       });
     };
 
-    mergePartialRouter(this._router, partialRouter);
+    mergePartialRouter(this._router, partialRouter, this.contract);
 
     if (this._remainingRoutes.size > 0) {
       // @ts-expect-error - assert that _remainingRoutes.size > 0 means TNewRemainingRoutes is not `never`
@@ -393,7 +364,6 @@ export class RouterBuilder<
     this._router = router;
     this._remainingRoutes.clear();
 
-    // full router passed, convert to Router
     return new CompleteRouter<
       TContract,
       TPlatformContext,

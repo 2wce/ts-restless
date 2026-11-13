@@ -21,8 +21,6 @@ export const encodeQueryParamsJson = (query: unknown) => {
     .map(([key, value]) => {
       let encodedValue;
 
-      // if value is a string and is not a reserved JSON value or a number, pass it without encoding
-      // this makes strings look nicer in the URL (e.g. ?name=John instead of ?name=%22John%22)
       // this is also how OpenAPI will pass strings even if they are marked as application/json types
       if (
         typeof value === 'string' &&
@@ -44,16 +42,12 @@ export const encodeQueryParams = (query: unknown) => {
     return '';
   }
 
-  return (
-    Object.keys(query)
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      .flatMap((key) => tokeniseValue(key, query[key]))
-      .map(([key, value]) => {
-        return `${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
-      })
-      .join('&')
-  );
+  return Object.entries(query)
+    .flatMap(([key, value]) => tokeniseValue(key, value))
+    .map(([key, value]) => {
+      return `${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+    })
+    .join('&');
 };
 
 /**
@@ -82,10 +76,8 @@ const tokeniseValue = (key: string, value: unknown): [string, string][] => {
   }
 
   if (typeof value === 'object') {
-    return Object.keys(value).flatMap((k) =>
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      tokeniseValue(`${key}[${k}]`, value[k]),
+    return Object.entries(value).flatMap(([nestedKey, nestedValue]) =>
+      tokeniseValue(`${key}[${nestedKey}]`, nestedValue),
     );
   }
 
@@ -101,8 +93,6 @@ export const parseJsonQueryObject = (query: Record<string, string>) => {
   return Object.fromEntries(
     Object.entries(query).map(([key, value]) => {
       let parsedValue: any;
-      // if json parse fails, treat the value as a string
-      // this allows us to pass strings without having to surround them with quotes
       try {
         parsedValue = JSON.parse(value);
       } catch {

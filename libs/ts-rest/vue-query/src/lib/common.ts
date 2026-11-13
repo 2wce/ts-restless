@@ -14,14 +14,12 @@ import {
   evaluateFetchApiArgs,
 } from '@ts-restless/core';
 
-// Data response if it's a 2XX
 export type DataResponse<TAppRoute extends AppRoute> = ClientInferResponses<
   TAppRoute,
   SuccessfulHttpStatusCode,
   'force'
 >;
 
-// Error response if it's not a 2XX
 export type ErrorResponse<TAppRoute extends AppRoute> = ClientInferResponses<
   TAppRoute,
   ErrorHttpStatusCode,
