@@ -21,8 +21,6 @@ export const encodeQueryParamsJson = (query: unknown) => {
     .map(([key, value]) => {
       let encodedValue;
 
-      // if value is a string and is not a reserved JSON value or a number, pass it without encoding
-      // this makes strings look nicer in the URL (e.g. ?name=John instead of ?name=%22John%22)
       // this is also how OpenAPI will pass strings even if they are marked as application/json types
       if (
         typeof value === 'string' &&
@@ -95,8 +93,6 @@ export const parseJsonQueryObject = (query: Record<string, string>) => {
   return Object.fromEntries(
     Object.entries(query).map(([key, value]) => {
       let parsedValue: any;
-      // if json parse fails, treat the value as a string
-      // this allows us to pass strings without having to surround them with quotes
       try {
         parsedValue = JSON.parse(value);
       } catch {

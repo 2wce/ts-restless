@@ -115,20 +115,7 @@ export const TsRestHandler = (
   ) => {
     const isMultiHandler = !isAppRoute(appRouterOrRoute);
 
-    /**
-     * To make multi handler work we've got to do a trick with virtual methods in the class:
-     *
-     * Originally we used the @All decorator on the original method, but this has issues with different controllers conflicting
-     *
-     * Now, we make a new method for each route in the router, and apply the appropriate decorator to it.
-     *
-     * e.g. say there is a contract with two methods, `getPost` and `updatePost`
-     *
-     * we create two new methods in the class, `handler_getPost` and `handler_updatePost`
-     * and decorate @Get on the first and @Put on the second
-     *
-     * Then, we call the original method from the new method
-     */
+    // A single @All handler let different controllers conflict in Nest.
     if (isMultiHandler) {
       const originalMethod = descriptor.value;
 
@@ -197,9 +184,6 @@ export const TsRestHandler = (
 
       return descriptor;
     } else {
-      /**
-       * On the single handler we can just apply the HttpVerb decorator to the original method
-       */
       if (!isAppRoute(appRouterOrRoute)) {
         throw new Error('Expected app route but received app router');
       }
@@ -260,9 +244,6 @@ export class TsRestHandlerInterceptor implements NestInterceptor {
     private globalOptions: MaybeTsRestOptions,
   ) {}
 
-  /**
-   * We use metadata to store the route, and the key of the route in a router on a given method
-   */
   private getAppRouteFromContext(
     ctx: ExecutionContext,
   ): TsRestAppRouteMetadata {
@@ -334,10 +315,6 @@ export class TsRestHandlerInterceptor implements NestInterceptor {
             headers: headersResult.error ? req.headers : headersResult.value,
           };
 
-          /**
-           * If we have a routeKey that means we're in a multi handler, and therefore we
-           * need to call the appropriate method WITHIN the implementation object
-           */
           result = routeKey ? await impl[routeKey](res) : await impl(res);
         } catch (e) {
           if (e instanceof TsRestException) {

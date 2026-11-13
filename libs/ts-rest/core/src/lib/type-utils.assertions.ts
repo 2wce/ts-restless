@@ -9,14 +9,18 @@ import {
 } from './type-utils';
 
 const zodObject = z.object({ title: z.string() });
-type Test1 = SchemaOutputOrType<typeof zodObject>;
+type ObjectOutput = Expect<
+  Equal<SchemaOutputOrType<typeof zodObject>, { title: string }>
+>;
 
 const zodObjectNullable = zodObject.nullable();
-type Test2 = SchemaOutputOrType<typeof zodObject>;
+type NullableOutput = Expect<
+  Equal<SchemaOutputOrType<typeof zodObjectNullable>, { title: string } | null>
+>;
 
-type Test3 = SchemaOutputOrType<{ title: string }>;
-
-it.todo('should infer type');
+type PlainOutput = Expect<
+  Equal<SchemaOutputOrType<{ title: string }>, { title: string }>
+>;
 
 type AreAllPropertiesOptional1 = Expect<
   Equal<AreAllPropertiesOptional<{ a: string; b?: string }>, false>

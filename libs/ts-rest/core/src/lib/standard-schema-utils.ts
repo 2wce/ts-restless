@@ -73,7 +73,6 @@ export const validateMultiSchemaObject = (
   assertHeaderSchema(schemaObject);
   const schema = parseAsStandardSchema(schemaObject);
 
-  // If the top level is not null we know it's a valid schema we can validate against
   if (schema !== null) {
     const result = validateAgainstStandardSchema(data, schema, {
       passThroughExtraKeys: true,

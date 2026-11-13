@@ -11,7 +11,8 @@
     "**/*.test.ts",
     "**/*.test.tsx",
     "**/*.spec.ts",
-    "**/*.spec.tsx"
+    "**/*.spec.tsx",
+    "**/*.assertions.ts"
   ],
   "include": ["${configDir}/src/**/*.ts", "${configDir}/src/**/*.tsx"]
 }

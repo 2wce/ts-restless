@@ -107,7 +107,6 @@ export const splitCookiesString = (cookiesString: string) => {
     while (skipWhitespace()) {
       ch = cookiesString.charAt(pos);
       if (ch === ',') {
-        // ',' is a cookie separator if we have later first '=', not ';' or ','
         lastComma = pos;
         pos += 1;
 
@@ -118,17 +117,12 @@ export const splitCookiesString = (cookiesString: string) => {
           pos += 1;
         }
 
-        // currently special character
         if (pos < cookiesString.length && cookiesString.charAt(pos) === '=') {
-          // we found cookies separator
           cookiesSeparatorFound = true;
-          // pos is inside the next cookie, so back up and return it.
           pos = nextStart;
           cookiesStrings.push(cookiesString.substring(start, lastComma));
           start = pos;
         } else {
-          // in param ',' or param separator ';',
-          // we continue from that comma
           pos = lastComma + 1;
         }
       } else {

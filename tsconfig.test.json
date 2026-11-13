@@ -8,6 +8,7 @@
     "${configDir}/src/**/*.test.tsx",
     "${configDir}/src/**/*.spec.ts",
     "${configDir}/src/**/*.spec.tsx",
-    "${configDir}/src/**/*.d.ts"
+    "${configDir}/src/**/*.d.ts",
+    "${configDir}/src/**/*.assertions.ts"
   ]
 }

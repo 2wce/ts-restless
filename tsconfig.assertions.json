@@ -4,5 +4,9 @@
     "types": ["vitest/globals", "node"],
     "noEmit": true
   },
-  "include": ["${configDir}/src/**/*.spec.ts", "${configDir}/src/**/*.spec.tsx"]
+  "include": [
+    "${configDir}/src/**/*.spec.ts",
+    "${configDir}/src/**/*.spec.tsx",
+    "${configDir}/src/**/*.assertions.ts"
+  ]
 }

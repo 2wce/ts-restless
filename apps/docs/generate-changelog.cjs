@@ -4,13 +4,9 @@ const fs = require('fs');
 const path = require('path');
 const { parseArgs } = require('node:util');
 
-// Configuration
 const LIBS_DIR = path.resolve(__dirname, '../../libs/ts-rest');
 const OUTPUT_FILE = path.resolve(__dirname, './content/docs/changelog.mdx');
 
-/**
- * Parse a changelog file and extract version entries
- */
 function parseChangelogContent(content, packageName) {
   const lines = content.split('\n');
   const entries = [];
@@ -22,15 +18,13 @@ function parseChangelogContent(content, packageName) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Skip the package title line
     if (line.startsWith('# @ts-restless/')) {
       continue;
     }
 
-    // Match version headers (## 3.52.1)
     const versionMatch = line.match(/^## (\d+\.\d+\.\d+.*?)$/);
     if (versionMatch) {
-      // Save previous entry if exists
+
       if (currentEntry && currentVersion) {
         entries.push(currentEntry);
       }
@@ -47,12 +41,10 @@ function parseChangelogContent(content, packageName) {
       continue;
     }
 
-    // Skip if no current version
     if (!currentVersion || !currentEntry) {
       continue;
     }
 
-    // Match section headers (### Minor Changes, ### Patch Changes)
     const sectionMatch = line.match(/^### (.+)$/);
     if (sectionMatch) {
       currentSection = sectionMatch[1];
@@ -60,7 +52,6 @@ function parseChangelogContent(content, packageName) {
       continue;
     }
 
-    // Match change entries (- hash: description)
     const changeMatch = line.match(/^- ([a-f0-9]+): (.+)$/);
     if (changeMatch) {
       const [, hash, description] = changeMatch;
@@ -74,9 +65,8 @@ function parseChangelogContent(content, packageName) {
       continue;
     }
 
-    // Check for any other content that indicates this version has changes
     if (line.trim() && !line.startsWith('#') && inContent) {
-      // If there's content but no proper change format, still mark as having content
+
       if (
         !currentEntry.hasContent &&
         (line.includes('-') || line.trim().length > 0)
@@ -86,7 +76,6 @@ function parseChangelogContent(content, packageName) {
     }
   }
 
-  // Add the last entry
   if (currentEntry && currentVersion) {
     entries.push(currentEntry);
   }
@@ -98,9 +87,6 @@ function parseChangelog(filePath, packageName) {
   return parseChangelogContent(fs.readFileSync(filePath, 'utf8'), packageName);
 }
 
-/**
- * Find all ts-rest packages with CHANGELOG.md files
- */
 function findChangelogFiles(libsDir) {
   const packages = fs
     .readdirSync(libsDir, { withFileTypes: true })
@@ -123,9 +109,6 @@ function findChangelogFiles(libsDir) {
   return changelogFiles;
 }
 
-/**
- * Aggregate all changelog entries by version
- */
 function aggregateChangelogs(libsDir = LIBS_DIR) {
   const changelogFiles = findChangelogFiles(libsDir);
   const versionMap = new Map();
@@ -144,9 +127,6 @@ function aggregateChangelogs(libsDir = LIBS_DIR) {
   return versionMap;
 }
 
-/**
- * Sort versions in descending order (newest first)
- */
 function sortVersions(versions) {
   return [...versions].sort((a, b) => {
     const parseVersion = (v) => {
@@ -177,9 +157,6 @@ function sortVersions(versions) {
   });
 }
 
-/**
- * Generate the combined changelog MDX content
- */
 function generateMDX(versionMap) {
   const sortedVersions = sortVersions(versionMap.keys());
 
@@ -194,7 +171,6 @@ description: Combined ts-restless changelog, including historical upstream ts-re
   for (const version of sortedVersions) {
     const entries = versionMap.get(version);
 
-    // Skip versions with no meaningful content
     const hasContent = entries.some(
       (entry) => entry.hasContent || entry.changes.length > 0,
     );
@@ -204,7 +180,6 @@ description: Combined ts-restless changelog, including historical upstream ts-re
 
     content += `## ${version}\n\n`;
 
-    // Group changes by package
     for (const entry of entries) {
       if (entry.changes.length > 0) {
         for (const change of entry.changes) {
@@ -216,7 +191,7 @@ description: Combined ts-restless changelog, including historical upstream ts-re
           content += `- ([${change.hash}](${githubUrl})) **${entry.package}**: ${change.description}\n`;
         }
       } else if (entry.hasContent) {
-        // For versions that have content but no parsed changes
+
         content += `- **${entry.package}**: Updated\n`;
       }
     }
