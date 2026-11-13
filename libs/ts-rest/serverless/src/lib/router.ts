@@ -21,9 +21,26 @@ import {
   RouterImplementationOrFluentRouter,
   TsRestRequestValidationError,
 } from './types';
-import { blobToArrayBuffer } from './utils';
+import { blobToArrayBuffer, splitCookiesString } from './utils';
 import { TsRestHttpError } from './http-error';
 import { RouterBuilder } from './router-builder';
+
+function mergeResponseHeaders(
+  returned: HeadersInit | undefined,
+  context: Headers,
+) {
+  if (returned === undefined) return context;
+  const merged = new Headers(returned);
+  context.forEach((value, name) => {
+    if (name === 'set-cookie') {
+      for (const cookie of splitCookiesString(value))
+        merged.append(name, cookie);
+    } else {
+      merged.set(name, value);
+    }
+  });
+  return merged;
+}
 
 const recursivelyProcessContract = ({
   schema,
@@ -244,12 +261,16 @@ export const createServerlessRouter = <
       ) => {
         const validationResults = validateRequest(request, appRoute, options);
 
-        const responseHeaders = new Headers();
+        const contextResponseHeaders = new Headers();
         const implementation = isAppRouteImplementation(implementationOrOptions)
           ? implementationOrOptions
           : implementationOrOptions.handler;
 
-        let result: { status: HTTPStatusCode; body: any };
+        let result: {
+          status: HTTPStatusCode;
+          body: any;
+          headers?: HeadersInit;
+        };
         try {
           result = await implementation(
             {
@@ -261,7 +282,7 @@ export const createServerlessRouter = <
             {
               appRoute,
               request,
-              responseHeaders,
+              responseHeaders: contextResponseHeaders,
               ...platformArgs,
             },
           );
@@ -276,6 +297,10 @@ export const createServerlessRouter = <
           }
         }
 
+        const responseHeaders = mergeResponseHeaders(
+          result.headers,
+          contextResponseHeaders,
+        );
         const statusCode = Number(result.status);
         const evaluation = evaluateResponse({
           appRoute,

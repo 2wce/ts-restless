@@ -60,9 +60,9 @@ if (reply.sent) {
 ) => Promise<ServerInferResponses<T> & { headers?: HeadersInit }>;
 ```
 
-- [ ] Add Fetch regressions for records, tuple arrays and `Headers`; ordinary context precedence; repeated cookies with expiry commas; caller header identity/content preservation; JSON, text, Blob and no-body responses; response validation enabled/disabled. Use actual response headers/body, not helper comparisons. Add Lambda V1/V2 regressions proving returned/context cookies reach their existing native maps separately.
-- [ ] Add compiler assertions for output `headers?: HeadersInit`, valid inputs and rejection of numeric header values; include the assertion file in its owning config. Run the Fetch tests and compiler before implementation and record the missing-header failures.
-- [ ] Extend the local handler return type and runtime result type. Merge at the existing response construction boundary:
+- [x] Add Fetch regressions for records, tuple arrays and `Headers`; ordinary context precedence; repeated cookies with expiry commas; caller header identity/content preservation; JSON, text, Blob and no-body responses; response validation enabled/disabled. Use actual response headers/body, not helper comparisons. Add Lambda V1/V2 regressions proving returned/context cookies reach their existing native maps separately.
+- [x] Add compiler assertions for output `headers?: HeadersInit`, valid inputs and rejection of numeric header values; include the assertion file in its owning config. Run the Fetch tests and compiler before implementation and record the missing-header failures.
+- [x] Extend the local handler return type and runtime result type. Merge at the existing response construction boundary:
 
 ```ts
 function mergeResponseHeaders(
@@ -85,9 +85,9 @@ function mergeResponseHeaders(
 
 Create the context header object before calling the handler, then merge `result.headers` into the final response header object before existing status/body/content-type processing. Preserve the no-returned-header path and exception policies.
 
-- [ ] Extend the existing validator profile type/runtime fixtures with returned-header input and actual Fetch output assertions. They already install all affected packages and exercise strict ESM/CommonJS across profiles; do not add an unrelated installation harness.
-- [ ] Document support, merge precedence, additive cookies, protocol-owned content types and context customization. Add a short ADR for the scoped native API and a minor Changeset for `@ts-restless/serverless`. Link the plan/ADR and distinguish local delivery from publication.
-- [ ] Format, run `pnpm exec vp test run --project serverless` and `pnpm --filter @ts-restless/serverless typecheck`, record RED/GREEN and obtain independent task review before the cohesive commit.
+- [x] Extend the existing validator profile type/runtime fixtures with returned-header input and actual Fetch output assertions. They already install all affected packages and exercise strict ESM/CommonJS across profiles; do not add an unrelated installation harness.
+- [x] Document support, merge precedence, additive cookies, protocol-owned content types and context customization. Add a short ADR for the scoped native API and a minor Changeset for `@ts-restless/serverless`. Link the plan/ADR and distinguish local delivery from publication.
+- [x] Format, run `pnpm exec vp test run --project serverless` and `pnpm --filter @ts-restless/serverless typecheck`, record RED/GREEN and obtain independent task review before the cohesive commit.
 
 ## Task 3: Verify and finish
 
@@ -100,3 +100,5 @@ Create the context header object before calling the handler, then merge `result.
 Evidence and review outcomes are appended as tasks complete. Baseline log: `/private/tmp/native-replies-baseline.log`.
 
 Task 1: native send/hijack regressions failed before the guard (four expected failures, 50 passing) and passed after it (54 tests in 2 files). Independent spec and quality review approved the change; a minor wording clarification is applied before final review. Packed runtime execution remains part of Task 3. Controller logs: `/private/tmp/native-replies-fastify-full.log`, `/private/tmp/native-replies-fastify-green.log`.
+
+Task 2: 13 expected runtime failures and missing-header compiler diagnostics turned green. Serverless source tests pass 116/9, inference assertions pass, and independent task review is approved. The integration checker caught a Lambda test union-narrowing error; a two-file correction passed focused Lambda/compiler/native checks and scoped re-review. Production behavior was unchanged by that correction. Full installed-package verification passes 38/9, including the extended Fastify and serverless fixtures.

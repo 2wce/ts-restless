@@ -53,3 +53,30 @@ The second argument for all route handlers is an object that contains the follow
 It may also include runtime or platform-specific properties, like `rawEvent` and `lambdaContext` for AWS Lambda.
 
 This object is also passed as the last argument to all middleware and response handler functions.
+
+
+## Response headers
+
+A serverless handler can return optional `headers` alongside `status` and `body`. Use any Fetch `HeadersInit`: a record of string values, an array of `[name, value]` pairs, or a `Headers` object. This API is supported in development source; verify a containing release before using it in an installed package.
+
+```typescript
+const router = tsr.router(contract.posts, {
+  getPosts: async (_, { responseHeaders }) => {
+    responseHeaders.set('cache-control', 'no-store');
+    return {
+      status: 200,
+      body: { posts: [] },
+      headers: { 'x-request-source': 'posts' },
+    };
+  },
+  // Other contract routes go here.
+});
+```
+
+Returned headers form the base. Headers set through `context.responseHeaders` override ordinary returned headers with the same name, ignoring case. `Set-Cookie` is additive: returned cookies come first, followed by context cookies. Use repeated tuple entries or `Headers.append()` for multiple cookies. The adapter copies returned headers, so it does not change your record, tuple array or `Headers` object.
+
+Response serialization retains its existing content-type policy: JSON sets `application/json`; a declared media response sets its declared type, with a Blob's nonempty type taking precedence. A no-body response preserves the supplied headers. These serialization rules apply after header merging. Response middleware and CORS processing still run afterward.
+
+`context.responseHeaders.set(name, value)` and `.append(name, value)` remain available, including for consumers whose installed release does not accept returned headers. This is native serverless response customization; it does not declare portable response headers in core contracts or change other adapters' native response APIs.
+
+A header present in the HTTP response may still be hidden from browser JavaScript on a cross-origin request. Set `Access-Control-Expose-Headers` for the custom headers the browser needs to read, and configure the allowed origin separately. Returning a header does not by itself grant CORS access.

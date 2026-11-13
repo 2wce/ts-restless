@@ -54,7 +54,7 @@ export type AppRouteImplementation<
     request: TsRestRequest & TRequestExtension;
     responseHeaders: Headers;
   },
-) => Promise<ServerInferResponses<T>>;
+) => Promise<ServerInferResponses<T> & { headers?: HeadersInit }>;
 
 export interface AppRouteOptions<
   TRoute extends AppRoute,

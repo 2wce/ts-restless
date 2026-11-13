@@ -745,3 +745,193 @@ describe('empty JSON request bodies', () => {
     },
   );
 });
+
+describe('returned response headers', () => {
+  const headerContract = c.router({
+    json: {
+      method: 'GET',
+      path: '/returned-json',
+      responses: { 200: z.object({ ok: z.boolean() }) },
+    },
+    text: {
+      method: 'GET',
+      path: '/returned-text',
+      responses: {
+        200: c.otherResponse({
+          contentType: 'text/plain',
+          body: c.type<string>(),
+        }),
+      },
+    },
+    blob: {
+      method: 'GET',
+      path: '/returned-blob',
+      responses: {
+        200: c.otherResponse({
+          contentType: 'application/octet-stream',
+          body: c.type<Blob>(),
+        }),
+      },
+    },
+    empty: {
+      method: 'GET',
+      path: '/returned-empty',
+      responses: { 204: c.noBody() },
+    },
+  });
+
+  it.each([
+    { shape: 'record', responseValidation: true },
+    { shape: 'record', responseValidation: false },
+    { shape: 'tuples', responseValidation: true },
+    { shape: 'tuples', responseValidation: false },
+    { shape: 'Headers', responseValidation: true },
+    { shape: 'Headers', responseValidation: false },
+  ])(
+    'merges $shape headers with context precedence (validation: $responseValidation)',
+    async ({ shape, responseValidation }) => {
+      const tuples: [string, string][] = [
+        ['X-Returned', 'returned'],
+        ['X-Shared', 'returned'],
+        ['Content-Type', 'caller/type'],
+      ];
+      const returned: HeadersInit =
+        shape === 'record'
+          ? Object.fromEntries(tuples)
+          : shape === 'tuples'
+            ? tuples
+            : new Headers(tuples);
+      const snapshot = [...new Headers(returned)];
+      const handler = createFetchHandler(
+        c.router({ json: headerContract.json }),
+        {
+          json: async (_, { responseHeaders }) => {
+            responseHeaders.set('x-shared', 'context');
+            responseHeaders.set('x-context', 'context');
+            return { status: 200, body: { ok: true }, headers: returned };
+          },
+        },
+        { responseValidation },
+      );
+      const response = await handler(
+        new Request('http://localhost/returned-json'),
+      );
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ ok: true });
+      expect(response.headers.get('x-returned')).toBe('returned');
+      expect(response.headers.get('X-SHARED')).toBe('context');
+      expect(response.headers.get('x-context')).toBe('context');
+      expect(response.headers.get('content-type')).toBe('application/json');
+      expect([...new Headers(returned)]).toEqual(snapshot);
+    },
+  );
+
+  it.each(['tuples', 'Headers'])(
+    'preserves returned and context cookies from $shape without mutating input',
+    async (shape) => {
+      const cookies = [
+        'returned=one; Expires=Thu, 21 Oct 2027 07:28:00 GMT; Path=/',
+        'returned=two; Path=/other',
+        'context=one; Expires=Fri, 22 Oct 2027 07:28:00 GMT; Path=/',
+        'context=two; Path=/other',
+      ];
+      const tuples: [string, string][] = cookies
+        .slice(0, 2)
+        .map((cookie) => ['Set-Cookie', cookie]);
+      const returned = shape === 'tuples' ? tuples : new Headers(tuples);
+      const snapshot = new Headers(returned).getSetCookie();
+      let originalContext: Headers | undefined;
+      const handler = createFetchHandler(
+        c.router({ json: headerContract.json }),
+        {
+          json: async (_, { responseHeaders }) => {
+            originalContext = responseHeaders;
+            for (const cookie of cookies.slice(2))
+              responseHeaders.append('set-cookie', cookie);
+            return { status: 200, body: { ok: true }, headers: returned };
+          },
+        },
+      );
+      const response = await handler(
+        new Request('http://localhost/returned-json'),
+      );
+      expect(response.headers.getSetCookie()).toEqual(cookies);
+      expect(new Headers(returned).getSetCookie()).toEqual(snapshot);
+      expect(originalContext?.getSetCookie()).toEqual(cookies.slice(2));
+    },
+  );
+
+  it.each([true, false])(
+    'retains native body and content-type policies (validation: %s)',
+    async (responseValidation) => {
+      const headers = {
+        'x-returned': 'present',
+        'content-type': 'caller/type',
+      };
+      const handler = createFetchHandler(
+        headerContract,
+        {
+          json: async () => ({ status: 200, body: { ok: true }, headers }),
+          text: async () => ({ status: 200, body: 'plain', headers }),
+          blob: async () => ({
+            status: 200,
+            body: new Blob(['binary'], { type: 'image/example' }),
+            headers,
+          }),
+          empty: async () => ({ status: 204, body: undefined, headers }),
+        },
+        { responseValidation },
+      );
+      for (const [path, status, body, contentType] of [
+        ['json', 200, '{"ok":true}', 'application/json'],
+        ['text', 200, 'plain', 'text/plain'],
+        ['blob', 200, 'binary', 'image/example'],
+        ['empty', 204, '', 'caller/type'],
+      ] as const) {
+        const response = await handler(
+          new Request('http://localhost/returned-' + path),
+        );
+        expect(response.status).toBe(status);
+        expect(await response.text()).toBe(body);
+        expect(response.headers.get('x-returned')).toBe('present');
+        expect(response.headers.get('content-type')).toBe(contentType);
+      }
+      expect(headers['content-type']).toBe('caller/type');
+    },
+  );
+
+  it('runs response middleware and CORS after merging returned headers', async () => {
+    const router = tsr
+      .routerBuilder(c.router({ json: headerContract.json }))
+      .responseHandler((response) => {
+        response.headers.set('x-returned', 'middleware');
+      })
+      .route('json', async () => ({
+        status: 200,
+        body: { ok: true },
+        headers: {
+          'x-returned': 'handler',
+          'access-control-expose-headers': 'x-returned',
+        },
+      }));
+    const handler = createFetchHandler(
+      c.router({ json: headerContract.json }),
+      router,
+      {
+        cors: { origin: 'https://client.example' },
+      },
+    );
+    const response = await handler(
+      new Request('http://localhost/returned-json', {
+        headers: { origin: 'https://client.example' },
+      }),
+    );
+    expect(response.headers.get('x-returned')).toBe('middleware');
+    expect(response.headers.get('access-control-allow-origin')).toBe(
+      'https://client.example',
+    );
+    expect(response.headers.get('access-control-expose-headers')).toBe(
+      'x-returned',
+    );
+  });
+});

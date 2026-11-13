@@ -67,6 +67,19 @@ type ResponseBody = Expect<Equal<ClientInferResponseBody<typeof contract.convert
 type ClientHeaders = Expect<Equal<ClientInferRequest<typeof contract.convert>['headers'], { 'x-count': string; 'x-note'?: string }>>;
 type ServerHeaders = Expect<Equal<ServerInferRequest<typeof contract.convert>['headers'], { 'x-count': number; 'x-note'?: string }>>;
 const c = initContract();
+const nativeHeaderContract = c.router({ get: { method: 'GET', path: '/packed-returned-headers', responses: { 200: c.type<{ ok: boolean }>() } } });
+type NativeHeaderResult = Awaited<ReturnType<serverless.AppRouteImplementation<typeof nativeHeaderContract.get, {}, {}>>>;
+type NativeHeaders = Expect<Equal<NativeHeaderResult['headers'], HeadersInit | undefined>>;
+const nativeHeaderInputs: HeadersInit[] = [{ 'x-returned': 'record' }, [['x-returned', 'tuple']], new Headers({ 'x-returned': 'native' })];
+for (const headers of nativeHeaderInputs) {
+  fetch.createFetchHandler(nativeHeaderContract, { get: async () => ({ status: 200, body: { ok: true }, headers }) });
+}
+const invalidNativeHeaders: NativeHeaderResult = {
+  status: 200, body: { ok: true },
+  // @ts-expect-error returned native header values must be strings
+  headers: { 'x-number': 123 },
+};
+void invalidNativeHeaders;
 const emptySchema: StandardSchemaV1<undefined> = { '~standard': { version: 1, vendor: 'packed-empty', validate: (value) => value === undefined ? { value } : { issues: [{ message: 'Expected absent body' }] } } };
 const emptyContract = c.router({ empty: { method: 'POST', path: '/packed-empty', body: emptySchema, responses: { 200: emptySchema } } });
 const emptyFetchHandler = fetch.createFetchHandler(emptyContract, { empty: async () => {

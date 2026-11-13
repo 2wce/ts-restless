@@ -955,3 +955,73 @@ describe('empty JSON AWS gateway bodies', () => {
     },
   );
 });
+
+describe('returned response headers in AWS gateways', () => {
+  it.each([1, 2])(
+    'preserves returned/context headers and separate cookies in V%s',
+    async (version) => {
+      const headerContract = c.router({
+        get: {
+          method: 'GET',
+          path: '/returned-headers',
+          responses: { 200: c.type<{ ok: boolean }>() },
+        },
+      });
+      const cookies = [
+        'returned=one; Expires=Thu, 21 Oct 2027 07:28:00 GMT; Path=/',
+        'returned=two; Path=/other',
+        'context=one; Expires=Fri, 22 Oct 2027 07:28:00 GMT; Path=/',
+        'context=two; Path=/other',
+      ];
+      const handler = createLambdaHandler(
+        headerContract,
+        {
+          get: async (_, { responseHeaders }) => {
+            responseHeaders.set('X-Shared', 'context');
+            cookies
+              .slice(2)
+              .forEach((cookie) =>
+                responseHeaders.append('set-cookie', cookie),
+              );
+            return {
+              status: 200,
+              body: { ok: true },
+              headers: [
+                ['x-returned', 'returned'],
+                ['x-shared', 'returned'],
+                ...cookies.slice(0, 2).map((cookie) => ['set-cookie', cookie]),
+              ] as [string, string][],
+            };
+          },
+        },
+        { responseValidation: true },
+      );
+      const event =
+        version === 1
+          ? createV1LambdaRequest({
+              path: '/returned-headers',
+              httpMethod: 'GET',
+            })
+          : createV2LambdaRequest({
+              rawPath: '/returned-headers',
+              requestContext: { http: { method: 'GET' } },
+            });
+      const response = await handler(event as ApiGatewayEvent, {} as Context);
+      if (typeof response === 'string')
+        throw new Error('Expected gateway envelope');
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toBe('{"ok":true}');
+      expect(response.headers?.['x-returned']).toBe('returned');
+      expect(response.headers?.['x-shared']).toBe('context');
+      expect(response.headers?.['set-cookie']).toBe(cookies.join(', '));
+      if (version === 1) {
+        if (!('multiValueHeaders' in response))
+          throw new Error('Expected V1 multi-value headers');
+        expect(response.multiValueHeaders?.['set-cookie']).toEqual(cookies);
+      } else {
+        if (!('cookies' in response)) throw new Error('Expected V2 cookies');
+        expect(response.cookies).toEqual(cookies);
+      }
+    },
+  );
+});
