@@ -673,6 +673,51 @@ describe('ts-rest-nest', () => {
     return app.getHttpServer();
   };
 
+  it.each([
+    ['express', true],
+    ['express', false],
+    ['fastify', true],
+    ['fastify', false],
+  ] as const)(
+    'evaluates a legacy response once when enabled on %s (validation %s)',
+    async (adapter, validateResponses) => {
+      let validations = 0;
+      const contract = c.router({
+        route: {
+          method: 'GET',
+          path: '/response-transform',
+          responses: {
+            200: c.otherResponse({
+              contentType: 'text/plain',
+              body: z.string().transform((value) => {
+                validations++;
+                return `${value}!`;
+              }),
+            }),
+          },
+        },
+      });
+
+      @Controller()
+      class ResponseController {
+        @TsRest(contract.route, { validateResponses })
+        async handler() {
+          return { status: 200 as const, body: 'input' };
+        }
+      }
+
+      const server = await initializeApp(
+        { controllers: [ResponseController] },
+        adapter,
+      );
+      const response = await supertest(server).get('/response-transform');
+      expect(response.status).toBe(200);
+      expect(response.text).toBe(validateResponses ? 'input!' : 'input');
+      expect(response.headers['content-type']).toMatch(/^text\/plain/);
+      expect(validations).toBe(validateResponses ? 1 : 0);
+    },
+  );
+
   describe('should handle non-json response types from contract', () => {
     const c = initContract();
     const nonJsonContract = c.router({

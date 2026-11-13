@@ -9,10 +9,10 @@ import {
 import { catchError, map, Observable, of, throwError } from 'rxjs';
 import {
   AppRoute,
-  isAppRouteOtherResponse,
+  evaluateResponse,
+  TsRestResponseValidationError,
   isAppRouteResponse,
   TsRestResponseError,
-  validateResponse,
 } from '@ts-restless/core';
 import { Reflector } from '@nestjs/core';
 import { TsRestAppRouteMetadataKey } from './constants';
@@ -61,26 +61,24 @@ export class TsRestInterceptor implements NestInterceptor {
       }),
       map((value) => {
         if (isAppRouteResponse(value)) {
-          const statusCode = value.status;
-
-          const response = options.validateResponses
-            ? validateResponse({
-                appRoute,
-                response: value,
-              })
-            : value;
-
-          const responseType = appRoute.responses[statusCode];
-          if (isAppRouteOtherResponse(responseType)) {
+          const evaluated = evaluateResponse({
+            appRoute,
+            response: value,
+            validateBody: options.validateResponses,
+          });
+          if (!evaluated.success) {
+            throw new TsRestResponseValidationError(appRoute, evaluated.error);
+          }
+          if (evaluated.metadata.contentType !== undefined) {
             if ('setHeader' in res) {
-              res.setHeader('content-type', responseType.contentType);
+              res.setHeader('content-type', evaluated.metadata.contentType);
             } else {
-              res.header('content-type', responseType.contentType);
+              res.header('content-type', evaluated.metadata.contentType);
             }
           }
 
-          res.status(response.status);
-          return response.body;
+          res.status(evaluated.metadata.status);
+          return evaluated.body;
         }
 
         return value;
