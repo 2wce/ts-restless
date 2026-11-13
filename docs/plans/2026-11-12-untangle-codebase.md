@@ -45,9 +45,9 @@
 
 **Interfaces:** Consume existing `evaluateResponse({appRoute,response,validateBody})`; preserve builder/Fetch public signatures and errors. No new core dependency or public export is needed.
 
-- [ ] Extend existing builder/Fetch suites before implementation. Replacing `original.clone().partialRouter({nested:{get:replacement}})` must leave `await original.build().nested.get(args)` returning the original body. Two Fetch handlers from the same implementation must retain their own options/context and leave its middleware array unchanged. Exercise nested remaining-route completion.
-- [ ] Run `pnpm exec vp test run --project serverless router-builder.spec.ts ts-rest-fetch.spec.ts`; confirm clone/middleware regressions fail for the observed reason.
-- [ ] Implement branch copying without copying functions/schema objects, and one partial-router merge/completion traversal. Copy route middleware before appending the generated handler:
+- [x] Extend existing builder/Fetch suites before implementation. Replacing `original.clone().partialRouter({nested:{get:replacement}})` must leave `await original.build().nested.get(args)` returning the original body. Two Fetch handlers from the same implementation must retain their own options/context and leave its middleware array unchanged. Exercise nested remaining-route completion.
+- [x] Run `pnpm exec vp test run --project serverless router-builder.spec.ts ts-rest-fetch.spec.ts`; confirm clone/middleware regressions fail for the observed reason.
+- [x] Implement branch copying without copying functions/schema objects, and one partial-router merge/completion traversal. Copy route middleware before appending the generated handler:
 
 ```ts
 const handlers = implementationOrOptions.middleware
@@ -56,9 +56,9 @@ const handlers = implementationOrOptions.middleware
 handlers.push(routeHandler);
 ```
 
-- [ ] Delegate `fetchRequestHandler` to `createFetchHandler(contract,router,options)(request,platformContext)`. Replace response exception translation/reselection with `evaluateResponse` while preserving adapter error construction, no-body/media/Blob/native writes and enablement.
-- [ ] Reconfirm `requestRemoteAddress` has no production/public-export usage; remove it and its isolated tests. Remove implementation-restatement comments only in touched code; retain external constraints.
-- [ ] Run full serverless project and assertion compiler, format touched files, self-review and commit only these files. Record commands, regressions, result and concerns in the task report.
+- [x] Delegate `fetchRequestHandler` to `createFetchHandler(contract,router,options)(request,platformContext)`. Replace response exception translation/reselection with `evaluateResponse` while preserving adapter error construction, no-body/media/Blob/native writes and enablement.
+- [x] Reconfirm `requestRemoteAddress` has no production/public-export usage; remove it and its isolated tests. Remove implementation-restatement comments only in touched code; retain external constraints.
+- [x] Run full serverless project and assertion compiler, format touched files, self-review and commit only these files. Record commands, regressions, result and concerns in the task report.
 
 ### Task 2: Core definition ownership
 
@@ -66,8 +66,8 @@ handlers.push(routeHandler);
 
 **Interfaces:** Keep exported aliases/public runtime signatures. `AreAllPropertiesOptional<T>` delegates to `IfAllPropertiesOptional<T,true,false>` without changing union/never behavior.
 
-- [ ] Extend existing exact response/inference assertions for deeply nested routers, optional/required/empty/non-record/union/never cases. Run current assertion compiler to characterize them before extraction.
-- [ ] Import the existing exported `FlattenAppRouter` and remove the private recursion. Use one optional-property predicate:
+- [x] Extend existing exact response/inference assertions for deeply nested routers, optional/required/empty/non-record/union/never cases. Run current assertion compiler to characterize them before extraction.
+- [x] Import the existing exported `FlattenAppRouter` and remove the private recursion. Use one optional-property predicate:
 
 ```ts
 export type AreAllPropertiesOptional<T> = IfAllPropertiesOptional<
@@ -77,9 +77,9 @@ export type AreAllPropertiesOptional<T> = IfAllPropertiesOptional<
 >;
 ```
 
-- [ ] Replace query key-then-unknown-index loops with `Object.entries` at the same unknown boundary; keep array/date/null/undefined/scalar and encoding behavior. Reuse `isContractTypeMarker` in top-level schema validation only.
-- [ ] Run `pnpm exec vp test run --project core` and core assertion compiler; retain existing query/schema boundary suites. Use a temporary wrong expected inference value to prove added exact assertions fail, restore it, then rerun the compiler.
-- [ ] Format, self-review and commit only Task2 files; record verification. Type-only tests are genuine checks and remain.
+- [x] Replace query key-then-unknown-index loops with `Object.entries` at the same unknown boundary; keep array/date/null/undefined/scalar and encoding behavior. Reuse `isContractTypeMarker` in top-level schema validation only.
+- [x] Run `pnpm exec vp test run --project core` and core assertion compiler; retain existing query/schema boundary suites. Use a temporary wrong expected inference value to prove added exact assertions fail, restore it, then rerun the compiler.
+- [x] Format, self-review and commit only Task2 files; record verification. Type-only tests are genuine checks and remain.
 
 ### Task 3: Explicit build and artifact prerequisites
 
@@ -87,9 +87,9 @@ export type AreAllPropertiesOptional<T> = IfAllPropertiesOptional<
 
 **Interfaces:** Common `libraryConfig(entry,options)` owns generic defaults; package-owned `options.pack` carries `unbundle`/decorator plugins. The non-strict `typecheck` depends on `@ts-restless/core#pack` through Vite+.
 
-- [ ] Reproduce the clean-artifact failure in an isolated temporary artifact state by moving `core/dist` aside and running non-strict typecheck; restore artifacts in a `finally`/trap. Do not delete unrelated outputs.
-- [ ] Move React `unbundle:true` and Nest `swc.rollup(decoratorOptions('tsconfig.lib.json'))` to their existing configs, reusing existing dependencies/overrides. Remove package-name branching and update callers. Preserve common inputs/output/ESM/CJS/declaration policy.
-- [ ] Give the owning non-strict task an explicit prerequisite, using the existing Vite+ task convention:
+- [x] Reproduce the clean-artifact failure in an isolated temporary artifact state by moving `core/dist` aside and running non-strict typecheck; restore artifacts in a `finally`/trap. Do not delete unrelated outputs.
+- [x] Move React `unbundle:true` and Nest `swc.rollup(decoratorOptions('tsconfig.lib.json'))` to their existing configs, reusing existing dependencies/overrides. Remove package-name branching and update callers. Preserve common inputs/output/ESM/CJS/declaration policy.
+- [x] Give the owning non-strict task an explicit prerequisite, using the existing Vite+ task convention:
 
 ```ts
 run: { tasks: { 'check-inference': {
@@ -99,9 +99,9 @@ run: { tasks: { 'check-inference': {
 } } }
 ```
 
-- [ ] Route its public `typecheck` script through that task; ensure root checks expand prerequisites. Update contributor guidance where the signature/task changes.
-- [ ] Repeat the clean-artifact command and verify it builds declarations and succeeds. Run `pnpm build` and typecheck; final Task12 covers real packed Nest metadata/React directives.
-- [ ] Format, self-review and commit only Task3 files, recording the clean-artifact proof.
+- [x] Route its public `typecheck` script through that task; ensure root checks expand prerequisites. Update contributor guidance where the signature/task changes.
+- [x] Repeat the clean-artifact command and verify it builds declarations and succeeds. Run `pnpm build` and typecheck; final Task12 covers real packed Nest metadata/React directives.
+- [x] Format, self-review and commit only Task3 files, recording the clean-artifact proof.
 
 ### Task 4: Shared parsed-request evaluation and native adoption
 
@@ -133,12 +133,12 @@ export function evaluateRequest(appRoute: AppRoute, request: ParsedRequest) {
 
 Adapters prepare JSON queries/headers/body before this call and apply their own error/enablement policies afterwards. Legacy Nest may share a component-level selector rather than aggregate evaluation to preserve first-error invocation order.
 
-- [ ] Add core behavior tests with independent schema fixtures that record invocation order and transform values; invalid locations return their portable errors while configuration/async-validator exceptions retain behavior. The new helper test must fail before implementation.
-- [ ] Characterize existing native call order, aggregate/first error and disabled validation before replacing each adapter block. Remove unused native response arguments in Express/Fastify helpers. Preserve Next's current query-source behavior.
-- [ ] Implement the neutral helper and replace adapter orchestration one package at a time, keeping native normalization and error constructors unchanged.
-- [ ] For Nest transformed false/zero/empty/undefined output, add real handler regressions first. Select raw values only for failed validation rather than successful falsy values, while preserving validation-disabled fallback policies. Retain legacy short-circuiting.
-- [ ] Run focused core/native suites after each adoption and the assertion projects. Extend existing HTTP conformance counters/transforms rather than a parallel fixture abstraction.
-- [ ] Format, self-review and commit the cohesive request changes, recording any preserved native differences.
+- [x] Add core behavior tests with independent schema fixtures that record invocation order and transform values; invalid locations return their portable errors while configuration/async-validator exceptions retain behavior. The new helper test must fail before implementation.
+- [x] Characterize existing native call order, aggregate/first error and disabled validation before replacing each adapter block. Remove unused native response arguments in Express/Fastify helpers. Preserve Next's current query-source behavior.
+- [x] Implement the neutral helper and replace adapter orchestration one package at a time, keeping native normalization and error constructors unchanged.
+- [x] For Nest transformed false/zero/empty/undefined output, add real handler regressions first. Select raw values only for failed validation rather than successful falsy values, while preserving validation-disabled fallback policies. Retain legacy short-circuiting.
+- [x] Run focused core/native suites after each adoption and the assertion projects. Extend existing HTTP conformance counters/transforms rather than a parallel fixture abstraction.
+- [x] Format, self-review and commit the cohesive request changes, recording any preserved native differences.
 
 ### Task 5: Nest decoration and response ownership
 
@@ -146,11 +146,11 @@ Adapters prepare JSON queries/headers/body before this call and apply their own 
 
 **Interfaces:** Native method/metadata helpers stay local; consume existing `getNestRoutePaths`, native exported metadata constant and `evaluateResponse`. Preserve deprecated/modern APIs, virtual methods and missing-schema policy.
 
-- [ ] Characterize single/multi route metadata, native parameter decorators, guards/interceptors and falsy metadata values through current public native tests. Verify `ROUTE_ARGS_METADATA` exists in admitted Nest9/10/11 package versions before importing it.
-- [ ] Extract repeated method-decoration and route metadata/interceptor application locally. Copy metadata based on presence rather than truthiness only once regressions establish its intended behavior.
-- [ ] Keep the missing response-declaration guard, then use `evaluateResponse` for body/metadata interpretation; map failures to current exceptions. Preserve thrown response-error causes, native content-type writes/status behavior and legacy interceptor policy.
-- [ ] Run existing Nest and route-path suites, assertion compiler and strict metadata checks. Final Task12 includes actual package consumers and independent fixture evidence.
-- [ ] Format, self-review and commit Task5, documenting deliberate native constraints.
+- [x] Characterize single/multi route metadata, native parameter decorators, guards/interceptors and falsy metadata values through current public native tests. Verify `ROUTE_ARGS_METADATA` exists in admitted Nest9/10/11 package versions before importing it.
+- [x] Extract repeated method-decoration and route metadata/interceptor application locally. Copy metadata based on presence rather than truthiness only once regressions establish its intended behavior.
+- [x] Keep the missing response-declaration guard, then use `evaluateResponse` for body/metadata interpretation; map failures to current exceptions. Preserve thrown response-error causes, native content-type writes/status behavior and legacy interceptor policy.
+- [x] Run existing Nest and route-path suites, assertion compiler and strict metadata checks. Final Task12 includes actual package consumers and independent fixture evidence.
+- [x] Format, self-review and commit Task5, documenting deliberate native constraints.
 
 ### Task 6: OpenAPI sync/async preparation and assembly
 
@@ -158,10 +158,10 @@ Adapters prepare JSON queries/headers/body before this call and apply their own 
 
 **Interfaces:** Existing sync/async APIs and converter signatures unchanged; follow `headers.ts`'s shared pure preparation/assembly pattern.
 
-- [ ] Extend existing converter fixtures to record literal expected context/operation ordering and compare sync versus async output with hand-checked parameter/body/reference expectations. Characterize current serial order before extraction.
-- [ ] Share schema/context preparation and pure output assembly; leave awaiting in async wrappers and retain separate sync returns. Do not add a general async interpreter or parallelize converters.
-- [ ] Run OpenAPI/parser suites covering both dialects, requiredness/presence, nested operation IDs, type-only/no-body routes, definition references and legacy conversion. Preserve all PR46 regressions.
-- [ ] Format, self-review and commit Task6; strict installed OpenAPI checks run in Task12.
+- [x] Extend existing converter fixtures to record literal expected context/operation ordering and compare sync versus async output with hand-checked parameter/body/reference expectations. Characterize current serial order before extraction.
+- [x] Share schema/context preparation and pure output assembly; leave awaiting in async wrappers and retain separate sync returns. Do not add a general async interpreter or parallelize converters.
+- [x] Run OpenAPI/parser suites covering both dialects, requiredness/presence, nested operation IDs, type-only/no-body routes, definition references and legacy conversion. Preserve all PR46 regressions.
+- [x] Format, self-review and commit Task6; strict installed OpenAPI checks run in Task12.
 
 ### Task 7: Docs generation and consent policy ownership
 
@@ -174,11 +174,11 @@ export const consentPersistence = (consent: string) =>
   consent === 'yes' ? 'localStorage+cookie' : 'memory';
 ```
 
-- [ ] Extend existing changelog test with temporary input/output files and a hand-written prerelease entry; check mode must fail for stale output and succeed after generation. Do not infer publication from package headers.
-- [ ] Separate pure parsing/rendering from I/O as needed, add freshness mode, and express generation before docs config/MDX compilation (task order alone inside an already loaded config may be too late). Refresh tracked MDX using the actual generator. Preserve fork/upstream links.
-- [ ] Move storage/persistence policy to a neutral docs module; components retain UI and analytics lifecycles. Preserve hydration, accept/decline/dismiss, undecided/unknown values and absent key behavior.
-- [ ] Verify current consent behavior through targeted existing DOM/browser facilities; avoid tests that only compare the helper to its own result. Run docs lint, full docs test/build/type/static checks and changelog suite.
-- [ ] Self-review and commit Task7 with actual generation/consent evidence.
+- [x] Extend existing changelog test with temporary input/output files and a hand-written prerelease entry; check mode must fail for stale output and succeed after generation. Do not infer publication from package headers.
+- [x] Separate pure parsing/rendering from I/O as needed, add freshness mode, and express generation before docs config/MDX compilation (task order alone inside an already loaded config may be too late). Refresh tracked MDX using the actual generator. Preserve fork/upstream links.
+- [x] Move storage/persistence policy to a neutral docs module; components retain UI and analytics lifecycles. Preserve hydration, accept/decline/dismiss, undecided/unknown values and absent key behavior.
+- [x] Verify current consent behavior through targeted existing DOM/browser facilities; avoid tests that only compare the helper to its own result. Run docs lint, full docs test/build/type/static checks and changelog suite.
+- [x] Self-review and commit Task7 with actual generation/consent evidence.
 
 ### Task 8: Packaging scenarios and consumer administration
 
@@ -186,11 +186,11 @@ export const consentPersistence = (consent: string) =>
 
 **Interfaces:** Consumers still install real archives and compile/run outside workspace resolution. Preserve explicit supported versions, exact Next diagnostic matching and independent manifest/export baselines.
 
-- [ ] Inventory every current top-level test/scenario family and its support versions into the report before moving code. Run existing package suite or use the recorded baseline before extraction.
-- [ ] Extract repeated temporary creation/install/write/compile/execute/cleanup into a small local harness. Separate validator graphs/Next, React, query/reactivity and Fastify families into suites. Keep assertions with scenarios and administrative helpers free of shared expected behavior.
-- [ ] Copy scenario source assets into disposable consumers before compilation/run; fixtures must not import workspace source. Use explicit deferred start observation only for the polling cancellation-start case; retain bounded observable-state waiting where native APIs need it.
-- [ ] Run `pnpm test:packages` with the same scenario/support coverage. Temporarily corrupt one literal scenario expectation, verify its suite fails, restore it and rerun that suite.
-- [ ] Format, self-review and commit Task8, including the before/after inventory and mutation evidence.
+- [x] Inventory every current top-level test/scenario family and its support versions into the report before moving code. Run existing package suite or use the recorded baseline before extraction.
+- [x] Extract repeated temporary creation/install/write/compile/execute/cleanup into a small local harness. Separate validator graphs/Next, React, query/reactivity and Fastify families into suites. Keep assertions with scenarios and administrative helpers free of shared expected behavior.
+- [x] Copy scenario source assets into disposable consumers before compilation/run; fixtures must not import workspace source. Use explicit deferred start observation only for the polling cancellation-start case; retain bounded observable-state waiting where native APIs need it.
+- [x] Run `pnpm test:packages` with the same scenario/support coverage. Temporarily corrupt one literal scenario expectation, verify its suite fails, restore it and rerun that suite.
+- [x] Format, self-review and commit Task8, including the before/after inventory and mutation evidence.
 
 ### Task 9: Private examples and unused scaffolding
 
@@ -198,10 +198,10 @@ export const consentPersistence = (consent: string) =>
 
 **Interfaces:** Server/client endpoints are caller-owned. Preserve users5002/posts5003 and current localhost defaults. Retain lowercase `port` compatibility when adding `PORT`.
 
-- [ ] Reconfirm unused files have no imports/config replacements before removing them. No absence-only tests.
-- [ ] Configure the posts-service user caller through `USERS_API_BASE_URL`, posts listening through `PORT ?? port ?? 5003`, and browser posts callers through `VITE_POSTS_API_BASE_URL ?? 'http://localhost:5003'`. Document exact inputs and defaults.
-- [ ] Build affected examples. Run the real users/posts pair with default and alternate ports/URL inputs, fetch `/posts` and verify expected author/response behavior; stop spawned processes in cleanup. Keep independent services independent.
-- [ ] Self-review and commit Task9 without API/support/release changes.
+- [x] Reconfirm unused files have no imports/config replacements before removing them. No absence-only tests.
+- [x] Configure the posts-service user caller through `USERS_API_BASE_URL`, posts listening through `PORT ?? port ?? 5003`, and browser posts callers through `VITE_POSTS_API_BASE_URL ?? 'http://localhost:5003'`. Document exact inputs and defaults.
+- [x] Build affected examples. Run the real users/posts pair with default and alternate ports/URL inputs, fetch `/posts` and verify expected author/response behavior; stop spawned processes in cleanup. Keep independent services independent.
+- [x] Self-review and commit Task9 without API/support/release changes.
 
 ### Task 10: Selected comment and ineffective test cleanup
 
@@ -215,19 +215,19 @@ type NullableOutput = Expect<
 >;
 ```
 
-- [ ] Replace unconstrained core aliases with exact output assertions, using the nullable schema in its case. Remove its placeholder after compiler coverage exists; show a temporary wrong nullable expectation fails, restore and recheck.
-- [ ] Remove the empty React TODO-only suite after confirming `passWithNoTests`. Preserve all meaningful inference and native/package tests.
-- [ ] Audit comments in production/tooling files; remove only implementation restatements. Retain licensing/credits, external constraints, compatibility rationale, API semantics and deprecation guidance. Avoid wholesale JSDoc deletion or changing prose as a substitute for structure.
-- [ ] Run full source/inference checks and relevant tooling checks; self-review and commit Task10 with cleanup scope.
+- [x] Replace unconstrained core aliases with exact output assertions, using the nullable schema in its case. Remove its placeholder after compiler coverage exists; show a temporary wrong nullable expectation fails, restore and recheck.
+- [x] Remove the empty React TODO-only suite after confirming `passWithNoTests`. Preserve all meaningful inference and native/package tests.
+- [x] Audit comments in production/tooling files; remove only implementation restatements. Retain licensing/credits, external constraints, compatibility rationale, API semantics and deprecation guidance. Avoid wholesale JSDoc deletion or changing prose as a substitute for structure.
+- [x] Run full source/inference checks and relevant tooling checks; self-review and commit Task10 with cleanup scope.
 
 ### Task 11: Accepted rationale and delivery record
 
 **Files:** Existing architecture/roadmap/plan index, short ADR for consequential shared-request/state ownership, this plan's execution record and dated evidence if measurements need a separate record. Design groups3/4/5 and final scope.
 
-- [ ] Record accepted shared parsed-request policy and link A03/A05/A06/A07/A08 rather than duplicating the canonical epic. Preserve old dated evidence and clearly distinguish locally implemented from merged/published.
-- [ ] Update architecture ownership and current roadmap state for actual implementation; use verified main history for pre-existing merged status without inferring npm publication.
-- [ ] Link approved design/plan/ADR from established indexes. Run docs lint and review prose for contradictions/support claims.
-- [ ] Commit the record only after implementation evidence is accurate.
+- [x] Record accepted shared parsed-request policy and link A03/A05/A06/A07/A08 rather than duplicating the canonical epic. Preserve old dated evidence and clearly distinguish locally implemented from merged/published.
+- [x] Update architecture ownership and current roadmap state for actual implementation; use verified main history for pre-existing merged status without inferring npm publication.
+- [x] Link approved design/plan/ADR from established indexes. Run docs lint and review prose for contradictions/support claims.
+- [x] Commit the record only after implementation evidence is accurate.
 
 ### Task 12: Full verification and repeated structural audit
 
@@ -259,3 +259,32 @@ Baseline `2ff1faee`; user approved design on 2026-11-12. Branch `feat/untangle-c
 Ruling: use inherited-context subagent dispatch where isolated dispatch produces opaque task payloads; requirement/report files remain the task's source of truth. Cost: larger child context, with reliable delivery.
 
 Task evidence is appended as implementation and reviews complete.
+
+### Verified implementation checkpoints
+
+The approved baseline remains `2ff1faee`, fetched on2026-11-12. Branch commits are local and unmerged; no versioning, merging or publication is part of this pass.
+
+| Task | Implementation and evidence                                                                                                                                                                                                                                                                                                                                                                                    |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | `329d99fe`/`4b937ad2`: contract-driven nested clone ownership, caller middleware copies, Fetch delegation and neutral responses.103 serverless tests/assertions passed. Review identified a route named `handler` ambiguity; contract-driven classification fixed it and re-review passed.                                                                                                                     |
+| 2    | `633d53aa`: core flatten/optional inference, typed query iteration and existing marker predicate reuse. Core tests/assertions and deliberate wrong-expectation compiler proof passed.                                                                                                                                                                                                                          |
+| 3    | `865a79f7`: owning package build options and non-strict declaration prerequisite. Clean-artifact RED11 diagnostics; GREEN rebuilt declarations automatically.12/12 typechecks and10/10 builds passed.                                                                                                                                                                                                          |
+| 4    | `b230a393`: aggregate/per-location parsed request evaluation, adopted by all five server integrations.568 native/core tests and assertion compilers passed;8 public falsy transform regressions verified RED/GREEN. Legacy Nest first-error order remains.                                                                                                                                                     |
+| 5    | `c2cc0108`: local native decoration and neutral response evaluation, preserving metadata presence and native precedence.118 Nest tests/assertions passed. Two falsy metadata HTTP regressions and two native path-precedence regressions verified RED/GREEN; independent re-review passed. Native constant export checked at Nest9.4.0/10.0.0/11.0.9/12.2.0.                                                   |
+| 6    | `65d8c88c`: shared OpenAPI preparation/assembly, keeping serial converter execution and existing header batch.99 tests before/after across both dialects and strict library compiler passed; independent review passed.                                                                                                                                                                                        |
+| 7    | `de964403`: changelog freshness/config-time generation and neutral docs consent policy. Production docs build/types,80 static checks,12 consent tests and2 changelog tests passed. Stale non-writing check and actual stale-MDX regeneration proved; independent review passed.                                                                                                                                |
+| 8    | Scenario families/harness and11 copied source fixtures preserve all25 moved cases. Full package/release suite before38/38 in5files and after38/38 in9files passed; Fastify literal-expectation mutation failed2/2, restored2/2 passed. `5a74ecfb`: independent review approved; three minor findings corrected and scoped re-review approved.                                                                  |
+| 9    | `e4e01986`: unused private scaffolding removed and caller-owned service/browser endpoints. Four example builds and default/alternate uppercase/lowercase real two-service HTTP journeys passed; independent review passed.                                                                                                                                                                                     |
+| 10   | Exact nullable/output assertions now live in a compiler-only suite with explicit inclusion/artifact exclusion. Incorrect nullable expectation fails withTS2344; restored core compiler passes. Empty TODO-only React shell and implementation-restating comments removed; `pnpm check` passed883 tests in56 files, all15 tasks; independent review approved. Generator spacing cleanup passed2 existing tests. |
+
+Task12 completes full combined checks and final structural review. Earlier task counts describe their recorded code, not a fresh claim for the eventual branch head. The independent root-free compatibility matrix remains a CI gate before integration. Known upstream Next declaration diagnostics retain exact matching; existing native expected-error logs and lint warnings are reported separately from failures. Supported APIs/native ownership, release guards and coordinated versions remain unchanged.
+
+### Final verification checkpoint (2026-11-13)
+
+- `pnpm check`: exit0, 883 source tests in56 files and15 successful tasks; 0 lint errors, 366 existing warnings.
+- `pnpm test:packages`: exit0, 38 tests in9 files after extraction, minor review corrections and the final Nest ESM fix. All25 moved cases remain; strict modern-resolution/no-Zod/directive/native consumer checks are retained.
+- `pnpm --filter @ts-restless/docs test`: exit0, production build, type/snippet checks,80 static checks and12 consent tests.
+- `pnpm build:examples`: exit0, all13 tasks successful.
+- Root-free Nest9/10/11: exact current tarballs installed in temporary workspaces without root node_modules, each passed2 runtime tests and native build. This caught an extensionless native constant import missed by source checks; using the explicit `.js` path restored ESM loading. The Nest assertion compiler and2 changelog tests passed after final source/spacing corrections.
+
+`pnpm test:hosts` passed14 tests in2 files, both tasks successful. `5849e791` contains the independently reviewed ESM fix and generator spacing cleanup. A final combined check after those changes and the whole-branch structural review remain pending at this checkpoint. Full logs are saved under `/private/tmp/untangle-final-*.log`; the final record will consolidate the command results. The complete ten-fixture root-free compatibility matrix remains a CI gate before integration. Existing type-aware lint, experimental TypeScript API and docs build warnings remain; successful checks do not imply publication.

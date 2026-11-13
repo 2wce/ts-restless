@@ -23,6 +23,8 @@ ADRs preserve consequential choices and their rationale. Use short Markdown reco
 
 | [0015](0015-fastify-validator-independence.md) | Canonical `/legacy` helpers; validator-independent Fastify4/5 adapters. |
 
+| [0016](0016-parsed-request-ownership.md) | Neutral parsed-request evaluation, native policy and construction-owned mutable state. |
+
 These initial records extract already approved decisions from existing documents; they do not newly approve roadmap proposals.
 
 ## Writing an ADR
