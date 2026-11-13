@@ -978,6 +978,7 @@ describe('returned response headers in AWS gateways', () => {
         {
           get: async (_, { responseHeaders }) => {
             responseHeaders.set('X-Shared', 'context');
+            responseHeaders.set('vary', 'Origin, ACCEPT-LANGUAGE');
             cookies
               .slice(2)
               .forEach((cookie) =>
@@ -988,6 +989,7 @@ describe('returned response headers in AWS gateways', () => {
               body: { ok: true },
               headers: [
                 ['x-returned', 'returned'],
+                ['vary', 'Accept-Language'],
                 ['x-shared', 'returned'],
                 ...cookies.slice(0, 2).map((cookie) => ['set-cookie', cookie]),
               ] as [string, string][],
@@ -1013,6 +1015,7 @@ describe('returned response headers in AWS gateways', () => {
       expect(response.body).toBe('{"ok":true}');
       expect(response.headers?.['x-returned']).toBe('returned');
       expect(response.headers?.['x-shared']).toBe('context');
+      expect(response.headers?.['vary']).toBe('Accept-Language, Origin');
       expect(response.headers?.['set-cookie']).toBe(cookies.join(', '));
       if (version === 1) {
         if (!('multiValueHeaders' in response))
@@ -1021,6 +1024,60 @@ describe('returned response headers in AWS gateways', () => {
       } else {
         if (!('cookies' in response)) throw new Error('Expected V2 cookies');
         expect(response.cookies).toEqual(cookies);
+      }
+    },
+  );
+  it.each([1, 2])(
+    'preserves shared context response headers in V%s',
+    async (version) => {
+      const headerContract = c.router({
+        get: {
+          method: 'GET',
+          path: '/shared-headers',
+          responses: { 200: c.type<{ ok: boolean }>() },
+        },
+      });
+      const cookie =
+        'session=one; Expires=Thu, 21 Oct 2027 07:28:00 GMT; Path=/';
+      const handler = createLambdaHandler(
+        headerContract,
+        {
+          get: async (_, { responseHeaders }) => {
+            responseHeaders.append('set-cookie', cookie);
+            responseHeaders.set('vary', '*');
+            return {
+              status: 200,
+              body: { ok: true },
+              headers: responseHeaders,
+            };
+          },
+        },
+        { cors: { origin: true } },
+      );
+      const event =
+        version === 1
+          ? createV1LambdaRequest({
+              path: '/shared-headers',
+              httpMethod: 'GET',
+              headers: { origin: 'https://client.example' },
+            })
+          : createV2LambdaRequest({
+              rawPath: '/shared-headers',
+              requestContext: { http: { method: 'GET' } },
+              headers: { origin: 'https://client.example' },
+            });
+      const response = await handler(event as ApiGatewayEvent, {} as Context);
+      if (typeof response === 'string')
+        throw new Error('Expected gateway envelope');
+      expect(response.headers?.['vary']).toBe('*');
+      expect(response.headers?.['set-cookie']).toBe(cookie);
+      if (version === 1) {
+        if (!('multiValueHeaders' in response))
+          throw new Error('Expected V1 multi-value headers');
+        expect(response.multiValueHeaders?.['set-cookie']).toEqual([cookie]);
+      } else {
+        if (!('cookies' in response)) throw new Error('Expected V2 cookies');
+        expect(response.cookies).toEqual([cookie]);
       }
     },
   );

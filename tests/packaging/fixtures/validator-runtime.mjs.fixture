@@ -296,11 +296,12 @@ for (const commonjs of [false, true]) {
   const c = core.initContract();
   const headerContract = c.router({ get: { method: 'GET', path: '/packed-returned-headers', responses: { 200: c.type() } } });
   const cookies = ['returned=one; Expires=Thu, 21 Oct 2027 07:28:00 GMT; Path=/', 'context=one; Expires=Fri, 22 Oct 2027 07:28:00 GMT; Path=/', 'context=two; Path=/other'];
-  const tuples = [['x-returned', 'returned'], ['x-shared', 'returned'], ['content-type', 'caller/type'], ['set-cookie', cookies[0]]];
+  const tuples = [['x-returned', 'returned'], ['x-shared', 'returned'], ['content-type', 'caller/type'], ['vary', 'Accept-Language'], ['set-cookie', cookies[0]]];
   for (const returned of [Object.fromEntries(tuples), tuples, new Headers(tuples)]) {
     const snapshot = [...new Headers(returned)];
     const headerHandler = fetchAdapter.createFetchHandler(headerContract, { get: async (_, { responseHeaders }) => {
       responseHeaders.set('X-Shared', 'context');
+      responseHeaders.set('vary', 'Origin, ACCEPT-LANGUAGE');
       for (const cookie of cookies.slice(1)) responseHeaders.append('set-cookie', cookie);
       return { status: 200, body: { ok: true }, headers: returned };
     } }, { responseValidation: true });
@@ -309,10 +310,32 @@ for (const commonjs of [false, true]) {
     assert.deepEqual(await response.json(), { ok: true });
     assert.equal(response.headers.get('x-returned'), 'returned');
     assert.equal(response.headers.get('x-shared'), 'context');
+    assert.equal(response.headers.get('vary'), 'Accept-Language, Origin');
     assert.equal(response.headers.get('content-type'), 'application/json');
     assert.deepEqual(response.headers.getSetCookie(), cookies);
     assert.deepEqual([...new Headers(returned)], snapshot);
   }
+  let sharedHeaders;
+  const sharedHeaderImplementation = { get: async (_, { responseHeaders }) => {
+    sharedHeaders = responseHeaders;
+    responseHeaders.append('set-cookie', cookies[0]);
+    responseHeaders.set('content-type', 'caller/type');
+    responseHeaders.set('vary', '*');
+    return { status: 200, body: { ok: true }, headers: responseHeaders };
+  } };
+  const sharedHeaderHandler = fetchAdapter.createFetchHandler(headerContract, sharedHeaderImplementation, { cors: { origin: true } });
+  const sharedResponse = await sharedHeaderHandler(new Request('http://localhost/packed-returned-headers', { headers: { origin: 'https://client.example' } }));
+  assert.deepEqual(sharedResponse.headers.getSetCookie(), [cookies[0]]);
+  assert.equal(sharedResponse.headers.get('vary'), '*');
+  assert.equal(sharedResponse.headers.get('content-type'), 'application/json');
+  assert.deepEqual(sharedHeaders.getSetCookie(), [cookies[0]]);
+  assert.equal(sharedHeaders.get('content-type'), 'caller/type');
+  for (const [vary, expected] of [['origin, Accept-Language', 'origin, Accept-Language'], ['Accept-Language', 'Accept-Language, Origin']]) {
+    const handler = fetchAdapter.createFetchHandler(headerContract, { get: async () => ({ status: 200, body: { ok: true }, headers: { vary } }) }, { cors: { origin: true } });
+    const response = await handler(new Request('http://localhost/packed-returned-headers', { headers: { origin: 'https://client.example' } }));
+    assert.equal(response.headers.get('vary'), expected);
+  }
+  const sharedAwsHandler = awsAdapter.createLambdaHandler(headerContract, sharedHeaderImplementation, { cors: { origin: true } });
   const absent = { '~standard': { version: 1, vendor: 'packed-empty',
     validate: (value) => value === undefined ? { value } : { issues: [{ message: 'Expected absent body' }] },
   } };
@@ -360,6 +383,17 @@ for (const commonjs of [false, true]) {
       version: '2.0', rawPath: path, rawQueryString: '', headers: { 'content-type': 'application/json' }, body, isBase64Encoded: false,
       requestContext: { http: { method, sourceIp: '127.0.0.1' } },
     };
+    const sharedEvent = makeEvent('/packed-returned-headers', 'GET', null);
+    sharedEvent.headers.origin = 'https://client.example';
+    const sharedResult = await sharedAwsHandler(sharedEvent, {});
+    assert.equal(sharedResult.statusCode, 200);
+    assert.equal(sharedResult.body, '{"ok":true}');
+    assert.equal(sharedResult.isBase64Encoded, false);
+    assert.equal(sharedResult.headers.vary, '*');
+    assert.equal(sharedResult.headers['set-cookie'], cookies[0]);
+    if (version === 1) assert.deepEqual(sharedResult.multiValueHeaders['set-cookie'], [cookies[0]]);
+    else assert.deepEqual(sharedResult.cookies, [cookies[0]]);
+    assert.equal(sharedHeaders.get('content-type'), 'caller/type');
     for (const body of [null, '']) {
       const response = await awsHandler(makeEvent('/packed-empty', 'POST', body), {});
       assert.equal(response.statusCode, 200);

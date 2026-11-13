@@ -25,16 +25,35 @@ import { blobToArrayBuffer, splitCookiesString } from './utils';
 import { TsRestHttpError } from './http-error';
 import { RouterBuilder } from './router-builder';
 
+function appendVaryHeader(headers: Headers, value: string) {
+  const names = new Map<string, string>();
+  for (const part of [headers.get('vary') ?? '', value]) {
+    for (const field of part.split(',')) {
+      const name = field.trim();
+      if (name === '*') {
+        headers.set('vary', '*');
+        return;
+      }
+      const key = name.toLowerCase();
+      if (name && !names.has(key)) names.set(key, name);
+    }
+  }
+  headers.set('vary', [...names.values()].join(', '));
+}
+
 function mergeResponseHeaders(
   returned: HeadersInit | undefined,
   context: Headers,
 ) {
   if (returned === undefined) return context;
   const merged = new Headers(returned);
+  if (returned === context) return merged;
   context.forEach((value, name) => {
     if (name === 'set-cookie') {
       for (const cookie of splitCookiesString(value))
         merged.append(name, cookie);
+    } else if (name === 'vary') {
+      appendVaryHeader(merged, value);
     } else {
       merged.set(name, value);
     }
@@ -156,7 +175,10 @@ const tsRestMiddleware = <TPlatformArgs, TRequestExtension>(
 
   const corsify = (response: TsRestResponse, request: TsRestRequest) => {
     if (!(request as RequestWithPreflightContext).preflightCorsHeadersSet) {
-      return ittyCorsify(response, request);
+      const corsResponse = ittyCorsify(response, request);
+      return corsResponse instanceof TsRestResponse
+        ? corsResponse
+        : new TsRestResponse(response.rawBody, corsResponse);
     }
     return response;
   };
@@ -166,7 +188,7 @@ const tsRestMiddleware = <TPlatformArgs, TRequestExtension>(
       // if no specific allowHeaders are, we need to set Vary: Access-Control-Request-Headers because
       // access-control-allow-headers is set to whatever the request access-control-request-headers is set to
       if (request.method === 'OPTIONS' && !options.cors.allowHeaders) {
-        response.headers.append('vary', 'Access-Control-Request-Headers');
+        appendVaryHeader(response.headers, 'Access-Control-Request-Headers');
       }
 
       // if cors options origin is not a static string, we need to set Vary: Origin
@@ -180,7 +202,7 @@ const tsRestMiddleware = <TPlatformArgs, TRequestExtension>(
         // https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS/Errors/CORSNotSupportingCredentials
         (options.cors.origin === '*' && options.cors.credentials)
       ) {
-        response.headers.append('vary', 'Origin');
+        appendVaryHeader(response.headers, 'Origin');
       }
     }
   };

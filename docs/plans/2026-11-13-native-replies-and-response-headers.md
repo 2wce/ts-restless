@@ -114,3 +114,23 @@ Final gates on the reviewed source:
 Task reviews, the two-file Lambda/assertion correction review and final whole-branch review are approved with no open findings. The full independent compatibility matrix remains a CI gate. The fixes are committed locally on the requested branch; no containing publication is verified.
 
 Execution decisions: review/implementation agents inherited context after isolated dispatch delivery failures, trading larger contexts for usable reports. The serverless API is native optional `HeadersInit` with context precedence and additive cookies; revising the merge contract later would require compatibility work.
+
+## Approved header merge follow-up
+
+Approved on 2026-11-13 after focused source probes reproduced duplicate cookies when returned headers are the same context object, lost `Vary` dependencies/wildcards on ordinary replacement, and `Vary: *, Origin` after CORS processing. Keep ordinary context precedence and additive independent cookies. Copy shared input once; merge `Vary` field names case-insensitively, retaining first occurrence order and treating `*` as authoritative. Reuse the same private operation for CORS variation. Preserve caller inputs, core inference and existing serialization.
+
+- [x] Extend existing Fetch/Lambda and packed runtime fixtures, then verify the expected failures before source changes.
+- [x] Correct the native merge/CORS boundary, update ADR0017, guide and the existing serverless Changeset.
+- [x] Run source/type/lint checks, installed consumers, production docs and native hosts; obtain independent review and record actual results before committing.
+
+Installed-consumer follow-up: eight profile cases exposed an admitted itty-router dependency difference. Workspace 5.0.18 calls the response subclass's `clone()`; installed 5.0.24 constructs a plain `Response`, losing `rawBody` before AWS serialization. The new native Fetch/AWS CORS fixture reproduced this without weakening diagnostics or changing peers. The existing CORS boundary now restores the adapter response using its original raw body and the native CORS response's status/headers. Focused source tests against 5.0.24 failed twice before the correction and all 30 Lambda tests pass after it. The installed fixture also asserts JSON body and encoding preservation.
+
+Follow-up verification: initial native RED had 10 expected failures and 116 passes; corrected native suite passes126/9. The additional dependency-boundary RED failed both gateways against itty-router5.0.24; all30 Lambda tests pass against that dependency after the CORS correction. Independent review approved the merge changes and the separate CORS correction with no findings. Final gates on the reviewed source:
+
+- `pnpm check`: exit0; 910 source tests in56 files; formatting/inference checks pass, zero errors and365 existing warnings. `/private/tmp/header-merge-followup-check-final.log`.
+- `pnpm test:packages`: exit0; 38 tests in9 files, including extended strict ESM/CommonJS native Fetch/AWS cases. The initial eight profile failures were traced to CORS body-data loss and corrected without changing peers or suppressing compiler diagnostics. `/private/tmp/header-merge-followup-packages-final.log`.
+- `pnpm docs:lint`: exit0;531 links/anchors across127 documents. `/private/tmp/header-merge-followup-docs-lint.log`.
+- `pnpm --filter @ts-restless/docs test`: exit0; production build/typecheck,80 public checks and12 checker fixtures pass. CSS optimizer/chunk-size advisories remain. `/private/tmp/header-merge-followup-docs.log`.
+- `pnpm test:hosts`: exit0;14 native host tests in2 files. `/private/tmp/header-merge-followup-hosts.log`.
+
+The full independent compatibility matrix remains a CI gate; containing publication remains unverified. The follow-up is kept on the requested local branch.

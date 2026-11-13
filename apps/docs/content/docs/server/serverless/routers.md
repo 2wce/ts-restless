@@ -73,7 +73,7 @@ const router = tsr.router(contract.posts, {
 });
 ```
 
-Returned headers form the base. Headers set through `context.responseHeaders` override ordinary returned headers with the same name, ignoring case. `Set-Cookie` is additive: returned cookies come first, followed by context cookies. Use repeated tuple entries or `Headers.append()` for multiple cookies. The adapter copies returned headers, so it does not change your record, tuple array or `Headers` object.
+Returned headers form the base. Headers set through `context.responseHeaders` override ordinary returned headers with the same name, ignoring case. `Set-Cookie` is additive: returned cookies come first, followed by context cookies. Use repeated tuple entries or `Headers.append()` for multiple cookies. The adapter copies returned headers, so it does not change your record, tuple array or `Headers` object. Returning the context’s own `responseHeaders` object copies it once and preserves each cookie once. `Vary` combines field names from both sources, removes duplicates regardless of case, and treats `*` as authoritative. CORS uses the same `Vary` rules when adding request-header or origin dependencies.
 
 Response serialization retains its existing content-type policy: JSON sets `application/json`; a declared media response sets its declared type, with a Blob's nonempty type taking precedence. A no-body response preserves the supplied headers. These serialization rules apply after header merging. Response middleware and CORS processing still run afterward.
 

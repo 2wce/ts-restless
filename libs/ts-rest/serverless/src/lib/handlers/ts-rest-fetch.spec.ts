@@ -861,6 +861,91 @@ describe('returned response headers', () => {
     },
   );
 
+  it('merges shared context response headers only once without mutating them', async () => {
+    const cookie = 'session=one; Expires=Thu, 21 Oct 2027 07:28:00 GMT; Path=/';
+    let original: Headers | undefined;
+    const handler = createFetchHandler(
+      c.router({ json: headerContract.json }),
+      {
+        json: async (_, { responseHeaders }) => {
+          original = responseHeaders;
+          responseHeaders.append('set-cookie', cookie);
+          responseHeaders.set('content-type', 'caller/type');
+          return { status: 200, body: { ok: true }, headers: responseHeaders };
+        },
+      },
+    );
+    const response = await handler(
+      new Request('http://localhost/returned-json'),
+    );
+    expect(response.headers.getSetCookie()).toEqual([cookie]);
+    expect(response.headers.get('content-type')).toBe('application/json');
+    expect(original?.getSetCookie()).toEqual([cookie]);
+    expect(original?.get('content-type')).toBe('caller/type');
+  });
+
+  it.each([
+    ['Accept-Language', 'Origin', 'Accept-Language, Origin'],
+    [
+      ' Origin, accept-language ',
+      'origin, ACCEPT-LANGUAGE, Accept-Encoding',
+      'Origin, accept-language, Accept-Encoding',
+    ],
+    ['*', 'Origin', '*'],
+    ['Accept-Language', '*', '*'],
+  ])(
+    'merges returned Vary %s with context %s',
+    async (returned, context, expected) => {
+      const handler = createFetchHandler(
+        c.router({ json: headerContract.json }),
+        {
+          json: async (_, { responseHeaders }) => {
+            responseHeaders.set('vary', context);
+            return {
+              status: 200,
+              body: { ok: true },
+              headers: { vary: returned },
+            };
+          },
+        },
+      );
+      const response = await handler(
+        new Request('http://localhost/returned-json'),
+      );
+      expect(response.headers.get('vary')).toBe(expected);
+    },
+  );
+
+  it.each([
+    ['*', '*'],
+    ['origin, Accept-Language', 'origin, Accept-Language'],
+    ['Accept-Language', 'Accept-Language, Origin'],
+  ])(
+    'combines CORS variation with returned Vary %s',
+    async (returned, expected) => {
+      const handler = createFetchHandler(
+        c.router({ json: headerContract.json }),
+        {
+          json: async () => ({
+            status: 200,
+            body: { ok: true },
+            headers: { vary: returned },
+          }),
+        },
+        { cors: { origin: true } },
+      );
+      const response = await handler(
+        new Request('http://localhost/returned-json', {
+          headers: { origin: 'https://client.example' },
+        }),
+      );
+      expect(response.headers.get('vary')).toBe(expected);
+      expect(response.headers.get('access-control-allow-origin')).toBe(
+        'https://client.example',
+      );
+    },
+  );
+
   it.each([true, false])(
     'retains native body and content-type policies (validation: %s)',
     async (responseValidation) => {
