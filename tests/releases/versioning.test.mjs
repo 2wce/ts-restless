@@ -446,9 +446,23 @@ test('publication uses the committed prerelease tag and rejects stable state bef
       changeset(cwd, 'version');
       await publishPrerelease(cwd, run);
       assert.deepEqual(commands[0], { command: 'pnpm', args: ['build'] });
-      assert.equal(commands.length, 2);
+      assert.equal(commands.length, tag === 'alpha' ? 12 : 2);
       assert.equal(commands[1].command, process.execPath);
       assert.deepEqual(commands[1].args, [cli, 'publish', '--tag', tag]);
+      if (tag === 'alpha') {
+        assert.deepEqual(
+          commands.slice(2),
+          [...publicLibraries].sort().map((name) => ({
+            command: 'npm',
+            args: [
+              'dist-tag',
+              'add',
+              `@ts-restless/${name}@4.0.0-alpha.0`,
+              'latest',
+            ],
+          })),
+        );
+      }
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }
@@ -488,7 +502,7 @@ test('initial-release probes also run from a generated release PR and later alph
   }
 });
 
-test('real Changesets publish preflight preserves alpha state and keeps prerelease-only packages off latest', async () => {
+test('real Changesets publication mirrors alpha to latest and repairs partial tag failures without republishing', async () => {
   const { publishPrerelease } = await import('../../scripts/prerelease.mjs');
   const cwd = await forkWorkspace();
   try {
@@ -503,6 +517,19 @@ test('real Changesets publish preflight preserves alpha state and keeps prerelea
     initReleaseRepository(cwd);
     const bin = join(cwd, 'bin');
     const log = join(cwd, 'publish-commands.jsonl');
+    const registryDir = join(cwd, 'registry');
+    await mkdir(registryDir);
+    const registryPath = (name) =>
+      join(registryDir, `${encodeURIComponent(name)}.json`);
+    for (const name of publicLibraries) {
+      await writeFile(
+        registryPath(`@ts-restless/${name}`),
+        JSON.stringify({
+          versions: ['4.0.0-alpha.0'],
+          'dist-tags': { alpha: '4.0.0-alpha.0', latest: '4.0.0-alpha.0' },
+        }),
+      );
+    }
     await mkdir(bin);
     // Only the external npm/pnpm boundary is replaced. The real Changesets CLI
     // reads manifests/prestate and decides all tags and publication eligibility.
@@ -511,18 +538,45 @@ test('real Changesets publish preflight preserves alpha state and keeps prerelea
         join(bin, tool),
         `#!${process.execPath}
 const fs = require('node:fs');
+const path = require('node:path');
 const args = process.argv.slice(2);
-if (args[0] === 'info') console.log(JSON.stringify({ versions: ['4.0.0-alpha.0'] }));
+const registryPath = (name) => path.join(${JSON.stringify(registryDir)}, encodeURIComponent(name) + '.json');
+const readPackage = (name) => JSON.parse(fs.readFileSync(registryPath(name), 'utf8'));
+if (args[0] === 'info') console.log(JSON.stringify(readPackage(args[1])));
 else if (args[0] === '--version') console.log('12.14.0');
 else if (args[0] === 'publish') {
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  const entry = readPackage(pkg.name);
+  if (entry.versions.includes(pkg.version)) throw new Error('Already published');
+  entry.versions.push(pkg.version);
+  entry['dist-tags'][args[args.indexOf('--tag') + 1]] = pkg.version;
+  fs.writeFileSync(registryPath(pkg.name), JSON.stringify(entry));
   fs.appendFileSync(${JSON.stringify(log)}, JSON.stringify({ name: pkg.name, args }) + '\\n');
   console.log('{}');
+} else if (args[0] === 'dist-tag' && args[1] === 'add') {
+  const split = args[2].lastIndexOf('@');
+  const name = args[2].slice(0, split);
+  const version = args[2].slice(split + 1);
+  const entry = readPackage(name);
+  if (!entry.versions.includes(version)) throw new Error('Version not published');
+  entry['dist-tags'][args[3]] = version;
+  fs.writeFileSync(registryPath(name), JSON.stringify(entry));
 } else { console.error('Unexpected registry command', args); process.exit(1); }
 `,
         { mode: 0o755 },
       );
     }
+    const readRegistry = async () =>
+      Object.fromEntries(
+        await Promise.all(
+          publicLibraries.map(async (name) => [
+            `@ts-restless/${name}`,
+            JSON.parse(
+              await readFile(registryPath(`@ts-restless/${name}`), 'utf8'),
+            ),
+          ]),
+        ),
+      );
     const run = (command, args) => {
       if (command === 'pnpm' && args[0] === 'build') return;
       execFileSync(command, args, {
@@ -532,6 +586,12 @@ else if (args[0] === 'publish') {
       });
     };
     await publishPrerelease(cwd, run);
+    for (const pkg of Object.values(await readRegistry())) {
+      assert.deepEqual(pkg['dist-tags'], {
+        alpha: '4.0.0-alpha.1',
+        latest: '4.0.0-alpha.1',
+      });
+    }
     const publications = (await readFile(log, 'utf8'))
       .trim()
       .split('\n')
@@ -563,6 +623,42 @@ else if (args[0] === 'publish') {
         .map((name) => `@ts-restless/${name}@4.0.0-alpha.1`)
         .sort(),
     );
+    assert.equal(await readFile(prePath, 'utf8'), original);
+    const stale = await readRegistry();
+    for (const [name, pkg] of Object.entries(stale)) {
+      pkg['dist-tags'].latest = '4.0.0-alpha.0';
+      await writeFile(registryPath(name), JSON.stringify(pkg));
+    }
+    await assert.rejects(
+      publishPrerelease(cwd, (command, args) => {
+        if (
+          command === 'npm' &&
+          args[2] === '@ts-restless/express@4.0.0-alpha.1'
+        ) {
+          throw new Error('tag update failed');
+        }
+        run(command, args);
+      }),
+      /tag update failed/,
+    );
+    const partial = await readRegistry();
+    assert.equal(
+      partial['@ts-restless/core']['dist-tags'].latest,
+      '4.0.0-alpha.1',
+    );
+    assert.equal(
+      partial['@ts-restless/express']['dist-tags'].latest,
+      '4.0.0-alpha.0',
+    );
+    assert.equal(await readFile(prePath, 'utf8'), original);
+    await publishPrerelease(cwd, run);
+    for (const pkg of Object.values(await readRegistry())) {
+      assert.deepEqual(pkg['dist-tags'], {
+        alpha: '4.0.0-alpha.1',
+        latest: '4.0.0-alpha.1',
+      });
+    }
+    assert.equal((await readFile(log, 'utf8')).trim().split('\n').length, 10);
     assert.equal(await readFile(prePath, 'utf8'), original);
     await assert.rejects(
       publishPrerelease(cwd, (command) => {

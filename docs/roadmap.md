@@ -55,6 +55,10 @@ Merged [#30](https://github.com/2wce/ts-restless/pull/30), verified against main
 
 Select one slice, verify prerequisites against current source and read its ADRs, historical design and acceptance criteria. Update this index with the actual PR/commit when implementation lands. Record publication separately with the containing version and registry evidence; no retirement clock starts from a plan or unreleased replacement.
 
+## Alpha default-install tag
+
+[ADR0018](adr/0018-alpha-latest-tag.md) authorizes `latest` to follow the maintained alpha release. Branch `feat/alpha-latest` implements post-publication tag updates and retry repair through npm trusted publishing; the [plan](plans/2026-11-13-alpha-latest.md) records passing release probes, documentation checks and independent review. Rollout requires **Allow npm dist-tag** on each public package's trusted publisher. Live permissions/tag updates remain unverified, the implementation is unmerged, and stable activation remains separate.
+
 ## Explicit mutation client follow-up
 
 [#36](https://github.com/2wce/ts-restless/issues/36) merged in [PR44](https://github.com/2wce/ts-restless/pull/44) as `e2d70861`: the optional native QueryClient is forwarded to mutations, preserving its defaults, cache and errors. The [plan](plans/2026-11-11-mutation-queryclient.md) records verification. The change is absent from alpha.5; a containing publication is not verified.

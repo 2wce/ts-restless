@@ -159,14 +159,17 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
         if: steps.head.outputs.current == 'true'
+      - name: Install npm with trusted-publisher dist-tag support
+        if: steps.head.outputs.current == 'true'
+        run: npm install --global npm@11.21.0
       - name: Verify the npm trusted-publishing runtime
         if: steps.head.outputs.current == 'true'
         run: |
           node --input-type=module <<'JS'
           import assert from 'node:assert/strict';
           import { execFileSync } from 'node:child_process';
-          const [major, minor, patch] = execFileSync('npm', ['--version'], { encoding: 'utf8' }).trim().split('.').map(Number);
-          assert.ok(major > 11 || (major === 11 && (minor > 5 || (minor === 5 && patch >= 1))), 'npm trusted publishing requires npm >= 11.5.1');
+          const [major, minor] = execFileSync('npm', ['--version'], { encoding: 'utf8' }).trim().split('.').map(Number);
+          assert.ok(major > 12 || (major === 12 && minor >= 2) || (major === 11 && minor >= 21), 'npm trusted-publisher dist-tags require npm >= 11.21.0 or >= 12.2.0');
           JS
       - name: Create or update the prerelease PR, or publish its merged versions
         if: steps.head.outputs.current == 'true'
@@ -181,5 +184,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
           # npm authenticates using this job's OIDC identity. The trust must be
           # configured on every public package for 2wce/ts-restless/build-test.yml.
+          # Enable Allow npm dist-tag on each trust so latest can follow alpha.
           NPM_CONFIG_PROVENANCE: true
           PNPM_CONFIG_PROVENANCE: true
