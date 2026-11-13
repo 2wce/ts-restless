@@ -1,5 +1,17 @@
 # @ts-rest/fastify
 
+## 4.0.0-alpha.7
+
+### Major Changes
+
+- 2ff1fae: Move historical Zod3 bridges, inference helpers and error/payload helpers from `/zod3` to the canonical `/legacy` entry in core, Express, Nest, Next and serverless. Update imports as a matched package set; the old paths are removed in the v4 development baseline. Helper names and runtime behavior remain unchanged there. Default entries still use Standard Schema and do not load Zod.
+
+  Fastify's native4 `/legacy` and native5 root remain validator independent. Replace `RequestValidationErrorSchema` from Fastify `/zod3` with `RequestValidationErrorSchemaWithoutMessage` from `@ts-restless/core/legacy`, optionally aliasing it to the old local name. The historical helper requires Zod3; the Fastify adapters do not. Importing compatibility helpers does not restore historical default handler errors or automatic adaptation of old schemas. See the Standard Schema and Fastify migration guides for exact replacements and retained support commitments.
+
+### Patch Changes
+
+- 1c2c0cf: Respect native responses already sent or hijacked by Fastify handlers. Skip response-envelope validation and a second send once Fastify owns the response, preserving the native status, body and headers without second-send warnings.
+
 ## 4.0.0-alpha.6
 
 ### Major Changes
