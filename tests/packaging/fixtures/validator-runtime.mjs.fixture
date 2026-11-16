@@ -409,8 +409,69 @@ for (const commonjs of [false, true]) {
   }
 }
 const { NextRequest } = require('next/server.js');
+const { redirect, permanentRedirect, notFound } = require('next/navigation.js');
 for (const adapter of [await import('@ts-restless/serverless/next'), require('@ts-restless/serverless/next')]) {
   for (const handlerType of ['app-router', 'pages-router-edge']) {
+    const { initContract } = await import('@ts-restless/core');
+    const c = initContract();
+    const nativeContract = c.router({ control: {
+      method: 'GET', path: '/native-control', responses: { 200: c.noBody() },
+    }, write: {
+      method: 'POST', path: '/native-write', body: c.type(), responses: { 200: c.type() },
+    } });
+    const nativeRequest = (path, init) => {
+      const url = new URL('http://localhost' + path);
+      if (handlerType === 'pages-router-edge') url.searchParams.set('ts-rest', path.slice(1));
+      return new NextRequest(url, init);
+    };
+    for (const trigger of [() => redirect('/destination'), () => permanentRedirect('/destination'), () => notFound()]) {
+      let signal;
+      try { trigger(); } catch (error) { signal = error; }
+      assert.ok(signal instanceof Error);
+      for (const origin of ['handler', 'request', 'route', 'response']) {
+        let conversions = 0;
+        let responseCalls = 0;
+        const throwSignal = () => { throw signal; };
+        const handler = adapter.createNextHandler(nativeContract, {
+          control: {
+            middleware: origin === 'route' ? [throwSignal] : [],
+            handler: async () => {
+              if (origin === 'handler') throwSignal();
+              return { status: 200, body: undefined };
+            },
+          },
+          write: async ({ body }) => ({ status: 200, body }),
+        }, {
+          handlerType,
+          requestMiddleware: origin === 'request' ? [throwSignal] : [],
+          responseHandlers: [() => {
+            if (origin === 'response') throwSignal();
+            responseCalls += 1;
+          }],
+          errorHandler: () => {
+            conversions += 1;
+            return adapter.TsRestResponse.fromJson({ converted: true }, { status: 499 });
+          },
+        });
+        await assert.rejects(handler(nativeRequest('/native-control')), error => error === signal);
+        assert.equal(conversions, 0);
+        assert.equal(responseCalls, 0);
+      }
+    }
+    const postRequest = nativeRequest('/native-write', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"value":"posted"}',
+    });
+    const postHandler = adapter.createNextHandler(nativeContract, {
+      control: async () => ({ status: 200, body: undefined }),
+      write: async ({ body }, { nextRequest, request }) => {
+        assert.equal(nextRequest, postRequest);
+        assert.equal(request.method, 'POST');
+        return { status: 200, body };
+      },
+    }, { handlerType });
+    const postResponse = await postHandler(postRequest);
+    assert.equal(postResponse.status, 200);
+    assert.deepEqual(await postResponse.json(), { value: 'posted' });
     for (const responseValidation of [true, false]) {
       let calls = 0;
       const countedSchema = { '~standard': {

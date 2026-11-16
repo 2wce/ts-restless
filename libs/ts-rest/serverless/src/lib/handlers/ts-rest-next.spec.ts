@@ -1,7 +1,40 @@
-import { initContract } from '@ts-restless/core';
+import { initContract, TsRestResponseError } from '@ts-restless/core';
 import { NextRequest } from 'next/server';
+import { redirect, permanentRedirect, notFound } from 'next/navigation.js';
 import { z } from 'zod';
 import { createNextHandler } from './ts-rest-next';
+import { TsRestHttpError } from '../http-error';
+import { TsRestResponse } from '../response';
+
+const c = initContract();
+const controlContract = c.router({
+  control: {
+    method: 'GET',
+    path: '/control',
+    responses: { 200: c.noBody(), 409: z.object({ message: z.string() }) },
+  },
+  write: {
+    method: 'POST',
+    path: '/write',
+    body: z.object({ value: z.string() }),
+    responses: { 200: z.object({ value: z.string() }) },
+  },
+});
+
+const nativeSignals = [
+  ['redirect', () => redirect('/destination')],
+  ['permanentRedirect', () => permanentRedirect('/destination')],
+  ['notFound', () => notFound()],
+] as const;
+
+function captureSignal(trigger: () => never) {
+  try {
+    trigger();
+  } catch (error) {
+    return error;
+  }
+  throw new Error('Next control-flow helper did not throw');
+}
 
 const contract = initContract().router({
   getItem: {
@@ -15,6 +48,197 @@ const contract = initContract().router({
 
 for (const handlerType of ['app-router', 'pages-router-edge'] as const) {
   describe(`Next ${handlerType}`, () => {
+    const controlRequest = (path = '/control', init?: RequestInit) => {
+      const url = new URL(`http://localhost${path}`);
+      if (handlerType === 'pages-router-edge') {
+        url.searchParams.set('ts-rest', path.slice(1));
+      }
+      return new NextRequest(url, init);
+    };
+
+    for (const [name, trigger] of nativeSignals) {
+      for (const origin of [
+        'handler',
+        'request middleware',
+        'route middleware',
+        'response handler',
+      ] as const) {
+        it(`preserves the same ${name} signal from ${origin} before application error handling`, async () => {
+          const signal = captureSignal(trigger);
+          let conversions = 0;
+          let responseCalls = 0;
+          const throwSignal = () => {
+            throw signal;
+          };
+          const nativeHandler = createNextHandler(
+            controlContract,
+            {
+              control: {
+                middleware: origin === 'route middleware' ? [throwSignal] : [],
+                handler: async () => {
+                  if (origin === 'handler') throwSignal();
+                  return { status: 200, body: undefined };
+                },
+              },
+              write: async ({ body }) => ({ status: 200, body }),
+            },
+            {
+              handlerType,
+              requestMiddleware:
+                origin === 'request middleware' ? [throwSignal] : [],
+              responseHandlers: [
+                () => {
+                  if (origin === 'response handler') throwSignal();
+                  responseCalls += 1;
+                },
+              ],
+              errorHandler: () => {
+                conversions += 1;
+                return TsRestResponse.fromJson(
+                  { converted: true },
+                  { status: 499 },
+                );
+              },
+            },
+          );
+          await expect(nativeHandler(controlRequest())).rejects.toBe(signal);
+          expect(conversions).toBe(0);
+          expect(responseCalls).toBe(0);
+        });
+      }
+    }
+
+    it('rethrows native signals before default error logging', async () => {
+      const signal = captureSignal(() => redirect('/destination'));
+      const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        const nativeHandler = createNextHandler(
+          controlContract,
+          {
+            control: async () => {
+              throw signal;
+            },
+            write: async ({ body }) => ({ status: 200, body }),
+          },
+          { handlerType },
+        );
+        await expect(nativeHandler(controlRequest())).rejects.toBe(signal);
+        expect(log).not.toHaveBeenCalled();
+      } finally {
+        log.mockRestore();
+      }
+    });
+
+    it('retains ordinary error logging, HTTP errors and response middleware', async () => {
+      const ordinary = new Error('ordinary failure');
+      const cases = [
+        {
+          error: ordinary,
+          status: 500,
+          body: { message: 'Server Error' },
+          logs: 1,
+        },
+        {
+          error: new TsRestHttpError(409, { message: 'Conflict' }),
+          status: 409,
+          body: { message: 'Conflict' },
+          logs: 0,
+        },
+        {
+          error: new TsRestResponseError(controlContract.control, {
+            status: 409,
+            body: { message: 'Declared' },
+          }),
+          status: 409,
+          body: { message: 'Declared' },
+          logs: 0,
+        },
+      ];
+      const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        for (const testCase of cases) {
+          log.mockClear();
+          const nativeHandler = createNextHandler(
+            controlContract,
+            {
+              control: async () => {
+                throw testCase.error;
+              },
+              write: async ({ body }) => ({ status: 200, body }),
+            },
+            {
+              handlerType,
+              responseValidation: true,
+              cors: { origin: '*' },
+              responseHandlers: [
+                (response) => {
+                  response.headers.set('x-response', 'retained');
+                },
+              ],
+            },
+          );
+          const response = await nativeHandler(controlRequest());
+          expect(response.status).toBe(testCase.status);
+          expect(await response.json()).toEqual(testCase.body);
+          expect(response.headers.get('access-control-allow-origin')).toBe('*');
+          expect(response.headers.get('x-response')).toBe('retained');
+          expect(log).toHaveBeenCalledTimes(testCase.logs);
+        }
+      } finally {
+        log.mockRestore();
+      }
+    });
+
+    it('retains custom handling of ordinary application errors', async () => {
+      const ordinary = new Error('custom failure');
+      const request = controlRequest();
+      let handled: unknown;
+      const nativeHandler = createNextHandler(
+        controlContract,
+        {
+          control: async () => {
+            throw ordinary;
+          },
+          write: async ({ body }) => ({ status: 200, body }),
+        },
+        {
+          handlerType,
+          errorHandler: (error, rawRequest) => {
+            handled = error;
+            expect(rawRequest.url).toBe('http://localhost/control');
+            return TsRestResponse.fromJson({ custom: true }, { status: 503 });
+          },
+        },
+      );
+      const response = await nativeHandler(request);
+      expect(handled).toBe(ordinary);
+      expect(response.status).toBe(503);
+      expect(await response.json()).toEqual({ custom: true });
+    });
+
+    it('forwards POST method, body and original NextRequest', async () => {
+      const request = controlRequest('/write', {
+        method: 'POST',
+        body: JSON.stringify({ value: 'posted' }),
+        headers: { 'content-type': 'application/json' },
+      });
+      const nativeHandler = createNextHandler(
+        controlContract,
+        {
+          control: async () => ({ status: 200, body: undefined }),
+          write: async ({ body }, { nextRequest, request: rawRequest }) => {
+            expect(nextRequest).toBe(request);
+            expect(rawRequest.method).toBe('POST');
+            return { status: 200, body };
+          },
+        },
+        { handlerType },
+      );
+      const response = await nativeHandler(request);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ value: 'posted' });
+    });
+
     const handler = createNextHandler(
       contract,
       {

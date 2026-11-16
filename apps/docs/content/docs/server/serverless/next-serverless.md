@@ -30,6 +30,15 @@ export const handler = createNextHandler(contract, router, {
 - [App Router on Next 16](https://github.com/2wce/ts-restless/blob/main/apps/example-next/app/api/app-router/%5B...ts-rest%5D/route.ts)
 - [Pages Router Edge on Next 16](https://github.com/2wce/ts-restless/blob/main/apps/example-next/pages/api/edge/%5B...ts-rest%5D.ts)
 
+## Native Next.js control flow
+
+The Next adapter preserves signals from `redirect()`, `permanentRedirect()` and
+`notFound()` using Next's public `unstable_rethrow` helper. This applies to
+handlers and request, route and response middleware. Let the signal propagate
+so Next can produce its native response; it bypasses the adapter's `errorHandler`
+and HTTP 500 conversion. Ordinary application errors and explicit HTTP errors
+continue through the configured serverless error handling.
+
 ## Context Object
 
 In addition to the regular context properties, the context object for Next handlers includes the following additional properties:

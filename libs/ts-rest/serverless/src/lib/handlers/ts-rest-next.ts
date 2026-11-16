@@ -1,5 +1,6 @@
 import { AppRouter } from '@ts-restless/core';
 import type { NextRequest, NextResponse } from 'next/server.js';
+import { unstable_rethrow } from 'next/navigation.js';
 import { createServerlessRouter } from '../router';
 import {
   createTsr,
@@ -34,7 +35,7 @@ export const createNextHandler = <T extends AppRouter, TRequestExtension>(
     T,
     NextPlatformArgs,
     TRequestExtension
-  >(contract, router, options);
+  >(contract, router, options, unstable_rethrow);
 
   return async (nextRequest: NextRequest): Promise<NextResponse> => {
     if (options.handlerType === 'pages-router-edge') {
