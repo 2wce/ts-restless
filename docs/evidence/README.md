@@ -2,6 +2,7 @@
 
 These records preserve measured outcomes at their stated baseline; they do not automatically certify current source or publication. [The roadmap](../roadmap.md) owns current status.
 
+- [Delivery and npm permission refresh](2026-11-16-delivery-refresh.md): merged PRs and the trusted-publisher setup snapshot.
 - [Vite+ adoption](2026-10-19-viteplus-adoption.md): toolchain evaluation and checks.
 - [Support/demand investigation](2026-11-06-support-demand.md) and [raw snapshot](2026-11-06-support-demand.json): counts, sources and limitations.
 - [Migration documentation audit](2026-11-09-migration-documentation.md): removed surfaces, replacements and rendered journey checks.

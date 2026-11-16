@@ -7,7 +7,7 @@ description: How to use ts-restless with Fastify
 
 <InstallTabs packageName="@ts-restless/fastify" />
 
-Development source supports Fastify **5** and retains Fastify **4** as legacy/deprecated support. The first stable ts-restless v4 release will flag Fastify 4 for removal in **ts-restless v5**, after the minimum stable migration window. Use `@ts-restless/fastify` for Fastify 5 and `@ts-restless/fastify/legacy` for Fastify 4. Both entries provide the same registration API; choosing the wrong entry fails at registration with migration guidance. Published alpha.5 supports Fastify 4 only. Check the containing release before installing Fastify 5 support.
+Development source supports Fastify **5** and retains Fastify **4** as legacy/deprecated support. The first stable ts-restless v4 release will flag Fastify 4 for removal in **ts-restless v5**, after the minimum stable migration window. Use `@ts-restless/fastify` for Fastify 5 and `@ts-restless/fastify/legacy` for Fastify 4. Both entries provide the same registration API; choosing the wrong entry fails at registration with migration guidance. Select a matched package version with the required peer range and public entry; see the [release selection guide](/ts-restless-migration#choose-the-release-first).
 
 ## Usage
 
@@ -88,7 +88,7 @@ s.registerRouter(contract, router, app, {
 });
 ```
 
-After the handler resolves, the adapter checks native `reply.sent`. If the response is already sent or has been hijacked with `reply.hijack()`, the adapter skips validation and writing of the handler's returned response envelope. With `reply.hijack()`, your handler must complete the raw response itself. This behavior applies to both the Fastify 5 entry and the Fastify 4 `/legacy` entry in development source; check the containing release before relying on it in an installed package.
+After the handler resolves, the adapter checks native `reply.sent`. If the response is already sent or has been hijacked with `reply.hijack()`, the adapter skips validation and writing of the handler's returned response envelope. With `reply.hijack()`, your handler must complete the raw response itself. This behavior applies to both the Fastify 5 entry and the Fastify 4 `/legacy` entry under the same native response-ownership rules.
 
 ### Request Validation Error Handling
 
@@ -125,7 +125,7 @@ If you stay on Fastify 4 when adopting the new package version, move every adapt
 + import { initServer } from '@ts-restless/fastify/legacy';
 ```
 
-The `/legacy` entry is deprecated and scheduled for removal in ts-restless v5 after the stable migration window. It requires a containing release; alpha.5 does not export it. Keep a matched earlier release if the new version is unavailable. Both native4 `/legacy` and native5 root accept Standard Schema contracts without requiring Zod.
+The `/legacy` entry is deprecated and scheduled for removal in ts-restless v5 after the stable migration window. Both native4 `/legacy` and native5 root accept Standard Schema contracts without requiring Zod.
 
 The historical `RequestValidationErrorSchema` helper formerly exported from Fastify `/zod3` is available as the identical `RequestValidationErrorSchemaWithoutMessage` in core `/legacy`. Import it separately and alias the name if needed:
 
@@ -140,7 +140,7 @@ Only applications using that historical helper need Zod 3 (`pnpm add zod@^3.22.3
 To move from legacy support to Fastify 5, upgrade in this order:
 
 1. Move your runtime to Node **20 or newer**, as required by native Fastify 5, and check each native plugin's Fastify 5 compatibility. This is Fastify's runtime requirement; ts-restless's contributor Node version is separate.
-2. Select a released `@ts-restless/fastify` version whose peer range includes `^5.0.0`, together with its matching `@ts-restless/core`. This addition is currently development source; alpha.5 remains the Fastify 4 fallback. Then upgrade native `fastify` to a patched v5 release and replace `@ts-restless/fastify/legacy` value/type imports with `@ts-restless/fastify`.
+2. Select a released `@ts-restless/fastify` version whose peer range includes `^5.0.0`, together with its matching `@ts-restless/core`. Then upgrade native `fastify` to a patched v5 release and replace `@ts-restless/fastify/legacy` value/type imports with `@ts-restless/fastify`.
 3. Keep `initServer()`, `s.router`, `s.route`, `s.registerRouter` and `s.plugin`. Contracts, Standard Schema validation, route hooks, response writing and native request/reply objects retain their adapter boundary. Handlers' top-level `params`, `query`, `headers` and `body` are validated outputs; the native request retains parsed input values.
 4. Replace removed Fastify metadata aliases in application hooks. Use the typed request argument's `request.routeOptions.config.tsRestRoute`; `reply.request` identifies the same native request, but native reply types do not preserve its route-specific config type. Replace Express-style `.json(...)` calls in custom validation handlers with native `.send(...)`.
 

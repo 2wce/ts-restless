@@ -57,7 +57,7 @@ This object is also passed as the last argument to all middleware and response h
 
 ## Response headers
 
-A serverless handler can return optional `headers` alongside `status` and `body`. Use any Fetch `HeadersInit`: a record of string values, an array of `[name, value]` pairs, or a `Headers` object. This API is supported in development source; verify a containing release before using it in an installed package.
+A serverless handler can return optional `headers` alongside `status` and `body`. Use any Fetch `HeadersInit`: a record of string values, an array of `[name, value]` pairs, or a `Headers` object. For upgrades from earlier prereleases, select a version whose changelog includes returned serverless headers; see the [release selection guide](/ts-restless-migration#choose-the-release-first).
 
 ```typescript
 const router = tsr.router(contract.posts, {
