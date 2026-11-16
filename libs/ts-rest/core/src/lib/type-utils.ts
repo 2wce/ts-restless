@@ -142,16 +142,14 @@ export type DefinedOrEmpty<
   K extends keyof NonNullable<T>,
 > = undefined extends T ? {} : NonNullable<T>[K];
 
-declare const tag: unique symbol;
-
 declare type Tagged<Token> = {
-  readonly [tag]: Token;
+  readonly '~ts-restless.opaque': Token;
 };
 
 export type Opaque<Type, Token = unknown> = Type & Tagged<Token>;
 
 export type UnwrapOpaque<OpaqueType extends Tagged<unknown>> =
-  OpaqueType extends Opaque<infer Type, OpaqueType[typeof tag]>
+  OpaqueType extends Opaque<infer Type, OpaqueType['~ts-restless.opaque']>
     ? Type
     : OpaqueType;
 

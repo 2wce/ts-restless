@@ -18,12 +18,15 @@ type MixedSchemaError<A, B> = Opaque<{ a: A; b: B }, 'MixedSchemaError'>;
  */
 type Path = string;
 
-declare const NullSymbol: unique symbol;
-export const ContractNoBody = Symbol('ContractNoBody');
+export type ContractNoBodyType = symbol & {
+  readonly '~ts-restless.no-body': true;
+};
+export const ContractNoBody: ContractNoBodyType = Symbol.for(
+  'ts-restless.ContractNoBody',
+) as ContractNoBodyType;
 
 export type ContractPlainType<T> = Opaque<T, 'ContractPlainType'>;
-export type ContractNullType = Opaque<typeof NullSymbol, 'ContractNullType'>;
-export type ContractNoBodyType = typeof ContractNoBody;
+export type ContractNullType = Opaque<symbol, 'ContractNullType'>;
 export type ContractAnyType =
   | StandardSchemaV1<any>
   | ContractPlainType<unknown>

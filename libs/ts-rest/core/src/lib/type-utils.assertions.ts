@@ -6,7 +6,11 @@ import {
   IfAllPropertiesOptional,
   Without,
   SchemaOutputOrType,
+  SchemaInputOrType,
+  Opaque,
+  UnwrapOpaque,
 } from './type-utils';
+import { ContractNoBodyType, ContractNullType, ContractPlainType } from './dsl';
 
 const zodObject = z.object({ title: z.string() });
 type ObjectOutput = Expect<
@@ -20,6 +24,49 @@ type NullableOutput = Expect<
 
 type PlainOutput = Expect<
   Equal<SchemaOutputOrType<{ title: string }>, { title: string }>
+>;
+
+type DeclaredPlainOutput = Expect<
+  Equal<
+    SchemaOutputOrType<ContractPlainType<{ title: string }>>,
+    { title: string }
+  >
+>;
+type DeclaredPlainInput = Expect<
+  Equal<
+    SchemaInputOrType<ContractPlainType<{ title: string }>>,
+    { title: string }
+  >
+>;
+type DeclaredNullOutput = Expect<
+  Equal<SchemaOutputOrType<ContractNullType>, null>
+>;
+type DeclaredNullInput = Expect<
+  Equal<SchemaInputOrType<ContractNullType>, null>
+>;
+type DeclaredNoBodyOutput = Expect<
+  Equal<SchemaOutputOrType<ContractNoBodyType>, undefined>
+>;
+type DeclaredNoBodyInput = Expect<
+  Equal<SchemaInputOrType<ContractNoBodyType>, undefined>
+>;
+type ArbitrarySymbolIsNotNoBody = Expect<
+  Equal<symbol extends ContractNoBodyType ? true : false, false>
+>;
+type ArbitrarySymbolIsNotNull = Expect<
+  Equal<symbol extends ContractNullType ? true : false, false>
+>;
+type PlainSymbolIsNotNull = Expect<
+  Equal<
+    ContractPlainType<symbol> extends ContractNullType ? true : false,
+    false
+  >
+>;
+type UnwrapOpaqueString = Expect<
+  Equal<UnwrapOpaque<Opaque<string, 'UserId'>>, string>
+>;
+type UnwrapOpaqueObject = Expect<
+  Equal<UnwrapOpaque<Opaque<{ title: string }, 'Title'>>, { title: string }>
 >;
 
 type AreAllPropertiesOptional1 = Expect<

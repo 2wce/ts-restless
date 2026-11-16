@@ -72,6 +72,27 @@ Do not work around this by casting the old schema; bridge it or upgrade its
 validator. Promise-returning validation is still unsupported: use a synchronous
 schema and put asynchronous checks in your application handler.
 
+## Shared contracts across ESM and CommonJS
+
+Type-only contracts (`c.type<T>()`, including `c.type<null>()`) and `c.noBody()`
+can cross the ESM/CommonJS boundary within the same coordinated ts-restless
+release. A no-body response remains `undefined` even when its HTTP response has
+a JSON content type; the client does not decode that response body.
+
+When upgrading, rebuild shared contract packages and applications against a
+containing release. Historical package declarations and no-body symbols used
+module-local identities, so mixing them with the new declarations is not a
+supported migration path. Align the contract package's core dependency or peer
+with the application's version, and keep the coordinated adapters together.
+Do not construct replacement symbols or cast away declaration mismatches.
+
+The public `Opaque` and `UnwrapOpaque` type names retain their inference and
+distinct-token behavior; their internal declaration brand is now portable.
+These type markers still do not validate data at runtime. See the
+[contract identity decision](https://github.com/2wce/ts-restless/blob/main/docs/adr/0019-portable-contract-identity.md)
+for the compatibility boundary. Verify a containing release before updating
+installed packages.
+
 ## Validation errors
 
 Default validation errors are `StandardSchemaError`, with `name: 'ValidationError'`
