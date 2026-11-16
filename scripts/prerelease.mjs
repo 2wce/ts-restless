@@ -108,6 +108,17 @@ export async function publishPrerelease(cwd, run = runner(cwd)) {
   } finally {
     await writeFile(prePath, original);
   }
+  // Also repair latest on retries when Changesets skips already-published versions.
+  if (release.tag === 'alpha') {
+    for (const name of publicLibraries) {
+      run('npm', [
+        'dist-tag',
+        'add',
+        `@ts-restless/${name}@${release.version}`,
+        'latest',
+      ]);
+    }
+  }
   return release;
 }
 

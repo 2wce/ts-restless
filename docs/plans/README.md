@@ -8,6 +8,8 @@
 
 ## Retained implementation and design records
 
+- [Alpha default-install tag](2026-11-13-alpha-latest.md), mirroring alpha to `latest` through trusted publishing.
+
 - [Native replies and returned serverless headers](2026-11-13-native-replies-and-response-headers.md), fixing native response ownership and scoped Fetch header customization.
 
 - [Untangle codebase design](2026-11-12-untangle-codebase-design.md) and [implementation plan](2026-11-12-untangle-codebase.md), implementing the parsed-request/native ownership boundary in [ADR0016](../adr/0016-parsed-request-ownership.md) and the canonical adapter-maintenance slices.

@@ -8,4 +8,6 @@ Coordinated versions simplify matched-package migration and shared-contract comp
 
 Prerelease version PRs and publication follow artifact/CI and authentication gates. Stable activation is a separate decision. Record actual npm tags and versions rather than inferring them from repository state; publication uses the reviewed OIDC/provenance workflow.
 
+[ADR0018](0018-alpha-latest-tag.md) refines the alpha default-install policy: during alpha development, `latest` follows the same release as `alpha`.
+
 Sources: [identity decision](../plans/2026-11-04-ts-restless-identity-design.md), [public-only tracking](../plans/004-private-package-release-noise.md), [maintained checklist](../prerelease-checklist.md). [Roadmap](../roadmap.md) records delivery.

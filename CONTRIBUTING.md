@@ -256,6 +256,10 @@ Prereleases use Changesets release PRs after successful `main` CI and all
 compatibility fixtures in `.github/workflows/build-test.yml`. Pending Changesets
 open/update the coordinated numbered prerelease PR. Merging it and passing CI
 publishes its versions under the tag in committed Changesets prerelease state.
+During alpha development, it then updates `latest` to the same alpha version.
+Each package's trusted publisher must enable **Allow npm dist-tag**; the job
+installs npm 11.21.0 for OIDC tag support. A tag failure fails the job and a retry
+repairs tags even when all versions are already published.
 The dedicated release PR credential ensures those PRs trigger normal CI.
 
 The job defaults off until the GitHub `RELEASE_PR_TOKEN` credential and each package's npm trusted publisher
@@ -402,6 +406,8 @@ versions the original manifests and refreshes the lockfile. The version PR
 contains that state and its changelogs for review. `pnpm prerelease:verify` checks
 the coordinated new-scope versions and tag; `pnpm prerelease:publish` repeats
 validation, builds and invokes `changeset publish --tag <committed-tag>`.
+After successful alpha publication it adds `latest` to the same version for
+each public library, including on retries. The version remains a prerelease.
 Snapshot commands remain available for disposable versioning probes and are
 separate from the numbered publication flow.
 

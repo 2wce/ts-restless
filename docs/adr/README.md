@@ -27,6 +27,8 @@ ADRs preserve consequential choices and their rationale. Use short Markdown reco
 
 | [0017](0017-serverless-response-headers.md) | Native returned Fetch headers, context precedence and additive cookies in serverless. |
 
+| [0018](0018-alpha-latest-tag.md) | Mirror alpha to latest during alpha development, with trusted-publisher tag updates. |
+
 These initial records extract already approved decisions from existing documents; they do not newly approve roadmap proposals.
 
 ## Writing an ADR

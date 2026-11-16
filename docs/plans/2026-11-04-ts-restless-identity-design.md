@@ -45,6 +45,8 @@ The first stable release of every public library is **`4.0.0`**. This marks the 
 
 Use `4.0.0-alpha.0` for the first numbered public prerelease, followed by numbered alpha, beta and release-candidate versions as evidence warrants. Publish each under its explicit `alpha`, `beta` or `rc` dist-tag. Reserve `latest` for the stable release. Existing timestamp snapshot tooling must be reconciled with this numbered prerelease policy before enabling publication.
 
+**2026-11-13 supersession:** [ADR0018](../adr/0018-alpha-latest-tag.md) replaces the stable-only `latest` rule for active alpha development: `latest` follows the same numbered release as `alpha`. This also supersedes the alpha-off-`latest` restriction in the automation paragraph below. Beta/RC and stable activation remain separate decisions.
+
 Reconcile pending Changesets and source versions in a disposable versioning dry run so the stable result is exactly `4.0.0`. Current source libraries are `3.52.1` with coordinated major Changesets pending. Do not set them to `4.0.0` and then inadvertently apply another major bump to `5.0.0`. Keep private workspace packages private even when coordinated tooling updates their versions.
 
 Subsequent releases follow semver under ts-restless's own release history. Announce and perform compatibility removal according to the adopted [support policy](../support-policy.md); the initial baseline must describe differences from upstream v3 explicitly.
