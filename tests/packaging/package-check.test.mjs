@@ -14,6 +14,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import {
+  compileConsumer,
   installConsumer,
   readFixture,
   withTemporaryConsumer,
@@ -23,6 +24,33 @@ const root = fileURLToPath(new URL('../../', import.meta.url));
 const baseline = JSON.parse(
   await readFile(new URL('./package-baseline.json', import.meta.url)),
 );
+
+test('packed Express composition types preserve modular inference', async () => {
+  await withTemporaryConsumer(
+    'ts-restless-express-types-',
+    async (consumer) => {
+      const expressTypesVersion = JSON.parse(
+        await readFile(
+          resolve(root, 'node_modules/@types/express/package.json'),
+        ),
+      ).version;
+      await installConsumer(consumer, {
+        private: true,
+        dependencies: {
+          '@ts-restless/core': `file:${resolve(root, 'dist/packages/ts-restless-core.tgz')}`,
+          '@ts-restless/express': `file:${resolve(root, 'dist/packages/ts-restless-express.tgz')}`,
+          '@types/express': expressTypesVersion,
+        },
+      });
+      const source = await readFixture('express-composition.ts.fixture');
+      for (const extension of ['mts', 'cts']) {
+        const file = join(consumer, `composition.${extension}`);
+        await writeFile(file, source);
+        compileConsumer(consumer, file);
+      }
+    },
+  );
+});
 
 test('mixed-format contracts preserve strict types and no-body decoding', async () => {
   await withTemporaryConsumer(

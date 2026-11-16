@@ -48,6 +48,8 @@ export const initServer = () => {
   };
 };
 
+export type TsRestExpressServer = ReturnType<typeof initServer>;
+
 const recursivelyApplyExpressRouter = ({
   schema,
   router,
