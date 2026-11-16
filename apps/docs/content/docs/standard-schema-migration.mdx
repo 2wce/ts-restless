@@ -93,6 +93,52 @@ These type markers still do not validate data at runtime. See the
 for the compatibility boundary. Verify a containing release before updating
 installed packages.
 
+## Multipart object bodies
+
+Object uploads with `contentType: 'multipart/form-data'` now use native field
+encoding by default. Strings keep their exact contents: `Alice` reaches the
+native parser as `Alice`, without JSON quotation marks. Empty strings, zero and
+false remain fields; undefined fields and array items are omitted. Null and
+nested objects use JSON text, arrays repeat the field name, and files stay
+binary. Caller-created `FormData` passes through unchanged.
+
+If an endpoint JSON-decodes every field, retain the historical encoding while
+updating its parser or schema:
+
+```typescript twoslash
+import { initClient, initContract } from '@ts-restless/core';
+const c = initContract();
+const contract = c.router({
+  upload: {
+    method: 'POST', path: '/upload', contentType: 'multipart/form-data',
+    body: c.type<{ name: string; missing?: string }>(),
+    responses: { 204: c.noBody() },
+  },
+});
+// ---cut---
+const client = initClient(contract, {
+  baseUrl: 'https://api.example.com',
+  multipartFieldEncoding: 'json',
+});
+
+await client.upload({
+  body: { name: 'Alice', missing: undefined },
+}); // Historical fields: name = '"Alice"', missing = 'undefined'
+
+await client.upload({
+  body: { name: 'Alice', missing: undefined },
+  overrideClientOptions: { multipartFieldEncoding: 'native' },
+}); // Native fields: name = 'Alice'; missing is omitted
+```
+
+The option applies to plain and query clients and can be overridden per request.
+It does not add automatic multipart parsing or server-side JSON decoding.
+Update each endpoint to consume ordinary strings or keep `'json'` for endpoints
+whose established decoding requires it. See the
+[multipart field decision](https://github.com/2wce/ts-restless/blob/main/docs/adr/0020-multipart-field-encoding.md)
+and [client guide](/client/fetch#form-data-multipartform-data) for the field policy.
+Check a containing release before relying on this behavior in installed packages.
+
 ## Validation errors
 
 Default validation errors are `StandardSchemaError`, with `name: 'ValidationError'`

@@ -68,6 +68,7 @@ export interface OverrideableClientArgs {
   baseUrl: string;
   credentials?: FetchOptions['credentials'];
   jsonQuery?: boolean;
+  multipartFieldEncoding?: 'native' | 'json';
   validateResponse?: boolean;
 }
 
@@ -192,14 +193,22 @@ export const tsRestFetchApi: ApiFetcher = async ({
   );
 };
 
-const createFormData = (body: unknown) => {
+const createFormData = (
+  body: unknown,
+  multipartFieldEncoding: 'native' | 'json' = 'native',
+) => {
   const formData = new FormData();
 
   const appendToFormData = (key: string, value: unknown) => {
     if (value instanceof File) {
       formData.append(key, value);
-    } else {
+    } else if (multipartFieldEncoding === 'json') {
       formData.append(key, JSON.stringify(value));
+    } else if (value !== undefined) {
+      formData.append(
+        key,
+        typeof value === 'string' ? value : JSON.stringify(value),
+      );
     }
   };
 
@@ -297,7 +306,10 @@ export const fetchApi = async (options: FetchApiOptions) => {
       fetcherArgs = {
         ...fetcherArgs,
         contentType: 'multipart/form-data',
-        body: body instanceof FormData ? body : createFormData(body),
+        body:
+          body instanceof FormData
+            ? body
+            : createFormData(body, clientArgs.multipartFieldEncoding),
       };
     } else if (
       'contentType' in route &&

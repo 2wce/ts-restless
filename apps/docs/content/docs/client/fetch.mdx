@@ -110,6 +110,7 @@ const client = initClient(contract, {
     'X-API-Key': 'your-api-key',
   },
   credentials: 'include', // For sending cookies
+  multipartFieldEncoding: 'native', // Default encoding for object upload fields
   validateResponse: true, // Validate responses against schema
   throwOnUnknownStatus: true, // Throw on unexpected status codes
 });
@@ -562,7 +563,41 @@ const formResult = await client.uploadImage({
   params: { id: '25' },
   body: formData,
 });
+
+// Compatibility for servers that JSON-decode every ordinary field
+const jsonClient = initClient(contract, {
+  baseUrl: 'https://api.example.com',
+  multipartFieldEncoding: 'json',
+});
+await jsonClient.uploadImage({
+  params: { id: '25' },
+  body: { image: file, description: 'Pikachu headshot' },
+  overrideClientOptions: { multipartFieldEncoding: 'native' },
+});
 ```
+
+Object bodies use `multipartFieldEncoding: 'native'` by default:
+
+| Value | Uploaded field |
+| --- | --- |
+| String, including `''` | Unchanged |
+| Number or boolean | JSON text, such as `0` or `false` |
+| `null` | `null` |
+| `undefined` | Omitted |
+| Nested object | JSON text, such as `{"id":1}` |
+| Array | Repeated field names, each using these rules |
+| `File` | Binary file |
+
+Set the client option to `'json'` if your server expects every ordinary field
+to be JSON encoded. This preserves historical output, including quoted strings
+and the literal `undefined` field value. A request's `overrideClientOptions`
+can select either mode; query clients use the same option. Caller-created
+`FormData` is passed through unchanged in both modes.
+
+The server's native multipart parser still owns decoding and file handling.
+Choose schemas and any JSON decoding to match your fields; the client option
+does not install a server parser. See the [multipart migration](/standard-schema-migration#multipart-object-bodies)
+when upgrading existing JSON-decoding endpoints.
 
 ### URL Encoded Forms (application/x-www-form-urlencoded)
 

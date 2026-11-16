@@ -1,9 +1,11 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Readable } from 'node:stream';
+import type { AddressInfo } from 'node:net';
 import {
   StandardSchemaV1,
   initContract,
+  initClient,
   TsRestResponseValidationError as ResponseValidationError,
   TsRestResponseError,
 } from '@ts-restless/core';
@@ -556,16 +558,18 @@ describe('ts-rest-express', () => {
       uploadFiles: {
         method: 'POST',
         path: '/upload',
-        body: c.type<{
-          files: File[];
-          file: File;
-          foo: string;
-        }>(),
+        body: z.object({
+          files: z.custom<File[]>().optional(),
+          file: z.custom<File>().optional(),
+          foo: z.string(),
+          email: z.string().email(),
+        }),
         responses: {
           200: c.type<{
             fileFields: string[];
             body: {
               foo: string;
+              email: string;
             };
           }>(),
         },
@@ -610,15 +614,61 @@ describe('ts-rest-express', () => {
         contentType: 'text/plain',
       })
       .field('foo', 'bar')
+      .field('email', 'alice@example.com')
       .expect((res) => {
         expect(res.status).toEqual(200);
         expect(res.body).toEqual({
           fileFields: ['files', 'files', 'file'],
           body: {
             foo: 'bar',
+            email: 'alice@example.com',
           },
         });
       });
+
+    const server = app.listen(0, '127.0.0.1');
+    try {
+      await new Promise<void>((resolve, reject) => {
+        server.once('listening', resolve);
+        server.once('error', reject);
+      });
+      const baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+      const client = initClient(contract, { baseUrl });
+      const jsonClient = initClient(contract, {
+        baseUrl,
+        multipartFieldEncoding: 'json',
+      });
+      const body = {
+        foo: 'bar',
+        email: 'alice@example.com',
+        files: [new File(['one'], 'one.txt'), new File(['two'], 'two.txt')],
+        file: new File(['three'], 'three.txt'),
+      };
+      const expected = {
+        fileFields: ['files', 'files', 'file'],
+        body: { foo: 'bar', email: 'alice@example.com' },
+      };
+      const native = await client.uploadFiles({ body });
+      expect(native.status).toBe(200);
+      expect(native.body).toEqual(expected);
+      expect((await jsonClient.uploadFiles({ body })).status).toBe(400);
+      const overridden = await jsonClient.uploadFiles({
+        body,
+        overrideClientOptions: { multipartFieldEncoding: 'native' },
+      });
+      expect(overridden.status).toBe(200);
+      expect(overridden.body).toEqual(expected);
+      const form = new FormData();
+      form.append('foo', 'bar');
+      form.append('email', 'alice@example.com');
+      const explicit = await jsonClient.uploadFiles({ body: form });
+      expect(explicit.status).toBe(200);
+      expect(explicit.body).toEqual({ ...expected, fileFields: [] });
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
   });
 
   it('allows download image', async () => {

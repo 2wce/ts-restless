@@ -31,6 +31,8 @@ ADRs preserve consequential choices and their rationale. Use short Markdown reco
 
 | [0019](0019-portable-contract-identity.md) | Portable runtime/declaration contract identity across ESM and CommonJS. |
 
+| [0020](0020-multipart-field-encoding.md) | Native multipart object fields by default with explicit historical JSON compatibility. |
+
 These initial records extract already approved decisions from existing documents; they do not newly approve roadmap proposals.
 
 ## Writing an ADR

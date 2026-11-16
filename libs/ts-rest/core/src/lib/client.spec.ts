@@ -789,6 +789,109 @@ describe('client', () => {
   });
 
   describe('multipart/form-data', () => {
+    it.each([
+      {
+        encoding: undefined,
+        override: undefined,
+        expected: ['Alice', '', 'one', ''],
+      },
+      {
+        encoding: 'native',
+        override: undefined,
+        expected: ['Alice', '', 'one', ''],
+      },
+      {
+        encoding: 'json',
+        override: undefined,
+        expected: ['"Alice"', '""', '"one"', '""', 'undefined'],
+      },
+      {
+        encoding: 'json',
+        override: 'native',
+        expected: ['Alice', '', 'one', ''],
+      },
+      {
+        encoding: 'native',
+        override: 'json',
+        expected: ['"Alice"', '""', '"one"', '""', 'undefined'],
+      },
+    ] as const)(
+      'encodes object fields with client mode $encoding and request override $override',
+      async ({ encoding, override, expected }) => {
+        const contract = c.router({
+          upload: {
+            method: 'POST',
+            path: '/fields',
+            contentType: 'multipart/form-data',
+            body: c.type<{
+              name: string;
+              empty: string;
+              zero: number;
+              enabled: boolean;
+              missing?: string;
+              nil: null;
+              metadata: { id: number };
+              tags: Array<string | undefined>;
+              files: File[];
+            }>(),
+            responses: { 200: c.type<{ message: string }>() },
+          },
+        });
+        const files = [
+          new File(['one'], 'one.txt'),
+          new File(['two'], 'two.txt'),
+        ];
+        const body = {
+          name: 'Alice',
+          empty: '',
+          zero: 0,
+          enabled: false,
+          missing: undefined,
+          nil: null,
+          metadata: { id: 1 },
+          tags: ['one', '', undefined],
+          files,
+        };
+        const api = async (args: ApiFetcherArgs) => {
+          const form = args.body as FormData;
+          expect(form.get('name')).toBe(expected[0]);
+          expect(form.get('empty')).toBe(expected[1]);
+          expect(form.get('zero')).toBe('0');
+          expect(form.get('enabled')).toBe('false');
+          expect(form.get('nil')).toBe('null');
+          expect(form.get('metadata')).toBe('{"id":1}');
+          expect(form.getAll('tags')).toEqual(expected.slice(2));
+          expect(form.get('missing')).toBe(
+            expected.length === 5 ? 'undefined' : null,
+          );
+          expect(form.getAll('files')[0]).toBe(files[0]);
+          expect(form.getAll('files')[1]).toBe(files[1]);
+          expect(args.rawBody).toBe(body);
+          return {
+            status: 200,
+            body: { message: 'received' },
+            headers: new Headers(),
+          };
+        };
+        const localClient = initClient(contract, {
+          baseUrl: 'https://multipart.example',
+          api,
+          ...(encoding && { multipartFieldEncoding: encoding }),
+        });
+        await expect(
+          localClient.upload({
+            body,
+            ...(override && {
+              overrideClientOptions: { multipartFieldEncoding: override },
+            }),
+          }),
+        ).resolves.toMatchObject({
+          status: 200,
+          body: { message: 'received' },
+        });
+      },
+    );
+
     it('w/ body', async () => {
       const value = { key: 'value' };
       fetchMock.route({
@@ -817,34 +920,37 @@ describe('client', () => {
       });
     });
 
-    it('w/ FormData', async () => {
-      const value = { key: 'value' };
-      fetchMock.route({
-        url: 'https://api.com/upload',
-        response: { body: value, status: 200 },
-        method: 'POST',
-        repeat: 1,
-      });
+    it.each(['native', 'json'] as const)(
+      'preserves caller FormData in %s mode',
+      async (multipartFieldEncoding) => {
+        const value = { key: 'value' };
+        fetchMock.route({
+          url: 'https://api.com/upload',
+          response: { body: value, status: 200 },
+          method: 'POST',
+          repeat: 1,
+        });
 
-      const formData = new FormData();
-      formData.append('test', 'test');
+        const formData = new FormData();
+        formData.append('test', 'test');
 
-      const result = await client.upload({
-        body: formData,
-      });
+        const result = await client.upload({
+          body: formData,
+          overrideClientOptions: { multipartFieldEncoding },
+        });
 
-      expect(result.body).toStrictEqual(value);
-      expect(result.status).toBe(200);
-      expect(result.headers.get('Content-Length')).toBe('15');
-      expect(result.headers.get('Content-Type')).toBe('application/json');
+        expect(result.body).toStrictEqual(value);
+        expect(result.status).toBe(200);
+        expect(result.headers.get('Content-Length')).toBe('15');
+        expect(result.headers.get('Content-Type')).toBe('application/json');
 
-      expect(fetchMock).toHaveLastFetched('*', {
-        matcherFunction: ({ options }) => {
-          const formData = options.body as FormData;
-          return formData.get('test') === 'test';
-        },
-      });
-    });
+        expect(fetchMock).toHaveLastFetched('*', {
+          matcherFunction: ({ options }) => {
+            return options.body === formData && formData.get('test') === 'test';
+          },
+        });
+      },
+    );
 
     it('w/ File Array', async () => {
       const value = { key: 'value' };
