@@ -1,5 +1,9 @@
 import { getHttpVerbDecorator } from './route-decoration';
-import { ROUTE_ARGS_METADATA } from '@nestjs/common/constants.js';
+import {
+  METHOD_METADATA,
+  PATH_METADATA,
+  ROUTE_ARGS_METADATA,
+} from '@nestjs/common/constants.js';
 import { Reflector } from '@nestjs/core';
 import { mergeMap, Observable } from 'rxjs';
 import type { Request, Response } from 'express';
@@ -101,7 +105,6 @@ const applyHandlerMetadata = (
       appRoute: route,
       routeKey,
     } satisfies TsRestAppRouteMetadata),
-    UseInterceptors(TsRestHandlerInterceptor),
   );
 
 export const TsRestHandler = (
@@ -114,6 +117,7 @@ export const TsRestHandler = (
     descriptor: PropertyDescriptor,
   ) => {
     const isMultiHandler = !isAppRoute(appRouterOrRoute);
+    UseInterceptors(TsRestHandlerInterceptor)(target, propertyKey, descriptor);
 
     // A single @All handler let different controllers conflict in Nest.
     if (isMultiHandler) {
@@ -132,6 +136,8 @@ export const TsRestHandler = (
           target[methodName] = async function (...args: any[]) {
             return originalMethod.apply(this, args);
           };
+          // Native decorators can add lifecycle metadata after this decorator runs.
+          Object.setPrototypeOf(target[methodName], originalMethod);
 
           if (originalParamMetadata) {
             Reflect.defineMetadata(
@@ -162,17 +168,16 @@ export const TsRestHandler = (
             Object.getOwnPropertyDescriptor(target, methodName)!,
           );
 
-          const reflector = new Reflector();
-          const metadataKeys = Reflect.getMetadataKeys(descriptor.value);
-
-          metadataKeys.forEach((key) => {
-            const metadata = reflector.get(key, descriptor.value);
-            SetMetadata(key, metadata)(
-              target,
-              methodName,
-              Object.getOwnPropertyDescriptor(target, methodName)!,
-            );
-          });
+          // Route identity stays local, including native overrides already applied.
+          for (const key of [PATH_METADATA, METHOD_METADATA]) {
+            if (Reflect.hasMetadata(key, originalMethod)) {
+              Reflect.defineMetadata(
+                key,
+                Reflect.getMetadata(key, originalMethod),
+                target[methodName],
+              );
+            }
+          }
 
           applyHandlerMetadata(route, routeKey, options)(
             target,

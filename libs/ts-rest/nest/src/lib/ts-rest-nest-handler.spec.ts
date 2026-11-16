@@ -15,6 +15,7 @@ import {
 } from './ts-rest-nest-handler';
 import { z } from 'zod';
 import {
+  applyDecorators,
   ArgumentsHost,
   Body,
   CallHandler,
@@ -30,6 +31,7 @@ import {
   NestInterceptor,
   Post,
   Query,
+  Req,
   Res,
   SetMetadata,
   UploadedFile,
@@ -44,7 +46,7 @@ import {
   FastifyAdapter,
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { map, Observable } from 'rxjs';
 import { TsRestModule } from './ts-rest.module';
 import * as path from 'node:path';
@@ -128,27 +130,43 @@ describe('ts-rest-nest-handler', () => {
   );
 
   it.each([
-    ['single', 'express'],
-    ['multi', 'express'],
-    ['single', 'fastify'],
-    ['multi', 'fastify'],
+    ['single', 'express', 'above'],
+    ['single', 'express', 'below'],
+    ['multi', 'express', 'above'],
+    ['multi', 'express', 'below'],
+    ['single', 'fastify', 'above'],
+    ['single', 'fastify', 'below'],
+    ['multi', 'fastify', 'above'],
+    ['multi', 'fastify', 'below'],
   ] as const)(
-    'preserves falsy metadata, parameters and lifecycle order for %s handlers on %s',
-    async (mode, adapter) => {
+    'preserves native metadata and lifecycle for %s handlers on %s with TsRestHandler %s native decorators',
+    async (mode, adapter, order) => {
       const c = initContract();
       const contract = c.router({
         route: {
           method: 'GET',
           path: '/metadata',
-          responses: { 200: z.object({ header: z.string() }) },
+          responses: {
+            200: z.object({ header: z.string(), user: z.string() }),
+          },
         },
       });
       const events: string[] = [];
+      type GuardedRequest = Request & { user?: string };
+      let guardedRequest: GuardedRequest | undefined;
+      let handlerRequest: GuardedRequest | undefined;
+      let interceptedValue: unknown;
 
       @Injectable()
       class MetadataGuard implements CanActivate {
         canActivate(context: ExecutionContext) {
           events.push('guard');
+          const request = context.switchToHttp().getRequest<GuardedRequest>();
+          if (request.headers['x-allow'] !== 'yes') {
+            return false;
+          }
+          request.user = 'guard user';
+          guardedRequest = request;
           const handler = context.getHandler();
           return [
             ['false', false],
@@ -171,27 +189,45 @@ describe('ts-rest-nest-handler', () => {
           return next.handle().pipe(
             map((body) => {
               events.push('interceptor:after');
+              interceptedValue = body;
               return body;
             }),
           );
         }
       }
 
+      const nativeDecorators = applyDecorators(
+        UseGuards(MetadataGuard),
+        UseInterceptors(LifecycleInterceptor),
+        SetMetadata('false', false),
+        SetMetadata('zero', 0),
+        SetMetadata('empty', ''),
+        SetMetadata('null', null),
+        SetMetadata('undefined', undefined),
+      );
+      const tsRestDecorator = TsRestHandler(
+        mode === 'multi' ? contract : contract.route,
+      );
+
       @Controller()
       class MetadataController {
-        @TsRestHandler(mode === 'multi' ? contract : contract.route)
-        @UseGuards(MetadataGuard)
-        @UseInterceptors(LifecycleInterceptor)
-        @SetMetadata('false', false)
-        @SetMetadata('zero', 0)
-        @SetMetadata('empty', '')
-        @SetMetadata('null', null)
-        @SetMetadata('undefined', undefined)
-        async handler(@Headers('x-value') header: string) {
+        @applyDecorators(
+          ...(order === 'above'
+            ? [nativeDecorators, tsRestDecorator]
+            : [tsRestDecorator, nativeDecorators]),
+        )
+        async handler(
+          @Headers('x-value') header: string,
+          @Req() request: GuardedRequest,
+        ) {
           events.push('factory');
+          handlerRequest = request;
           const implementation = async () => {
             events.push('implementation');
-            return { status: 200 as const, body: { header } };
+            return {
+              status: 200 as const,
+              body: { header, user: request.user! },
+            };
           };
           return mode === 'multi'
             ? tsRestHandler(contract, { route: implementation })
@@ -213,18 +249,44 @@ describe('ts-rest-nest-handler', () => {
         if (adapter === 'fastify') {
           await app.getHttpAdapter().getInstance().ready();
         }
+        const rejected = await supertest(app.getHttpServer()).get('/metadata');
+        expect(rejected.status).toBe(403);
+        expect(events).toEqual(['guard']);
+        events.length = 0;
         const response = await supertest(app.getHttpServer())
           .get('/metadata')
+          .set('x-allow', 'yes')
           .set('x-value', 'native parameter');
         expect(response.status).toBe(200);
-        expect(response.body).toEqual({ header: 'native parameter' });
-        expect(events).toEqual([
-          'guard',
-          'interceptor:before',
-          'factory',
-          'implementation',
-          'interceptor:after',
-        ]);
+        expect(response.body).toEqual({
+          header: 'native parameter',
+          user: 'guard user',
+        });
+        expect(handlerRequest).toBe(guardedRequest);
+        if (order === 'above') {
+          expect(interceptedValue).toEqual(response.body);
+        } else if (mode === 'single') {
+          expect(interceptedValue).toBeTypeOf('function');
+        } else {
+          expect(interceptedValue).toEqual({ route: expect.any(Function) });
+        }
+        expect(events).toEqual(
+          order === 'above'
+            ? [
+                'guard',
+                'interceptor:before',
+                'factory',
+                'implementation',
+                'interceptor:after',
+              ]
+            : [
+                'guard',
+                'interceptor:before',
+                'factory',
+                'interceptor:after',
+                'implementation',
+              ],
+        );
       } finally {
         await app.close();
       }
