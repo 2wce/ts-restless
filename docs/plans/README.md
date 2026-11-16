@@ -2,6 +2,10 @@
 
 [The roadmap](../roadmap.md) owns current delivery status; [ADRs](../adr/README.md) own accepted rationale. Dated documents preserve their original baselines and executable acceptance criteria.
 
+## Active work
+
+- [Six upstream issue fixes: design](2026-11-16-upstream-issues-design.md) and [implementation](2026-11-16-upstream-issues.md), approved behavior and compatibility choices for fork issues #52–#57.
+
 ## Documentation delivery record
 
 - [Documentation and agent guidance](2026-11-09-documentation-adr.md), delivered in [PR #24](https://github.com/2wce/ts-restless/pull/24).
