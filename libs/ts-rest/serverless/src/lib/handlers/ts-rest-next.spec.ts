@@ -53,7 +53,7 @@ for (const handlerType of ['app-router', 'pages-router-edge'] as const) {
       if (handlerType === 'pages-router-edge') {
         url.searchParams.set('ts-rest', path.slice(1));
       }
-      return new NextRequest(url, init);
+      return new NextRequest(new Request(url, init));
     };
 
     for (const [name, trigger] of nativeSignals) {

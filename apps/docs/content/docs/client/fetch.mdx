@@ -572,6 +572,12 @@ const jsonClient = initClient(contract, {
 await jsonClient.uploadImage({
   params: { id: '25' },
   body: { image: file, description: 'Pikachu headshot' },
+});
+
+// Once this endpoint expects native fields, override the mode per request
+await jsonClient.uploadImage({
+  params: { id: '25' },
+  body: { image: file, description: 'Pikachu headshot' },
   overrideClientOptions: { multipartFieldEncoding: 'native' },
 });
 ```
