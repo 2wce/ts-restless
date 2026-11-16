@@ -29,6 +29,41 @@ type SolidPage = Expect<Equal<NonNullable<typeof sp.data>['pages'][number]['body
 type SolidPageSelect = Expect<Equal<typeof spSelected.data,number[]|undefined>>;
 vue.write.useMutation().mutate({body:{value:'ok'}});
 solid.write.createMutation().mutate({body:{value:'ok'}});
+const optimistic = vue.write.useMutation({
+ onMutate: variables => { const value:string=variables.body.value;return {optimisticTodo:{id:value.length}}; },
+ onSuccess: (_data,_variables,context) => {
+  const id:number|undefined=context?.optimisticTodo.id;
+  // @ts-expect-error optimistic IDs remain numeric
+  const invalid:string=context?.optimisticTodo.id;
+  void [id,invalid];
+ },
+ onError: (_error,_variables,context) => {
+  const id:number|undefined=context?.optimisticTodo.id;
+  // @ts-expect-error the native callback result can be absent
+  const unsafe:number=context.optimisticTodo.id;
+  void [id,unsafe];
+ },
+ onSettled: (_data,_error,_variables,context) => { const id:number|undefined=context?.optimisticTodo.id;void id; },
+});
+type VueMutationContext = Expect<Equal<typeof optimistic.context.value,{optimisticTodo:{id:number}}|undefined>>;
+optimistic.mutate({body:{value:'save'}},{
+ onSuccess: (_data,_variables,context) => { const id:number|undefined=context?.optimisticTodo.id;void id; },
+ onError: (_error,_variables,context) => { const id:number|undefined=context?.optimisticTodo.id;void id; },
+ onSettled: (_data,_error,_variables,context) => {
+  const id:number|undefined=context?.optimisticTodo.id;
+  // @ts-expect-error inferred result does not acquire unrelated properties
+  const invalid=context?.previousValue;
+  void [id,invalid];
+ },
+});
+const optimisticRef = vue.write.useMutation(ref({onMutate:async () => ({optimisticTodo:{id:1}})}));
+const optimisticComputed = vue.write.useMutation(computed(() => ({onMutate:async () => ({optimisticTodo:{id:1}})})));
+type VueMutationRefContext = Expect<Equal<typeof optimisticRef.context.value,{optimisticTodo:{id:number}}|undefined>>;
+type VueMutationComputedContext = Expect<Equal<typeof optimisticComputed.context.value,{optimisticTodo:{id:number}}|undefined>>;
+optimisticRef.mutateAsync({body:{value:'save'}},{onError:(_error,_variables,context) => { const id:number|undefined=context?.optimisticTodo.id;void id; }});
+optimisticComputed.mutateAsync({body:{value:'save'}},{onSuccess:(_data,_variables,context) => { const id:number|undefined=context?.optimisticTodo.id;void id; }});
+const defaultMutation = vue.write.useMutation();
+type VueDefaultMutationContext = Expect<Equal<typeof defaultMutation.context.value,unknown>>;
 // @ts-expect-error route input remains required
 vue.read.useQuery(['invalid']);
 // @ts-expect-error route input remains required

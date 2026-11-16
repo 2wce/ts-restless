@@ -16,10 +16,10 @@ for (const load of [name => import(name),name => Promise.resolve(require(name))]
   const api=async args => {calls.push(args);if(args.route===contract.pages){const cursor=args.rawQuery.cursor;return cursor<2?{status:200,body:{next:cursor+1},headers:new Headers()}:failure;}if(args.route===contract.write && args.rawBody.value==='fail') return failure;return {status:200,body:{value:args.path},headers:new Headers()};};
   const client=initQueryClient(contract,{baseUrl:'https://native.example',api});
   const queryClient=new native.QueryClient({defaultOptions:{queries:{retry:false,gcTime:Infinity,staleTime:Infinity},mutations:{retry:false,gcTime:Infinity}}});
-  let query,pages,mutation,change,dispose;
+  let query,pages,mutation,change,dispose;const mutationEvents=[];
   if(framework==='vue') {
    const vue=await load('vue');const id=vue.ref('1');change=() => {id.value='2';};
-   const app=vue.createApp({setup(){query=client.read.useQuery(vue.computed(() => ['items',id.value]),() => ({params:{id:id.value}}),{select:r => r.body.value});pages=client.pages.useInfiniteQuery(['pages'],({pageParam}) => ({query:{cursor:pageParam}}),{initialPageParam:0,getNextPageParam:r => r.body.next});mutation=client.write.useMutation();return () => null;}});
+   const app=vue.createApp({setup(){query=client.read.useQuery(vue.computed(() => ['items',id.value]),() => ({params:{id:id.value}}),{select:r => r.body.value});pages=client.pages.useInfiniteQuery(['pages'],({pageParam}) => ({query:{cursor:pageParam}}),{initialPageParam:0,getNextPageParam:r => r.body.next});mutation=client.write.useMutation({onMutate:async () => ({optimisticTodo:{id:1}}),onSuccess:(_data,_variables,context) => mutationEvents.push(['success',context?.optimisticTodo.id]),onError:(_error,_variables,context) => mutationEvents.push(['error',context?.optimisticTodo.id]),onSettled:(_data,_error,_variables,context) => mutationEvents.push(['settled',context?.optimisticTodo.id])});return () => null;}});
    app.use(native.VueQueryPlugin,{queryClient});app.mount(document.createElement('div'));dispose=() => app.unmount();
   } else {
    const solid=await load('solid-js');const [id,setId]=solid.createSignal('1');change=() => setId('2');
@@ -31,7 +31,8 @@ for (const load of [name => import(name),name => Promise.resolve(require(name))]
    change();await until(() => assert.equal(value(query,'data'),'https://native.example/items/2',framework+' key change '+JSON.stringify(calls.map(a=>a.path))));
    await pages.fetchNextPage();assert.deepEqual(value(pages,'data').pages.map(p => p.body.next),[1,2]);
    await pages.fetchNextPage();assert.equal(queryClient.getQueryState(['pages']).error,failure);
-   await mutation.mutateAsync({body:{value:'save'}});const args=calls.find(a => a.route===contract.write);assert.equal(args.body,JSON.stringify({value:'save'}));assert.equal(args.fetchOptions.signal,undefined);await assert.rejects(mutation.mutateAsync({body:{value:'fail'}}),error => error===failure);
+   await mutation.mutateAsync({body:{value:'save'}},{onSuccess:(_data,_variables,context) => {if(framework==='vue')mutationEvents.push(['call-success',context?.optimisticTodo.id]);}});const args=calls.find(a => a.route===contract.write);assert.equal(args.body,JSON.stringify({value:'save'}));assert.equal(args.fetchOptions.signal,undefined);await assert.rejects(mutation.mutateAsync({body:{value:'fail'}},{onError:(_error,_variables,context) => {if(framework==='vue')mutationEvents.push(['call-error',context?.optimisticTodo.id]);}}),error => error===failure);
+   if(framework==='vue')assert.deepEqual(mutationEvents,[['success',1],['settled',1],['call-success',1],['error',1],['settled',1],['call-error',1]]);
    const pageCalls=calls.filter(a => a.route===contract.pages);assert.deepEqual(pageCalls.map(a => a.rawQuery.cursor),[0,1,2]);assert.ok(pageCalls.every(a => a.fetchOptions.signal instanceof AbortSignal));
   } finally {dispose();queryClient.clear();}
   // Active native cancellation must reach the installed binding's transport.

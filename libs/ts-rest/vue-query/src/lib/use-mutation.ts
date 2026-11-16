@@ -14,25 +14,29 @@ import {
 import { DataResponse, ErrorResponse } from './common';
 type MaybeRef<T> = T | Ref<T>;
 
-type Options<TAppRoute extends AppRoute, TClientArgs extends ClientArgs> = Omit<
+type Options<
+  TAppRoute extends AppRoute,
+  TClientArgs extends ClientArgs,
+  TOnMutateResult,
+> = Omit<
   MutationOptions<
     DataResponse<TAppRoute>,
     ErrorResponse<TAppRoute>,
     PartialClientInferRequest<TAppRoute, TClientArgs>,
-    unknown
+    TOnMutateResult
   >,
   'mutationFn'
 >;
 export type DataReturnMutation<
   TAppRoute extends AppRoute,
   TClientArgs extends ClientArgs,
-> = (
-  options?: MaybeRef<Options<TAppRoute, TClientArgs>>,
+> = <TOnMutateResult = unknown>(
+  options?: MaybeRef<Options<TAppRoute, TClientArgs, TOnMutateResult>>,
 ) => UseMutationReturnType<
   DataResponse<TAppRoute>,
   ErrorResponse<TAppRoute>,
   PartialClientInferRequest<TAppRoute, TClientArgs>,
-  unknown
+  TOnMutateResult
 >;
 
 export const getRouteUseMutation =
@@ -40,13 +44,13 @@ export const getRouteUseMutation =
     route: TAppRoute,
     clientArgs: TClientArgs,
   ) =>
-  (
-    options?: MaybeRef<Options<TAppRoute, TClientArgs>>,
+  <TOnMutateResult = unknown>(
+    options?: MaybeRef<Options<TAppRoute, TClientArgs, TOnMutateResult>>,
   ): UseMutationReturnType<
     DataResponse<TAppRoute>,
     ErrorResponse<TAppRoute>,
     PartialClientInferRequest<TAppRoute, TClientArgs>,
-    unknown
+    TOnMutateResult
   > => {
     const mutationFn = (
       args: PartialClientInferRequest<TAppRoute, TClientArgs>,

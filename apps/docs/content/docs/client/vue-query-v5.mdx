@@ -75,3 +75,38 @@ await mutation.mutateAsync({ body: { value: 'save' } });
 ```
 
 Infinite queries require `initialPageParam` and `getNextPageParam`; the page mapper receives the full native context and typed page parameter. Data defaults to `InfiniteData` with response-envelope pages, or the selected result. Mutation status uses `isPending`; mutations receive no synthetic query cancellation signal. Plain `client.read.query()` and core's `initClient` continue to return response envelopes.
+
+The value returned by synchronous or asynchronous `onMutate` is inferred in the native mutation result and success, error, settled and per-call callbacks. Options still accept plain objects, refs and computed values. Follow TanStack's callback optionality: a result can be absent if the mutation fails before `onMutate` completes.
+
+```typescript twoslash
+// @filename: contract.ts
+import { initContract } from '@ts-restless/core';
+const c = initContract();
+export const contract = c.router({
+  write: {
+    method: 'POST', path: '/items', body: c.type<{ value: string }>(),
+    responses: { 200: c.type<{ value: string }>() },
+  },
+});
+// @filename: client.ts
+import { initQueryClient } from '@ts-restless/vue-query';
+import { contract } from './contract';
+const client = initQueryClient(contract, { baseUrl: 'https://api.example' });
+// ---cut---
+import { useQueryClient } from '@tanstack/vue-query';
+
+const queryClient = useQueryClient();
+const optimisticMutation = client.write.useMutation({
+  onMutate: ({ body }) => {
+    const optimisticTodo = { id: Date.now(), value: body.value };
+    queryClient.setQueryData(['optimistic-todo', optimisticTodo.id], optimisticTodo);
+    return { optimisticTodo };
+  },
+  onSettled: (_data, _error, _variables, result) => {
+    if (result) {
+      queryClient.removeQueries({ queryKey: ['optimistic-todo', result.optimisticTodo.id] });
+    }
+    return queryClient.invalidateQueries({ queryKey: ['items'] });
+  },
+});
+```
