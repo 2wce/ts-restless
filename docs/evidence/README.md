@@ -7,5 +7,6 @@ These records preserve measured outcomes at their stated baseline; they do not a
 - [Migration documentation audit](2026-11-09-migration-documentation.md): removed surfaces, replacements and rendered journey checks.
 - [Empty-body reproduction](2026-11-10-empty-body-reproduction.md): current client/Fetch/AWS boundaries for upstream #696/#772.
 - [Historical planning index](2026-11-09-planning-index-history.md): preserved root plan index and original delivery checkpoints.
+- [Six upstream issue fixes](2026-11-17-upstream-issue-fixes.md): local acceptance and native/installed consumer evidence for issues #52–#57.
 
 Keep dates, commands, exact versions, commits and limitations with findings. Append a dated correction when a fact changes; preserve original snapshots. New audits belong here, while individual implementation gate records can stay with their plans.
