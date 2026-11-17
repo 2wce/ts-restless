@@ -349,15 +349,37 @@ for (const { profile, definition, nextVersion } of consumers) {
             }),
           );
         }
-        execFileSync(
-          process.execPath,
-          [join(consumer, 'node_modules/next/dist/bin/next'), 'build'],
-          {
-            cwd: buildRoot,
-            stdio: 'pipe',
-            env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' },
-          },
-        );
+        const build = () =>
+          execFileSync(
+            process.execPath,
+            [join(consumer, 'node_modules/next/dist/bin/next'), 'build'],
+            {
+              cwd: buildRoot,
+              stdio: 'pipe',
+              env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' },
+            },
+          );
+        try {
+          build();
+        } catch (error) {
+          const output = `${error.stdout ?? ''}\n${error.stderr ?? ''}`;
+          if (
+            error.status !== 1 ||
+            !/^Error \[SecurityFatalError\]:/m.test(output) ||
+            /Failed to (?:collect|compile)|MODULE_[A-Z_]+|Module not found|FATAL/.test(
+              output,
+            ) ||
+            /(?:^|\n)\s*(?:Error:|(?:Type|Syntax|Reference)Error:|Error \[(?!SecurityFatalError\]))/.test(
+              output,
+            )
+          ) {
+            throw error;
+          }
+          console.warn(
+            `Next ${nextVersion} stopped for its first-run security advisory; retrying the same build once:\n${output}`,
+          );
+          build();
+        }
         const appManifest = JSON.parse(
           await readFile(
             join(buildRoot, '.next/server/app-paths-manifest.json'),
