@@ -1,6 +1,10 @@
 # Encode multipart fields natively with JSON compatibility
 
-**Status:** Accepted. **Decision recorded:** 2026-11-16.
+**Status:** Superseded by ADR-0021. **Decision recorded:** 2026-11-16.
+
+[ADR0021](0021-route-multipart-encoding.md) moves this wire policy to the route
+contract and replaces the client/request option. The following records the
+original decision and rationale.
 
 Object multipart uploads default to ordinary field encoding so a native parser
 and string schema receive `Alice` rather than the JSON string `"Alice"`. Keep

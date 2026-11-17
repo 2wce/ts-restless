@@ -95,47 +95,51 @@ installed packages.
 
 ## Multipart object bodies
 
-Object uploads with `contentType: 'multipart/form-data'` now use native field
-encoding by default. Strings keep their exact contents: `Alice` reaches the
-native parser as `Alice`, without JSON quotation marks. Empty strings, zero and
-false remain fields; undefined fields and array items are omitted. Null and
-nested objects use JSON text, arrays repeat the field name, and files stay
-binary. Caller-created `FormData` passes through unchanged.
+Object uploads with `contentType: 'multipart/form-data'` now default to the
+route policy `multipart: { fieldEncoding: 'form' }`. Omit the declaration for
+this default. Strings keep their exact contents: `Alice` reaches the native
+parser as `Alice`, without JSON quotation marks. Empty strings, zero and false
+remain fields; undefined fields and array items are omitted. Null and nested
+objects use JSON text, arrays repeat the field name, and files stay binary.
+Caller-created `FormData` passes through unchanged.
 
-If an endpoint JSON-decodes every field, retain the historical encoding while
-updating its parser or schema:
+If an endpoint JSON-decodes every field, declare the historical policy on its
+shared route contract:
 
 ```typescript twoslash
 import { initClient, initContract } from '@ts-restless/core';
 const c = initContract();
+// ---cut---
 const contract = c.router({
   upload: {
-    method: 'POST', path: '/upload', contentType: 'multipart/form-data',
+    method: 'POST',
+    path: '/upload',
+    contentType: 'multipart/form-data',
+    multipart: { fieldEncoding: 'legacy-json' },
     body: c.type<{ name: string; missing?: string }>(),
     responses: { 204: c.noBody() },
   },
 });
-// ---cut---
-const client = initClient(contract, {
-  baseUrl: 'https://api.example.com',
-  multipartFieldEncoding: 'json',
-});
+const client = initClient(contract, { baseUrl: 'https://api.example.com' });
 
 await client.upload({
   body: { name: 'Alice', missing: undefined },
 }); // Historical fields: name = '"Alice"', missing = 'undefined'
-
-await client.upload({
-  body: { name: 'Alice', missing: undefined },
-  overrideClientOptions: { multipartFieldEncoding: 'native' },
-}); // Native fields: name = 'Alice'; missing is omitted
 ```
 
-The option applies to plain and query clients and can be overridden per request.
-It does not add automatic multipart parsing or server-side JSON decoding.
-Update each endpoint to consume ordinary strings or keep `'json'` for endpoints
-whose established decoding requires it. See the
-[multipart field decision](https://github.com/2wce/ts-restless/blob/main/docs/adr/0020-multipart-field-encoding.md)
+To migrate the endpoint, update its decoder/schema and change its shared
+contract to `multipart: { fieldEncoding: 'form' }`, or omit `multipart`.
+Deploy matching clients and server field handling together. The route policy
+applies to plain and query clients; there is no client or per-request encoding
+option. If using the earlier development-source `multipartFieldEncoding`
+option, move the choice to the route (`'native'` becomes `'form'`, and `'json'`
+becomes `'legacy-json'`) and remove client/request settings.
+
+The declaration does not add automatic multipart parsing or server-side JSON
+decoding. Existing native middleware continues to own those operations. An
+explicit `FormData` body remains available for custom field values and is never
+rewritten. See the
+[multipart field decision](https://github.com/2wce/ts-restless/blob/main/docs/adr/0021-route-multipart-encoding.md)
 and [client guide](/client/fetch#form-data-multipartform-data) for the field policy.
 Check a containing release before relying on this behavior in installed packages.
 

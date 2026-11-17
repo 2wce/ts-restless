@@ -23,6 +23,12 @@ Serverless construction owns mutable router branches and generated middleware li
 
 Shared client execution validates decoded responses once under the effective route/client policy, including custom transports; fetchers own transport and decoding. Standalone `tsRestFetchApi` retains validation support. [ADR 0008](adr/0008-client-response-validation.md) records this refinement of the response boundary.
 
+Multipart object conversion reads the shared route's `multipart.fieldEncoding`
+policy, defaulting to `form`; `legacy-json` retains historical field output.
+Explicit FormData is passed through unchanged. Native servers retain parsing,
+field decoding and validation ownership. [ADR0021](adr/0021-route-multipart-encoding.md)
+records the route-level wire agreement and supersedes the client/request policy.
+
 React, Vue and Solid reuse core query execution. The plain client returns response envelopes and does not adopt query-library rejection semantics. Native-composition APIs remain planned; current wrappers are supported.
 
 [ADR 0009](adr/0009-request-scoped-headers.md) records request-scoped asynchronous header preparation for plain clients and query bindings. Header callbacks resolve before transport without an auth cache or automatic cancellation of arbitrary auth work. The roadmap records delivery; acceptance of this boundary does not establish package availability.

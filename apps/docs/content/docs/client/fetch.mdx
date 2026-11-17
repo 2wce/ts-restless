@@ -110,7 +110,6 @@ const client = initClient(contract, {
     'X-API-Key': 'your-api-key',
   },
   credentials: 'include', // For sending cookies
-  multipartFieldEncoding: 'native', // Default encoding for object upload fields
   validateResponse: true, // Validate responses against schema
   throwOnUnknownStatus: true, // Throw on unexpected status codes
 });
@@ -564,27 +563,13 @@ const formResult = await client.uploadImage({
   body: formData,
 });
 
-// Compatibility for servers that JSON-decode every ordinary field
-const jsonClient = initClient(contract, {
-  baseUrl: 'https://api.example.com',
-  multipartFieldEncoding: 'json',
-});
-await jsonClient.uploadImage({
-  params: { id: '25' },
-  body: { image: file, description: 'Pikachu headshot' },
-});
-
-// Once this endpoint expects native fields, override the mode per request
-await jsonClient.uploadImage({
-  params: { id: '25' },
-  body: { image: file, description: 'Pikachu headshot' },
-  overrideClientOptions: { multipartFieldEncoding: 'native' },
-});
 ```
 
-Object bodies use `multipartFieldEncoding: 'native'` by default:
+Multipart object bodies default to `multipart: { fieldEncoding: 'form' }`.
+The declaration is optional and only valid on routes with
+`contentType: 'multipart/form-data'`:
 
-| Value | Uploaded field |
+| Value | Uploaded field with `form` |
 | --- | --- |
 | String, including `''` | Unchanged |
 | Number or boolean | JSON text, such as `0` or `false` |
@@ -594,15 +579,40 @@ Object bodies use `multipartFieldEncoding: 'native'` by default:
 | Array | Repeated field names, each using these rules |
 | `File` | Binary file |
 
-Set the client option to `'json'` if your server expects every ordinary field
-to be JSON encoded. This preserves historical output, including quoted strings
-and the literal `undefined` field value. A request's `overrideClientOptions`
-can select either mode; query clients use the same option. Caller-created
-`FormData` is passed through unchanged in both modes.
+Declare `multipart: { fieldEncoding: 'legacy-json' }` on endpoints that
+JSON-decode every ordinary field:
+
+```typescript twoslash title="legacy-multipart.ts"
+import { initClient, initContract } from '@ts-restless/core';
+const c = initContract();
+// ---cut---
+const contract = c.router({
+  upload: {
+    method: 'POST',
+    path: '/legacy-upload',
+    contentType: 'multipart/form-data',
+    multipart: { fieldEncoding: 'legacy-json' },
+    body: c.type<{ name: string; file: File }>(),
+    responses: { 204: c.noBody() },
+  },
+});
+const client = initClient(contract, { baseUrl: 'https://api.example.com' });
+await client.upload({
+  body: { name: 'Alice', file: new File(['data'], 'file.txt') },
+}); // name is uploaded as '"Alice"'; file stays binary
+```
+
+This preserves historical output, including
+quoted strings and literal `undefined` fields/items. The policy belongs to the
+route contract: plain and query clients use it automatically, and client options
+or request overrides do not select the encoding. Caller-created `FormData`
+passes through unchanged under either policy.
 
 The server's native multipart parser still owns decoding and file handling.
-Choose schemas and any JSON decoding to match your fields; the client option
-does not install a server parser. See the [multipart migration](/standard-schema-migration#multipart-object-bodies)
+Choose schemas and any JSON decoding to match the route policy; the declaration
+does not install a server parser or decoder. It also does not declare per-part
+content types or generate OpenAPI encoding metadata. See the
+[multipart migration](/standard-schema-migration#multipart-object-bodies)
 when upgrading existing JSON-decoding endpoints.
 
 ### URL Encoded Forms (application/x-www-form-urlencoded)

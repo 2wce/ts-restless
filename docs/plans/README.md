@@ -4,6 +4,8 @@
 
 ## Active work
 
+- [Route multipart encoding](2026-11-17-route-multipart-encoding.md), moving the field policy into the shared route contract under [ADR0021](../adr/0021-route-multipart-encoding.md).
+
 - [Six upstream issue fixes: design](2026-11-16-upstream-issues-design.md) and [implementation](2026-11-16-upstream-issues.md), approved behavior and compatibility choices for fork issues #52–#57.
 
 ## Documentation delivery record

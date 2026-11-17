@@ -17,6 +17,40 @@ for (const openapi of [await import('@ts-restless/open-api'), require('@ts-restl
 }
 for (const { validateIfSchema, validateMultiSchemaObject, initClient, tsRestFetchApi, initContract, StandardSchemaError, evaluateResponse, executeQueryRequest, evaluateFetchApiArgs } of [await import('@ts-restless/core'), require('@ts-restless/core')]) {
 {
+  const c = initContract();
+  const contract = c.router({
+    form: { method: 'POST', path: '/form', contentType: 'multipart/form-data', body: c.type(), responses: { 204: c.noBody() } },
+    legacy: { method: 'POST', path: '/legacy', contentType: 'multipart/form-data', multipart: { fieldEncoding: 'legacy-json' }, body: c.type(), responses: { 204: c.noBody() } },
+  });
+  const bodies = [];
+  const clientArgs = { baseUrl: 'https://multipart.example', api: async args => {
+    bodies.push(args.body);
+    return { status: 204, body: undefined, headers: new Headers() };
+  } };
+  const client = initClient(contract, clientArgs);
+  const file = new File(['file'], 'file.txt');
+  for (const execution of ['plain', 'query']) {
+    for (const name of ['legacy', 'form', 'legacy']) {
+      const route = contract[name];
+      const request = { body: { name: 'Alice', missing: undefined, tags: ['one', 'two'], file } };
+      if (execution === 'plain') await client[name](request);
+      else await executeQueryRequest({ ...evaluateFetchApiArgs(route, clientArgs, request), route });
+      const form = bodies.at(-1);
+      assert.equal(form.get('name'), name === 'legacy' ? '"Alice"' : 'Alice');
+      assert.equal(form.get('missing'), name === 'legacy' ? 'undefined' : null);
+      assert.deepEqual(form.getAll('tags'), name === 'legacy' ? ['"one"', '"two"'] : ['one', 'two']);
+      assert.equal(form.get('file'), file);
+    }
+  }
+  const explicit = new FormData();
+  explicit.append('name', 'Custom');
+  for (const name of ['form', 'legacy']) {
+    await client[name]({ body: explicit });
+    assert.equal(bodies.at(-1), explicit);
+    assert.equal(explicit.get('name'), 'Custom');
+  }
+}
+{
   let calls = 0;
   const countedSchema = { '~standard': {
     ...schema['~standard'], validate(value) {

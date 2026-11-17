@@ -97,6 +97,11 @@ existing default call shapes.
 
 ## Task 5: Native multipart encoding with JSON compatibility (#56)
 
+Follow-up 2026-11-17: the client/request encoding choice below is superseded by
+[ADR0021](../adr/0021-route-multipart-encoding.md) and the
+[route-level plan](2026-11-17-route-multipart-encoding.md). The original decision
+and acceptance criteria remain recorded here.
+
 **Files:** `libs/ts-rest/core/src/lib/client.ts`, existing core client tests,
 existing Express multipart conformance test, client/migration guides, an ADR,
 core Changeset and existing query transport coverage if needed.

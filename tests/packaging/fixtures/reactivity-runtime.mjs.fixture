@@ -8,7 +8,7 @@ const delay=() => new Promise(resolve => setTimeout(resolve,10));
 async function until(check) { for(let n=0;n<250;n++){try{check();return;}catch(error){if(n===249)throw error;await delay();}} }
 for (const load of [name => import(name),name => Promise.resolve(require(name))]) {
  const {initContract}=await load('@ts-restless/core');const c=initContract();
- const contract=c.router({read:{method:'GET',path:'/items/:id',responses:{200:c.type()}},pages:{method:'GET',path:'/pages',query:c.type(),responses:{200:c.type(),404:c.type()}},write:{method:'POST',path:'/items',body:c.type(),responses:{200:c.type(),404:c.type()}}});
+ const contract=c.router({read:{method:'GET',path:'/items/:id',responses:{200:c.type()}},pages:{method:'GET',path:'/pages',query:c.type(),responses:{200:c.type(),404:c.type()}},write:{method:'POST',path:'/items',body:c.type(),responses:{200:c.type(),404:c.type()}},uploadForm:{method:'POST',path:'/upload/form',contentType:'multipart/form-data',body:c.type(),responses:{200:c.type()}},uploadLegacy:{method:'POST',path:'/upload/legacy',contentType:'multipart/form-data',multipart:{fieldEncoding:'legacy-json'},body:c.type(),responses:{200:c.type()}}});
  for (const framework of ['vue','solid']) {
   const {initQueryClient}=await load('@ts-restless/'+framework+'-query');
   const native=await load('@tanstack/'+framework+'-query');
@@ -16,14 +16,14 @@ for (const load of [name => import(name),name => Promise.resolve(require(name))]
   const api=async args => {calls.push(args);if(args.route===contract.pages){const cursor=args.rawQuery.cursor;return cursor<2?{status:200,body:{next:cursor+1},headers:new Headers()}:failure;}if(args.route===contract.write && args.rawBody.value==='fail') return failure;return {status:200,body:{value:args.path},headers:new Headers()};};
   const client=initQueryClient(contract,{baseUrl:'https://native.example',api});
   const queryClient=new native.QueryClient({defaultOptions:{queries:{retry:false,gcTime:Infinity,staleTime:Infinity},mutations:{retry:false,gcTime:Infinity}}});
-  let query,pages,mutation,change,dispose;const mutationEvents=[];
+  let query,pages,mutation,uploadForm,uploadLegacy,change,dispose;const mutationEvents=[];
   if(framework==='vue') {
    const vue=await load('vue');const id=vue.ref('1');change=() => {id.value='2';};
-   const app=vue.createApp({setup(){query=client.read.useQuery(vue.computed(() => ['items',id.value]),() => ({params:{id:id.value}}),{select:r => r.body.value});pages=client.pages.useInfiniteQuery(['pages'],({pageParam}) => ({query:{cursor:pageParam}}),{initialPageParam:0,getNextPageParam:r => r.body.next});mutation=client.write.useMutation({onMutate:async () => ({optimisticTodo:{id:1}}),onSuccess:(_data,_variables,context) => mutationEvents.push(['success',context?.optimisticTodo.id]),onError:(_error,_variables,context) => mutationEvents.push(['error',context?.optimisticTodo.id]),onSettled:(_data,_error,_variables,context) => mutationEvents.push(['settled',context?.optimisticTodo.id])});return () => null;}});
+   const app=vue.createApp({setup(){query=client.read.useQuery(vue.computed(() => ['items',id.value]),() => ({params:{id:id.value}}),{select:r => r.body.value});pages=client.pages.useInfiniteQuery(['pages'],({pageParam}) => ({query:{cursor:pageParam}}),{initialPageParam:0,getNextPageParam:r => r.body.next});mutation=client.write.useMutation({onMutate:async () => ({optimisticTodo:{id:1}}),onSuccess:(_data,_variables,context) => mutationEvents.push(['success',context?.optimisticTodo.id]),onError:(_error,_variables,context) => mutationEvents.push(['error',context?.optimisticTodo.id]),onSettled:(_data,_error,_variables,context) => mutationEvents.push(['settled',context?.optimisticTodo.id])});uploadForm=client.uploadForm.useMutation();uploadLegacy=client.uploadLegacy.useMutation();return () => null;}});
    app.use(native.VueQueryPlugin,{queryClient});app.mount(document.createElement('div'));dispose=() => app.unmount();
   } else {
    const solid=await load('solid-js');const [id,setId]=solid.createSignal('1');change=() => setId('2');
-   solid.createRoot(stop => {dispose=stop;native.QueryClientProvider({client:queryClient,get children(){query=client.read.createQuery(() => ['items',id()],() => ({params:{id:id()}}),{select:r => r.body.value});pages=client.pages.createInfiniteQuery(() => ['pages'],({pageParam}) => ({query:{cursor:pageParam}}),{initialPageParam:0,getNextPageParam:r => r.body.next});mutation=client.write.createMutation();return null;}});});
+   solid.createRoot(stop => {dispose=stop;native.QueryClientProvider({client:queryClient,get children(){query=client.read.createQuery(() => ['items',id()],() => ({params:{id:id()}}),{select:r => r.body.value});pages=client.pages.createInfiniteQuery(() => ['pages'],({pageParam}) => ({query:{cursor:pageParam}}),{initialPageParam:0,getNextPageParam:r => r.body.next});mutation=client.write.createMutation();uploadForm=client.uploadForm.createMutation();uploadLegacy=client.uploadLegacy.createMutation();return null;}});});
   }
   const value=(obj,key) => framework==='vue'?obj[key].value:obj[key];
   try {
@@ -33,6 +33,10 @@ for (const load of [name => import(name),name => Promise.resolve(require(name))]
    await pages.fetchNextPage();assert.equal(queryClient.getQueryState(['pages']).error,failure);
    await mutation.mutateAsync({body:{value:'save'}},{onSuccess:(_data,_variables,context) => {if(framework==='vue')mutationEvents.push(['call-success',context?.optimisticTodo.id]);}});const args=calls.find(a => a.route===contract.write);assert.equal(args.body,JSON.stringify({value:'save'}));assert.equal(args.fetchOptions.signal,undefined);await assert.rejects(mutation.mutateAsync({body:{value:'fail'}},{onError:(_error,_variables,context) => {if(framework==='vue')mutationEvents.push(['call-error',context?.optimisticTodo.id]);}}),error => error===failure);
    if(framework==='vue')assert.deepEqual(mutationEvents,[['success',1],['settled',1],['call-success',1],['error',1],['settled',1],['call-error',1]]);
+   await uploadForm.mutateAsync({body:{name:'Alice'}});
+   await uploadLegacy.mutateAsync({body:{name:'Alice'}});
+   assert.equal(calls.find(a => a.route===contract.uploadForm).body.get('name'),'Alice');
+   assert.equal(calls.find(a => a.route===contract.uploadLegacy).body.get('name'),'"Alice"');
    const pageCalls=calls.filter(a => a.route===contract.pages);assert.deepEqual(pageCalls.map(a => a.rawQuery.cursor),[0,1,2]);assert.ok(pageCalls.every(a => a.fetchOptions.signal instanceof AbortSignal));
   } finally {dispose();queryClient.clear();}
   // Active native cancellation must reach the installed binding's transport.

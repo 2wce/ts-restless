@@ -66,7 +66,10 @@ type AppRouteCommon = {
  */
 export type AppRouteQuery = AppRouteCommon & {
   method: 'GET';
+  multipart?: never;
 };
+
+export type MultipartFieldEncoding = 'form' | 'legacy-json';
 
 /**
  * A mutation endpoint. In REST terms, one using POST, PUT,
@@ -74,12 +77,20 @@ export type AppRouteQuery = AppRouteCommon & {
  */
 export type AppRouteMutation = AppRouteCommon & {
   method: 'POST' | 'DELETE' | 'PUT' | 'PATCH';
-  contentType?:
-    | 'application/json'
-    | 'multipart/form-data'
-    | 'application/x-www-form-urlencoded';
   body: ContractAnyType | ContractNoBodyType;
-};
+} & (
+    | {
+        contentType: 'multipart/form-data';
+        multipart?: { fieldEncoding: MultipartFieldEncoding };
+      }
+    | {
+        contentType?:
+          | 'application/json'
+          | 'multipart/form-data'
+          | 'application/x-www-form-urlencoded';
+        multipart?: never;
+      }
+  );
 
 /**
  * A mutation endpoint. In REST terms, one using POST, PUT,
@@ -87,6 +98,7 @@ export type AppRouteMutation = AppRouteCommon & {
  */
 export type AppRouteDeleteNoBody = AppRouteCommon & {
   method: 'DELETE';
+  multipart?: never;
 };
 
 type ValidatedHeaders<

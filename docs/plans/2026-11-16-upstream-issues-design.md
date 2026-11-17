@@ -87,6 +87,11 @@ issue does not authorize a wider query API redesign.
 
 ## 5. Multipart field compatibility (#56)
 
+Follow-up 2026-11-17: the client/request encoding choice below is superseded by
+[ADR0021](../adr/0021-route-multipart-encoding.md) and the
+[route-level plan](2026-11-17-route-multipart-encoding.md). The original decision
+and acceptance criteria remain recorded here.
+
 Recommended default: ordinary FormData field encoding. Preserve strings as
 written; stringify numeric/boolean primitives; omit undefined fields; encode
 null as `null` and nested objects as JSON. Arrays retain repeated field names,

@@ -31,7 +31,9 @@ ADRs preserve consequential choices and their rationale. Use short Markdown reco
 
 | [0019](0019-portable-contract-identity.md) | Portable runtime/declaration contract identity across ESM and CommonJS. |
 
-| [0020](0020-multipart-field-encoding.md) | Native multipart object fields by default with explicit historical JSON compatibility. |
+| [0020](0020-multipart-field-encoding.md) | Superseded by 0021: multipart fields with client-level JSON compatibility. |
+
+| [0021](0021-route-multipart-encoding.md) | Route-owned multipart field encoding; form default and historical JSON compatibility. |
 
 These initial records extract already approved decisions from existing documents; they do not newly approve roadmap proposals.
 

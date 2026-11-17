@@ -613,25 +613,24 @@ describe('Vue Query v5 migration', () => {
     },
   });
   it.each([
-    { encoding: undefined, override: undefined, expected: 'Alice' },
-    { encoding: 'json', override: undefined, expected: '"Alice"' },
-    { encoding: 'json', override: 'native', expected: 'Alice' },
-    { encoding: 'native', override: 'json', expected: '"Alice"' },
+    { encoding: undefined, expected: 'Alice' },
+    { encoding: 'form', expected: 'Alice' },
+    { encoding: 'legacy-json', expected: '"Alice"' },
   ] as const)(
-    'forwards multipart mode $encoding and request override $override through a mutation',
-    async ({ encoding, override, expected }) => {
+    'uses the multipart route policy $encoding through a mutation',
+    async ({ encoding, expected }) => {
       const contract = c.router({
         upload: {
           method: 'POST',
           path: '/upload',
           contentType: 'multipart/form-data',
+          ...(encoding && { multipart: { fieldEncoding: encoding } }),
           body: c.type<{ name: string }>(),
           responses: { 200: c.type<{ saved: true }>() },
         },
       });
       const client = initQueryClient(contract, {
         baseUrl: 'https://vue.example',
-        ...(encoding && { multipartFieldEncoding: encoding }),
         api: async (args) => {
           expect((args.body as FormData).get('name')).toBe(expected);
           return { status: 200, body: { saved: true }, headers: new Headers() };
@@ -642,9 +641,6 @@ describe('Vue Query v5 migration', () => {
         await expect(
           h.result.current.mutateAsync({
             body: { name: 'Alice' },
-            ...(override && {
-              overrideClientOptions: { multipartFieldEncoding: override },
-            }),
           }),
         ).resolves.toMatchObject({ status: 200, body: { saved: true } });
       } finally {

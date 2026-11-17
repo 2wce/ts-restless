@@ -6,6 +6,7 @@ import {
   StandardSchemaV1,
   initContract,
   initClient,
+  type ServerInferRequest,
   TsRestResponseValidationError as ResponseValidationError,
   TsRestResponseError,
 } from '@ts-restless/core';
@@ -577,27 +578,54 @@ describe('ts-rest-express', () => {
       },
     });
 
-    const router = s.router(contract, {
+    const legacyContract = c.router({
       uploadFiles: {
-        middleware: [upload.any()],
-        handler: async ({ files, body }) => {
-          const filesArray = files as Express.Multer.File[];
-
-          return {
-            status: 200,
-            body: {
-              fileFields: filesArray.map((file) => file.fieldname),
-              body,
-            },
-          };
-        },
+        ...contract.uploadFiles,
+        path: '/legacy-upload',
+        multipart: { fieldEncoding: 'legacy-json' },
       },
+    });
+    const handleUpload = async ({
+      files,
+      body,
+    }: {
+      files: unknown;
+      body: ServerInferRequest<typeof contract.uploadFiles>['body'];
+    }) => ({
+      status: 200 as const,
+      body: {
+        fileFields: (files as Express.Multer.File[]).map(
+          (file) => file.fieldname,
+        ),
+        body,
+      },
+    });
+    const router = s.router(contract, {
+      uploadFiles: { middleware: [upload.any()], handler: handleUpload },
     });
 
     const app = express();
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
     createExpressEndpoints(contract, router, app);
+    const legacyRouter = s.router(legacyContract, {
+      uploadFiles: {
+        middleware: [
+          upload.any(),
+          (req, _res, next) => {
+            const fields = req.body as Record<string, string>;
+            req.body = {
+              ...fields,
+              foo: JSON.parse(fields['foo']),
+              email: JSON.parse(fields['email']),
+            };
+            next();
+          },
+        ],
+        handler: handleUpload,
+      },
+    });
+    createExpressEndpoints(legacyContract, legacyRouter, app);
 
     await supertest(app)
       .post('/upload')
@@ -634,10 +662,16 @@ describe('ts-rest-express', () => {
       });
       const baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
       const client = initClient(contract, { baseUrl });
-      const jsonClient = initClient(contract, {
-        baseUrl,
-        multipartFieldEncoding: 'json',
-      });
+      const legacyClient = initClient(legacyContract, { baseUrl });
+      const mismatchedClient = initClient(
+        c.router({
+          uploadFiles: {
+            ...contract.uploadFiles,
+            multipart: { fieldEncoding: 'legacy-json' },
+          },
+        }),
+        { baseUrl },
+      );
       const body = {
         foo: 'bar',
         email: 'alice@example.com',
@@ -651,17 +685,14 @@ describe('ts-rest-express', () => {
       const native = await client.uploadFiles({ body });
       expect(native.status).toBe(200);
       expect(native.body).toEqual(expected);
-      expect((await jsonClient.uploadFiles({ body })).status).toBe(400);
-      const overridden = await jsonClient.uploadFiles({
-        body,
-        overrideClientOptions: { multipartFieldEncoding: 'native' },
-      });
-      expect(overridden.status).toBe(200);
-      expect(overridden.body).toEqual(expected);
+      expect((await mismatchedClient.uploadFiles({ body })).status).toBe(400);
+      const legacy = await legacyClient.uploadFiles({ body });
+      expect(legacy.status).toBe(200);
+      expect(legacy.body).toEqual(expected);
       const form = new FormData();
       form.append('foo', 'bar');
       form.append('email', 'alice@example.com');
-      const explicit = await jsonClient.uploadFiles({ body: form });
+      const explicit = await mismatchedClient.uploadFiles({ body: form });
       expect(explicit.status).toBe(200);
       expect(explicit.body).toEqual({ ...expected, fileFields: [] });
     } finally {
