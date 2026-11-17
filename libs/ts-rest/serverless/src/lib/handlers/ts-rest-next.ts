@@ -1,6 +1,6 @@
 import { AppRouter } from '@ts-restless/core';
 import type { NextRequest, NextResponse } from 'next/server.js';
-import { unstable_rethrow } from 'next/navigation.js';
+import { unstable_rethrow } from './next-navigation.cjs';
 import { createServerlessRouter } from '../router';
 import {
   createTsr,

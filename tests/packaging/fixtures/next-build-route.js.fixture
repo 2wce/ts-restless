@@ -1,0 +1,15 @@
+import { initContract } from '@ts-restless/core';
+import { createNextHandler } from '@ts-restless/serverless/next';
+import { redirect } from 'next/navigation';
+
+const c = initContract();
+const contract = c.router({
+  probe: { method: 'GET', path: '/probe', responses: { 200: c.noBody() } },
+});
+const handler = createNextHandler(
+  contract,
+  { probe: async () => redirect('/destination') },
+  { handlerType: '{{handlerType}}', basePath: '{{basePath}}' },
+);
+
+{{handlerExport}}
