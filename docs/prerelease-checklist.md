@@ -1,6 +1,6 @@
 # ts-restless prerelease release-PR checklist
 
-The initial stable target is `4.0.0`; interim library releases start at `4.0.0-alpha.0`. The project-owned npm organization is `ts-restless`. On 2026-11-04, authenticated npm checks confirmed `2wce` as an organization owner, and GitHub private vulnerability reporting was enabled and verified on the current fork. All ten public names are registered with npm's `0.0.0-stage` placeholders. All ten public libraries have alpha.0/alpha.1 releases as of 2026-11-06; `alpha` points to alpha.1. The historical placeholders contain no library code and must not be installed. Stable `4.0.0` is not published.
+The initial stable target is `4.0.0`; interim libraries use coordinated `4.0.0-alpha.*` releases under the project-owned `ts-restless` npm organization. This checklist describes the repeatable release process. Select actual published versions through [release notes](https://github.com/2wce/ts-restless/releases), package changelogs and live registry verification rather than a moving version snapshot. Historical `0.0.0-stage` registration placeholders contain no library code and must not be installed.
 
 ## Automated flow
 
@@ -12,9 +12,9 @@ The small [coordinator](../scripts/prerelease.mjs) validates the active prestate
 
 ## Trusted-publisher tag permission
 
-Before rolling out the alpha-to-`latest` policy, enable **Allow npm dist-tag** in each of the ten public packages' existing trusted-publisher configurations for `2wce/ts-restless/build-test.yml`. Direct publish permission does not grant this permission automatically. Keep OIDC and provenance; no npm write-token secret is needed. The prerelease job installs npm 11.21.0 because Node 26.12.0 bundles npm 11.20.0. npm documents trusted-publisher dist-tag support in npm 11.21+ or 12.2+; see [the official requirements](https://docs.npmjs.com/trusted-publishers/#managing-dist-tags-with-trusted-publishing).
+Every public package's existing trusted publisher for `2wce/ts-restless/build-test.yml` must allow **npm publish** and **npm dist-tag**; staged publishing remains allowed. All ten bindings and dist-tag permissions were verified during the [setup refresh](evidence/2026-11-16-delivery-refresh.md). Recheck the binding and permissions when replacing a connection or diagnosing a failed release. Direct publish permission does not grant dist-tag management automatically. Keep OIDC and provenance; no npm write-token secret is needed. The prerelease job installs npm 11.21.0 because Node 26.12.0 bundles npm 11.20.0. npm documents trusted-publisher dist-tag support in npm 11.21+ or 12.2+; see [the official requirements](https://docs.npmjs.com/trusted-publishers/#managing-dist-tags-with-trusted-publishing).
 
-The first successful run reconciles `latest` with its reviewed alpha version. Confirm both `alpha` and `latest` from the registry; a code merge or local test does not establish that package permissions or live tags changed. Stable `4.0.0` still requires its own release decision and activation.
+Successful alpha publication reconciles `latest` with the reviewed numbered alpha version. Confirm both tags from the registry after every release and retry. A code merge or local test does not establish successful publication or tag reconciliation. Stable `4.0.0` follows its own release decision and activation.
 
 ## Review release state and artifacts
 
@@ -25,7 +25,7 @@ pnpm prerelease:version
 pnpm prerelease:verify
 ```
 
-`prerelease:version` initializes alpha mode only when prestate is absent, invokes Changesets and refreshes the lockfile. Existing pending major Changesets already target v4; do not first set versions to `4.0.0` and then apply another major bump. Keep private packages private and React Query v5 bundled through public `/v5`. Do not mix snapshot timestamps into this release line. A beta/RC transition requires reviewed Changesets state and the same artifact checks.
+`prerelease:version` initializes alpha mode only when prestate is absent, invokes Changesets and refreshes the lockfile. Keep private packages private and React Query v5 bundled through public `/v5`. Do not mix snapshot timestamps into this release line. A beta/RC transition requires reviewed Changesets state and the same artifact checks.
 
 Release tracking is limited to the ten explicitly listed public libraries in
 `.changeset/config.json`. `privatePackages.version` and `privatePackages.tag` are
@@ -61,53 +61,60 @@ pnpm --filter @ts-restless/docs test
 
 Require all ten isolated CI fixtures to pass on the release commit: Express4/5, Nest9/10/11 and Zod3/Zod4/no-validator/Valibot/ArkType under recorded pinned combinations. Relaxed fixture compiler settings are not a strict claim for every peer version; strict packed consumers provide separate evidence. Preserve external dependency baselines and do not widen peers to permit installation.
 
-Release notes must cover package/import migration, Standard Schema major changes and exact verified lines. F01–F05 may arrive in later prereleases: current Query v5 compatibility, Express request typing, public React19, response validation and modern OpenAPI are separate work. Current Fastify support is major4; the private Query v5 implementation's React19 peer does not widen the public peer range.
+Release notes must cover package/import migration, Standard Schema major changes and exact verified lines. Check the selected release's manifests and changelogs against the [support inventory](support-inventory.md) and migration guides. Fastify5 uses root and Fastify4 uses `/legacy`; the public React adapter admits React18/19 with compatible native Query peers. Private implementation-package peers do not establish public support.
 
 ## CI authentication and activation
 
-Verify actual ownership and private reporting:
+The prerelease job is enabled through `PRERELEASE_ENABLED=true`; successful generated version-PR jobs and alpha publications establish the configured path. When restoring or replacing release setup, verify the actual ownership, private reporting and repository variable:
 
 ```sh
 npm whoami --registry=https://registry.npmjs.org
 npm org ls ts-restless --json --registry=https://registry.npmjs.org
 gh api repos/2wce/ts-restless/private-vulnerability-reporting
+gh api repos/2wce/ts-restless/actions/variables/PRERELEASE_ENABLED
 ```
 
-Configure npm trusted publishing for each of the ten public packages. The release job uses GitHub-hosted Ubuntu runners with `id-token: write`; pinned Node 26 provides npm 11.20.0 locally, and the job checks npm >=11.5.1. The repository's pnpm 12 publish path supports OIDC and provenance. Public registry metadata reads need no npm token.
+The release job uses GitHub-hosted Ubuntu runners with `id-token: write`, the pinned Node/pnpm versions and npm 11.21.0 for trusted-publisher dist-tag support. Public registry metadata reads need no npm token. Verify every public package's existing GitHub Actions connection against these fields:
 
-In each package's npm settings, add a GitHub Actions trusted publisher with these exact fields:
+| Field                | Value                                                        |
+| -------------------- | ------------------------------------------------------------ |
+| Organization or user | `2wce`                                                       |
+| Repository           | `ts-restless`                                                |
+| Workflow filename    | `build-test.yml`                                             |
+| Environment name     | Empty; this job does not use a GitHub environment            |
+| Allowed actions      | Direct `npm publish`, `npm stage publish` and `npm dist-tag` |
 
-| Field                | Value                                                                                       |
-| -------------------- | ------------------------------------------------------------------------------------------- |
-| Organization or user | `2wce`                                                                                      |
-| Repository           | `ts-restless`                                                                               |
-| Workflow filename    | `build-test.yml`                                                                            |
-| Environment name     | Leave empty; this job does not use a GitHub environment                                     |
-| Allowed actions      | Enable direct `npm publish`; current new trust configurations otherwise permit staging only |
+Names include all ten public libraries: core, express, fastify, nest, next, serverless, react-query, open-api, solid-query and vue-query. Private packages stay excluded. Published manifests point to the fork repository, as npm requires. Package settings are case-sensitive; the workflow value is the filename alone. The [dated setup evidence](evidence/2026-11-16-delivery-refresh.md) records the verified permissions.
 
-The original ten connections were created on 2026-11-04 for `2wce/ts-rest`, with direct and staged publishing allowed and dist-tag management disabled. GitHub renamed the same repository (ID `1425753666`) to `2wce/ts-restless` by 2026-11-05. All ten replacement connections were created and verified on 2026-11-05 with the exact binding above and permissions limited to `createPackage` and `createStagedPackage`. Authenticated npm CLI reads after revocation confirmed every replacement remained and all obsolete old-name bindings were retired. Every new connection needs its first successful OIDC publication within two days of creation; the original connections' November 6 deadline no longer applies. Existing package token-access settings have not been tightened; that remains a separate step after successful OIDC publication.
+The workflow uses OIDC instead of an npm write-token secret. GitHub issues a short-lived identity, and the package manager exchanges it for scoped registry access. Public GitHub trusted publishing adds provenance; explicit npm/pnpm provenance settings retain that requirement. Local `npm whoami` checks maintainer login, not workflow OIDC permissions. Verify each publication's registry provenance.
 
-Names include all ten entries in the package migration table: core, express, fastify, nest, next, serverless, react-query, open-api, solid-query and vue-query. Keep private packages excluded. The public manifests already point to the actual fork repository, as npm requires. Package settings are case-sensitive; the workflow filename is the filename alone.
+The dedicated `RELEASE_PR_TOKEN` gives the Changesets action GitHub contents/pull-requests write access so generated release PRs trigger ordinary CI. Its successful version-PR runs establish that path; diagnose credential changes through job results without printing the secret. This GitHub credential is independent of npm publishing. A future project-owned GitHub App identity can replace it separately.
 
-The workflow has no `NPM_TOKEN` or `NODE_AUTH_TOKEN` publishing secret. GitHub issues a short-lived OIDC identity, and the package manager exchanges it for scoped registry access. GitHub trusted publishing automatically adds provenance for these public packages/public repository; explicit npm/pnpm provenance settings retain that requirement. Local `npm whoami` is not a check of OIDC permissions. Verify the actual publication's registry provenance before declaring the setup complete.
+When recreating a trust, follow npm's current activation requirements and configure it close to a reviewed release. Keep the prerelease variable disabled during incomplete setup. Enable it after identity, CI, release-PR credentials and all package bindings are verified. A subsequent main push opens or updates the version PR; merging that PR and passing main CI publishes the recorded prerelease. Stable automation has its own disabled workflow and separate approval. Token-based publishing restrictions are managed separately in npm package settings; OIDC setup does not change them.
 
-A dedicated repository secret `RELEASE_PR_TOKEN` provides GitHub contents/pull-requests write access so generated release PRs trigger ordinary PR CI. A secret-name-only GitHub API read confirmed the user saved it on 2026-11-05; its actual permissions still need verification by a successful release-PR job. It is a GitHub PR credential, independent of npm publishing. A future project-owned GitHub App identity can generate installation tokens in the workflow. Never print or commit the credential's value.
+Official requirements: [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/) and [pnpm publish](https://pnpm.io/cli/publish). A successful registry publication proves authentication; local tests and `id-token: write` alone do not.
 
 ### First-package registration
 
-The new package names need npm package records before their per-package trust settings can be configured. Organization ownership alone does not establish those relationships. The user approved staged registration on 2026-11-04, and all ten records now exist. The workflow itself does not perform registration or bootstrap releases.
+The public names were originally registered with placeholder/staged payloads before library publication. The historical [registry snapshot](evidence/2026-11-06-support-demand.json) retains that baseline. The release workflow neither registers new names nor approves registration-only staged payloads. Never install `0.0.0-stage` or approve those placeholder payloads as a library release. Any staged-record cleanup requires its own review; retain the package records and trusted-publisher relationships.
 
-[npm staged publishing](https://docs.npmjs.com/staged-publishing/) registered the names using authenticated maintainer access. Each submission used a registration-only `0.0.0-registration.0` payload, tagged `registration`, containing only a manifest and README. npm created the publicly available `0.0.0-stage` placeholders; the submitted contents remain staged and unapproved. **Never approve those registration-only payloads as a library release.** The first library alpha must come from the reviewed release PR through OIDC.
+### Verify a completed release
 
-Before the first library release, registry reads confirmed only `0.0.0-stage`, assigned to `latest`. A 2026-11-06 refresh confirmed alpha.0 and alpha.1 for all ten packages; `alpha` pointed to alpha.1 while `latest` pointed to alpha.0. This conflicted with the stable-only policy at that time; [ADR0018](adr/0018-alpha-latest-tag.md) subsequently superseded that policy with alpha mirroring. See the historical [registry snapshot](evidence/2026-11-06-support-demand.json). An authenticated attempt to remove Core's placeholder `latest` tag returned HTTP 400; the placeholder-tag attempt did not change registry state at that time. The earlier placeholder was registration state, not a stable release. User installation instructions can use the real `@alpha` channel. Registration-only stage rejection was not recorded in the setup evidence; recheck with `npm stage list` before any separately approved cleanup. Do not delete the package records or approve the staged payloads.
+After publication or retry, read every public package's live tags:
 
-Do not activate automation until each package has its trusted publisher configured. Current npm trust configurations must complete their first successful publish within two days or be recreated. Configure them near the ready-to-publish release, with direct publish permission, then enable the workflow. After successful OIDC publication, restrict token-based publishing in npm package settings as appropriate; do not claim that restriction is configured by this source change.
+```sh
+for package in core express fastify nest next serverless react-query open-api solid-query vue-query; do
+  npm view "@ts-restless/$package" dist-tags --json
+done
+```
 
-The job defaults off behind repository variable `PRERELEASE_ENABLED`; actual alpha publications establish that the prerelease path has since run. The following describes its setup gate, not an assertion that publication is still disabled. Keep it unset until the identity branch is reviewed, its full CI passes, the GitHub release-PR credential is configured, and the npm package trust relationships are ready. Then set `PRERELEASE_ENABLED=true`; the next successful main push opens/updates the release PR. Its merge and successful CI publish automatically under the recorded prerelease tag. Stable automation remains disabled.
+Require `alpha` and `latest` to match the reviewed numbered alpha release across all ten libraries. Inspect the published version's manifests, exports, peers, changelog and provenance as well; for example:
 
-Official requirements: [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/) and [pnpm publish](https://pnpm.io/cli/publish). The actual registry publish is the authentication proof; successful local tests or the presence of `id-token: write` do not establish that trust is configured.
+```sh
+npm view @ts-restless/core@alpha version dist.attestations --json
+```
 
-After library publication, verify every package/version and dist-tag. Replace the placeholder warnings in README/docs/security only after registry verification, including actual release notes. During active alpha development, `alpha` and `latest` must point to the same numbered release after successful tag reconciliation. `latest` is the default-install channel and does not establish stability; check the version itself. Beta/RC channel changes and stable activation remain separate decisions.
+Repeat artifact/provenance verification for every released library and pin exact versions in migration applications. `latest` is the default-install channel; the version itself determines whether it is a prerelease. Beta/RC channel changes and stable activation follow their separate decisions. Keep dated observations in [evidence](evidence/README.md) rather than hardcoding the current tag targets into guides or the roadmap.
 
 ## Stable exit
 

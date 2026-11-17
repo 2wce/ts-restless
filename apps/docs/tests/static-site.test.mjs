@@ -68,15 +68,19 @@ test('Markdown preserves installation commands, tab alternatives and contract ty
   assert.match(query, /fetchOptions/);
 });
 
-test('Markdown retains migration availability and warning guidance', async () => {
+test('Markdown retains release selection, historical fallbacks and warning guidance', async () => {
   const migration = await readFile(
     resolve(output, 'markdown/ts-restless-migration.md'),
     'utf8',
   );
-  assert.match(migration, /alpha\.5` is published/);
-  assert.match(migration, /Alpha\.2 does not contain/);
-  assert.match(migration, /Stable `4\.0\.0` is not published/);
-  assert.match(migration, /Async base headers.*absent from alpha\.5/);
+  assert.match(migration, /first stable target.*4\.0\.0/);
+  assert.match(migration, /npm view @ts-restless\/core dist-tags --json/);
+  assert.match(migration, /pin the exact released version/);
+  assert.match(migration, /0\.0\.0-stage.*contain no library code/);
+  assert.doesNotMatch(
+    migration,
+    /pending release|containing release is pending|alpha\.\d+` is published/,
+  );
   assert.match(migration, /F04 is published in alpha\.5/);
   const queryMigration = await readFile(
     resolve(output, 'markdown/query-v5-migration.md'),

@@ -168,8 +168,9 @@ Never capture one user's cookies or token in a process-wide client, and only
 forward credentials to the intended API. Plain clients and the query adapters
 share this resolution behavior.
 
-Async callbacks and optional callback values describe development source and
-are absent from `4.0.0-alpha.4`; use them after a containing release is published.
+For migration from an earlier prerelease, select a version whose changelog
+includes request-scoped async base headers; see the
+[release selection guide](/ts-restless-migration#choose-the-release-first).
 
 ## Making Requests
 
@@ -740,10 +741,10 @@ normalized to `undefined`. A response declared with a JSON schema still needs
 valid JSON bytes: empty and malformed JSON reject with the native parse error.
 Use `c.noBody()` for empty responses rather than a type-only `c.type<undefined>()`.
 
-These consistent text/binary/custom-fetcher checks and no-body normalization are
-F04 development changes, absent from `4.0.0-alpha.4`. Select a containing release
-before relying on them. When upgrading, update code that expected an empty Blob
-from a no-body response to handle `undefined`.
+When upgrading, update code that expected an empty Blob from a no-body response
+to handle `undefined`, and remove duplicate contract validation from custom
+fetchers. See the [release selection guide](/ts-restless-migration#choose-the-release-first)
+when migrating from an earlier prerelease.
 
 ### Strict Status Codes
 

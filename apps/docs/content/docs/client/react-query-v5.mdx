@@ -104,7 +104,7 @@ export function CreatePost() {
 
 Keep the client stable across renders. The explicit client supplies the mutation defaults and cache, takes precedence over a surrounding `QueryClientProvider`, and works without a provider. When omitted, the hook uses the surrounding native provider as usual. `tsr.useQueryClient()` still requires the providers described above.
 
-The correction for [#36](https://github.com/2wce/ts-restless/issues/36) is pending release and is absent from `4.0.0-alpha.5`; check the [delivery status](https://github.com/2wce/ts-restless/blob/main/docs/roadmap.md) for a containing release.
+See the [release selection guide](/ts-restless-migration#choose-the-release-first) when upgrading an earlier prerelease; the fix for [#36](https://github.com/2wce/ts-restless/issues/36) is recorded in the package changelog.
 
 ## Complete Example
 
@@ -582,7 +582,7 @@ const state = cache.getPosts.getInfiniteQueryState<PageParam>(key);
 
 Reads and state return `undefined` for missing queries. An updater returning `undefined` leaves existing data unchanged and creates no missing query, following native behavior. Page parameters default to `unknown`; supply the generic matching your infinite query when you need a specific parameter type. Arbitrary query keys do not infer that type.
 
-These additive APIs for [#37](https://github.com/2wce/ts-restless/issues/37) are pending release and are absent from `4.0.0-alpha.5`; check the [delivery status](https://github.com/2wce/ts-restless/blob/main/docs/roadmap.md) for a containing release. Until then, use the native client's explicit `InfiniteData` generic for infinite-cache access.
+When upgrading an earlier prerelease, select a version whose changelog includes the infinite-cache APIs for [#37](https://github.com/2wce/ts-restless/issues/37); see the [release selection guide](/ts-restless-migration#choose-the-release-first).
 
 ## Troubleshooting
 

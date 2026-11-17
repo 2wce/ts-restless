@@ -7,9 +7,15 @@ description: A checklist for moving from ts-rest v3 or earlier fork prereleases 
 
 ## Choose the release first
 
-The first stable target is **ts-restless 4.0.0**. **`4.0.0-alpha.5` is published**, including F04 client response validation and the serverless empty-body corrections through [release PR #31](https://github.com/2wce/ts-restless/pull/31). Public npm manifests and tags for all ten libraries were checked on 2026-11-11. React 19 compatibility and Express raw-request typing first shipped in alpha.4; the TanStack Query v5-only migration, F01 Query5 compatibility and A11 shared execution first shipped in alpha.3. Alpha.2 does not contain that migration; its historical fallback guidance remains below. These guides describe development source, so check the [fork release notes](https://github.com/2wce/ts-restless/releases) for any newer feature you need. Async base headers have merged in [PR #32](https://github.com/2wce/ts-restless/pull/32) but are absent from alpha.5; their containing release is pending.
+The first stable target is **ts-restless 4.0.0**. Numbered `4.0.0-alpha.*` prereleases are available. These guides describe the v4 source baseline; use the [fork release notes](https://github.com/2wce/ts-restless/releases) and the selected package's changelog, exports and peers to confirm the APIs you need before upgrading. Keep all ts-restless libraries used by the application on the same numbered release. Earlier prereleases retain their original APIs; historical fallback guidance appears below.
 
-Prereleases use explicit `alpha`, `beta` or `rc` npm tags. During alpha development, release automation also updates `latest` to the same alpha version, so ordinary installs receive the maintained alpha once that policy takes effect on npm. Stable `4.0.0` is not published. The 2026-11-11 registry check recorded `alpha` at alpha.5 and `latest` at alpha.0, before this policy change; recheck live tags when installing. Do not infer stability from `latest` or install the historical `0.0.0-stage` registration placeholders, which contain no library code. For a reproducible migration, pin the exact released version across all the ts-restless libraries you use. The moving `@alpha` tag remains available for evaluation.
+Prereleases use explicit `alpha`, `beta` or `rc` npm tags. After successful alpha publication, release automation aligns `latest` with the same alpha version. `latest` is a default-install channel, not a stability guarantee. For a reproducible migration, pin the exact released version across all the ts-restless libraries you use; the moving `@alpha` tag remains available for evaluation. Check live tags rather than relying on a documentation snapshot:
+
+```bash
+npm view @ts-restless/core dist-tags --json
+```
+
+Repeat for each library you use and confirm the versions match. Historical `0.0.0-stage` registration placeholders contain no library code and must not be installed.
 
 ## Migration checklist
 
@@ -18,9 +24,9 @@ Each row identifies a removed support line, moved API or changed behavior and it
 | Previous feature or support | Replacement in the v4 baseline | Migration path |
 | --- | --- | --- |
 | `@ts-rest/*` dependencies and imports | The matching `@ts-restless/*` packages | [Replace the complete package set](#package-migration), including shared contracts and public subpaths. |
-| TypeScript `node`/`node10` or `classic` module resolution | Node16/NodeNext or Bundler; ESM and CommonJS retained | [Update compiler and tooling configuration](#typescript-module-resolution). The new resolver baseline requires a containing release; alpha.5 predates it. |
+| TypeScript `node`/`node10` or `classic` module resolution | Node16/NodeNext or Bundler; ESM and CommonJS retained | [Update compiler and tooling configuration](#typescript-module-resolution). |
 | Next.js 12, 13 or 14 | A current patched Next.js 15 or 16 release | [Upgrade Next first](#nextjs-1214), retaining your existing router integration. |
-| Native Fastify 4 | Fastify 5 at root; Fastify 4 via `/legacy` through ts-restless v4 | [Move native4 imports to `/legacy`, or upgrade runtime/plugins and use root on native5](/server/fastify#fastify-4-to-5). Fastify 5 support is development source only; removal of 4 targets ts-restless v5 after the stable migration window. |
+| Native Fastify 4 | Fastify 5 at root; Fastify 4 via `/legacy` through ts-restless v4 | [Move native4 imports to `/legacy`, or upgrade runtime/plugins and use root on native5](/server/fastify#fastify-4-to-5). Removal of 4 targets ts-restless v5 after the stable migration window. |
 | React 16 or 17 with the React Query adapter | React 18 or 19 and matching React/DOM types | [Upgrade React before Query](/query-v5-migration#upgrade-order). React 19 also needs a containing adapter release and compatible native Query peers. |
 | TanStack Query v4 in React, Vue or Solid | The framework's native Query v5 package | [Query v5 migration](/query-v5-migration), including native options, providers, status flags and pagination. |
 | React root `initQueryClient`, `useTsRestQueryClient` and positional hooks | `initTsrReactQuery`, its providers, object options and `tsr.useQueryClient()` | [React API replacements](/query-v5-migration#react-api-replacements), including mutations, cache access and SSR. |
@@ -31,7 +37,7 @@ Each row identifies a removed support line, moved API or changed behavior and it
 | `instanceof ZodError`, serialized `name: 'ZodError'`, `flatten()` / `format()` on default validation failures | `StandardSchemaError`, serialized `name: 'ValidationError'` and portable issue handling | [Validation errors and payloads](/standard-schema-migration#validation-errors). Update clients, middleware and error-response contracts together. |
 | Zod whole-object header override semantics and mixed-case object fields | Validate both whole-object schemas, or merge before bridging; use lowercase whole-object fields | [Whole-object headers](/standard-schema-migration#whole-object-headers). Field records still support route overrides and `null` removals. |
 | Client fetchers performing contract validation, or `c.noBody()` yielding an empty Blob | Shared client execution validates decoded results; no-body yields `undefined` | [Client response-validation migration](/client/fetch#response-validation). F04 is published in alpha.5; stop manually applying contract transforms in custom fetchers. |
-| Fetcher wrappers used solely to await SSR/auth headers | Async per-request `baseHeaders` callbacks | [Dynamic headers](/client/fetch#dynamic-headers). Replace the header wrapper with callbacks; keep auth resolution in the incoming request scope. Development source only; absent from alpha.5. |
+| Fetcher wrappers used solely to await SSR/auth headers | Async per-request `baseHeaders` callbacks | [Dynamic headers](/client/fetch#dynamic-headers). Replace the header wrapper with callbacks; keep auth resolution in the incoming request scope. |
 | Express `req` fields typed as validated/transformed values | Validated top-level arguments; native raw request types | [Express raw-request migration](/server/express#validated-arguments-and-the-native-request). Middleware body access needs explicit narrowing. F02 is published in alpha.4; alpha.3 retains the old types. |
 
 There is no Query v4 `/legacy` fallback. Vue and Solid adapters remain available on v5. No Svelte adapter has been removed; applications in Svelte or any other framework can use the [plain fetch client](/client/fetch).
@@ -74,7 +80,7 @@ import { initTsrReactQuery } from '@ts-restless/react-query';
 
 The stable v4 baseline uses package-export-aware resolution. `moduleResolution: "node"` (also called `"node10"`) and TypeScript's separate `"classic"` resolver are no longer supported. New packages remove `typesVersions` fallbacks and use their existing conditional `exports` to select declarations and runtime files. Some root imports might still resolve with an old resolver; that does not make it a supported configuration.
 
-This describes development source and needs a containing release. Published alpha.5 predates this policy change; keep a matched pre-change release while preparing the configuration migration if necessary. Modern resolution does not require TypeScript7 or Node26. Use a compiler supported by your framework and capable of the selected resolver, and check your actual application; older/current pinned consumers are verified separately from every compiler version.
+Modern resolution does not require TypeScript7 or Node26. Use a compiler supported by your framework and capable of the selected resolver, and check your actual application; older/current pinned consumers are verified separately from every compiler version.
 
 For an application executed directly by Node, use matching settings in `tsconfig.json`:
 
@@ -144,9 +150,9 @@ Do not bypass peer checks to treat an unsupported combination as supported.
 
 ## Retained features and current limits
 
-Express 4/5, Nest 9–12, Fastify 4/5, the Zod 3 bridge and all ten public libraries remain in the development baseline. Fastify 5 uses the root entry; Fastify 4 uses the legacy/deprecated `/legacy` entry through ts-restless v4, with removal planned for ts-restless v5 under the stable migration policy. Alpha.5 supports Fastify 4 at root only; select a containing release for the new root/legacy split and Fastify 5 support. See the [Fastify migration guide](/server/fastify#fastify-4-to-5). React 18/19 compatibility is published from alpha.4; React 19 also requires compatible native Query peers. Peer ranges describe allowed versions; release notes identify the combinations actually tested.
+Express 4/5, Nest 9–12, Fastify 4/5, the Zod 3 bridge and all ten public libraries remain in the development baseline. Fastify 5 uses the root entry; Fastify 4 uses the legacy/deprecated `/legacy` entry through ts-restless v4, with removal planned for ts-restless v5 under the stable migration policy. See the [Fastify migration guide](/server/fastify#fastify-4-to-5). React 18/19 compatibility is published from alpha.4; React 19 also requires compatible native Query peers. Peer ranges describe allowed versions; release notes identify the combinations actually tested.
 
-The [OpenAPI Zod 3 default converter is retained](/standard-schema-migration#openapi). Changing runtime validation to Standard Schema does not automatically add JSON Schema generation for a new validator; use a matching converter when changing validators.
+The [historical OpenAPI Zod 3 converter is retained under `/legacy`](/standard-schema-migration#openapi); the default entry requires an explicit schema converter. Changing runtime validation to Standard Schema does not automatically add JSON Schema generation for a new validator; use a matching converter when changing validators.
 
 Some inherited APIs still carry deprecation comments: Nest's `initNestServer` and controller/request/response-shape helpers, and the plain client's top-level `cache` / `next` options. They are still present in this source baseline. Prefer [`TsRestHandler` and inferred handler types](/server/nest), and `fetchOptions.cache` / `fetchOptions.next`, respectively. Their comments are not evidence that they have already been removed from v4.
 
