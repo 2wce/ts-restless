@@ -17,6 +17,40 @@ for (const openapi of [await import('@ts-restless/open-api'), require('@ts-restl
 }
 for (const { validateIfSchema, validateMultiSchemaObject, initClient, tsRestFetchApi, initContract, StandardSchemaError, evaluateResponse, executeQueryRequest, evaluateFetchApiArgs } of [await import('@ts-restless/core'), require('@ts-restless/core')]) {
 {
+  const c = initContract();
+  const contract = c.router({
+    form: { method: 'POST', path: '/form', contentType: 'multipart/form-data', body: c.type(), responses: { 204: c.noBody() } },
+    legacy: { method: 'POST', path: '/legacy', contentType: 'multipart/form-data', multipart: { fieldEncoding: 'legacy-json' }, body: c.type(), responses: { 204: c.noBody() } },
+  });
+  const bodies = [];
+  const clientArgs = { baseUrl: 'https://multipart.example', api: async args => {
+    bodies.push(args.body);
+    return { status: 204, body: undefined, headers: new Headers() };
+  } };
+  const client = initClient(contract, clientArgs);
+  const file = new File(['file'], 'file.txt');
+  for (const execution of ['plain', 'query']) {
+    for (const name of ['legacy', 'form', 'legacy']) {
+      const route = contract[name];
+      const request = { body: { name: 'Alice', missing: undefined, tags: ['one', 'two'], file } };
+      if (execution === 'plain') await client[name](request);
+      else await executeQueryRequest({ ...evaluateFetchApiArgs(route, clientArgs, request), route });
+      const form = bodies.at(-1);
+      assert.equal(form.get('name'), name === 'legacy' ? '"Alice"' : 'Alice');
+      assert.equal(form.get('missing'), name === 'legacy' ? 'undefined' : null);
+      assert.deepEqual(form.getAll('tags'), name === 'legacy' ? ['"one"', '"two"'] : ['one', 'two']);
+      assert.equal(form.get('file'), file);
+    }
+  }
+  const explicit = new FormData();
+  explicit.append('name', 'Custom');
+  for (const name of ['form', 'legacy']) {
+    await client[name]({ body: explicit });
+    assert.equal(bodies.at(-1), explicit);
+    assert.equal(explicit.get('name'), 'Custom');
+  }
+}
+{
   let calls = 0;
   const countedSchema = { '~standard': {
     ...schema['~standard'], validate(value) {
@@ -409,8 +443,69 @@ for (const commonjs of [false, true]) {
   }
 }
 const { NextRequest } = require('next/server.js');
+const { redirect, permanentRedirect, notFound } = require('next/navigation.js');
 for (const adapter of [await import('@ts-restless/serverless/next'), require('@ts-restless/serverless/next')]) {
   for (const handlerType of ['app-router', 'pages-router-edge']) {
+    const { initContract } = await import('@ts-restless/core');
+    const c = initContract();
+    const nativeContract = c.router({ control: {
+      method: 'GET', path: '/native-control', responses: { 200: c.noBody() },
+    }, write: {
+      method: 'POST', path: '/native-write', body: c.type(), responses: { 200: c.type() },
+    } });
+    const nativeRequest = (path, init) => {
+      const url = new URL('http://localhost' + path);
+      if (handlerType === 'pages-router-edge') url.searchParams.set('ts-rest', path.slice(1));
+      return new NextRequest(url, init);
+    };
+    for (const trigger of [() => redirect('/destination'), () => permanentRedirect('/destination'), () => notFound()]) {
+      let signal;
+      try { trigger(); } catch (error) { signal = error; }
+      assert.ok(signal instanceof Error);
+      for (const origin of ['handler', 'request', 'route', 'response']) {
+        let conversions = 0;
+        let responseCalls = 0;
+        const throwSignal = () => { throw signal; };
+        const handler = adapter.createNextHandler(nativeContract, {
+          control: {
+            middleware: origin === 'route' ? [throwSignal] : [],
+            handler: async () => {
+              if (origin === 'handler') throwSignal();
+              return { status: 200, body: undefined };
+            },
+          },
+          write: async ({ body }) => ({ status: 200, body }),
+        }, {
+          handlerType,
+          requestMiddleware: origin === 'request' ? [throwSignal] : [],
+          responseHandlers: [() => {
+            if (origin === 'response') throwSignal();
+            responseCalls += 1;
+          }],
+          errorHandler: () => {
+            conversions += 1;
+            return adapter.TsRestResponse.fromJson({ converted: true }, { status: 499 });
+          },
+        });
+        await assert.rejects(handler(nativeRequest('/native-control')), error => error === signal);
+        assert.equal(conversions, 0);
+        assert.equal(responseCalls, 0);
+      }
+    }
+    const postRequest = nativeRequest('/native-write', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"value":"posted"}',
+    });
+    const postHandler = adapter.createNextHandler(nativeContract, {
+      control: async () => ({ status: 200, body: undefined }),
+      write: async ({ body }, { nextRequest, request }) => {
+        assert.equal(nextRequest, postRequest);
+        assert.equal(request.method, 'POST');
+        return { status: 200, body };
+      },
+    }, { handlerType });
+    const postResponse = await postHandler(postRequest);
+    assert.equal(postResponse.status, 200);
+    assert.deepEqual(await postResponse.json(), { value: 'posted' });
     for (const responseValidation of [true, false]) {
       let calls = 0;
       const countedSchema = { '~standard': {

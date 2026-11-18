@@ -72,6 +72,99 @@ Do not work around this by casting the old schema; bridge it or upgrade its
 validator. Promise-returning validation is still unsupported: use a synchronous
 schema and put asynchronous checks in your application handler.
 
+## Shared contracts across ESM and CommonJS
+
+Type-only contracts (`c.type<T>()`, including `c.type<null>()`) and `c.noBody()`
+can cross the ESM/CommonJS boundary within the same coordinated ts-restless
+release. A no-body response remains `undefined` even when its HTTP response has
+a JSON content type; the client does not decode that response body.
+
+When upgrading, rebuild shared contract packages and applications against a
+containing release. Historical package declarations and no-body symbols used
+module-local identities, so mixing them with the new declarations is not a
+supported migration path. Align the contract package's core dependency or peer
+with the application's version, and keep the coordinated adapters together.
+Do not construct replacement symbols or cast away declaration mismatches.
+
+The public `Opaque` and `UnwrapOpaque` type names retain their inference and
+distinct-token behavior. Their private symbol brand preserves all user string
+keys, and both module formats share one declaration graph.
+These type markers still do not validate data at runtime. See the
+[contract identity decision](https://github.com/2wce/ts-restless/blob/main/docs/adr/0022-collision-free-contract-identity.md)
+for the compatibility boundary. Verify a containing release before updating
+installed packages.
+
+Older TypeScript declaration emitters may require public type annotations when
+exporting shared contracts. Annotate the type-only declarations rather than
+importing generated private chunks or disabling declaration checks:
+
+```typescript twoslash
+import {
+  initContract,
+  type ContractPlainType,
+  type ContractNullType,
+  type ContractNoBodyType,
+} from '@ts-restless/core';
+const c = initContract();
+const body: ContractPlainType<{ value: string }> = c.type();
+const nullable: ContractNullType = c.type<null>();
+const empty: ContractNoBodyType = c.noBody();
+export const contract = c.router({
+  create: { method: 'POST', path: '/items', body, responses: { 200: body } },
+  clear: { method: 'POST', path: '/clear', body: nullable, responses: { 204: empty } },
+});
+```
+
+## Multipart object bodies
+
+Object uploads with `contentType: 'multipart/form-data'` now default to the
+route policy `multipart: { fieldEncoding: 'form' }`. Omit the declaration for
+this default. Strings keep their exact contents: `Alice` reaches the native
+parser as `Alice`, without JSON quotation marks. Empty strings, zero and false
+remain fields; undefined fields and array items are omitted. Null and nested
+objects use JSON text, arrays repeat the field name, and files stay binary.
+Caller-created `FormData` passes through unchanged.
+
+If an endpoint JSON-decodes every field, declare the historical policy on its
+shared route contract:
+
+```typescript twoslash
+import { initClient, initContract } from '@ts-restless/core';
+const c = initContract();
+// ---cut---
+const contract = c.router({
+  upload: {
+    method: 'POST',
+    path: '/upload',
+    contentType: 'multipart/form-data',
+    multipart: { fieldEncoding: 'legacy-json' },
+    body: c.type<{ name: string; missing?: string }>(),
+    responses: { 204: c.noBody() },
+  },
+});
+const client = initClient(contract, { baseUrl: 'https://api.example.com' });
+
+await client.upload({
+  body: { name: 'Alice', missing: undefined },
+}); // Historical fields: name = '"Alice"', missing = 'undefined'
+```
+
+To migrate the endpoint, update its decoder/schema and change its shared
+contract to `multipart: { fieldEncoding: 'form' }`, or omit `multipart`.
+Deploy matching clients and server field handling together. The route policy
+applies to plain and query clients; there is no client or per-request encoding
+option. If using the earlier development-source `multipartFieldEncoding`
+option, move the choice to the route (`'native'` becomes `'form'`, and `'json'`
+becomes `'legacy-json'`) and remove client/request settings.
+
+The declaration does not add automatic multipart parsing or server-side JSON
+decoding. Existing native middleware continues to own those operations. An
+explicit `FormData` body remains available for custom field values and is never
+rewritten. See the
+[multipart field decision](https://github.com/2wce/ts-restless/blob/main/docs/adr/0021-route-multipart-encoding.md)
+and [client guide](/client/fetch#form-data-multipartform-data) for the field policy.
+Check a containing release before relying on this behavior in installed packages.
+
 ## Validation errors
 
 Default validation errors are `StandardSchemaError`, with `name: 'ValidationError'`

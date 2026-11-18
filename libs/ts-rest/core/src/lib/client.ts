@@ -6,6 +6,7 @@ import {
   AppRouter,
   ContractNoBody,
   isAppRoute,
+  MultipartFieldEncoding,
 } from './dsl';
 import { insertParamsIntoPath } from './paths';
 import { convertQueryParamsToUrlString } from './query';
@@ -192,14 +193,22 @@ export const tsRestFetchApi: ApiFetcher = async ({
   );
 };
 
-const createFormData = (body: unknown) => {
+const createFormData = (
+  body: unknown,
+  fieldEncoding: MultipartFieldEncoding = 'form',
+) => {
   const formData = new FormData();
 
   const appendToFormData = (key: string, value: unknown) => {
     if (value instanceof File) {
       formData.append(key, value);
-    } else {
+    } else if (fieldEncoding === 'legacy-json') {
       formData.append(key, JSON.stringify(value));
+    } else if (value !== undefined) {
+      formData.append(
+        key,
+        typeof value === 'string' ? value : JSON.stringify(value),
+      );
     }
   };
 
@@ -297,7 +306,10 @@ export const fetchApi = async (options: FetchApiOptions) => {
       fetcherArgs = {
         ...fetcherArgs,
         contentType: 'multipart/form-data',
-        body: body instanceof FormData ? body : createFormData(body),
+        body:
+          body instanceof FormData
+            ? body
+            : createFormData(body, route.multipart?.fieldEncoding),
       };
     } else if (
       'contentType' in route &&
@@ -390,7 +402,9 @@ export const evaluateFetchApiArgs = <TAppRoute extends AppRoute>(
     }) || {};
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  type AssertExtraInputArgsEmpty = Expect<Equal<typeof extraInputArgs, {}>>;
+  type AssertExtraInputArgsEmpty = Expect<
+    typeof extraInputArgs extends Record<PropertyKey, never> ? true : false
+  >;
 
   const overriddenClientArgs = {
     ...clientArgs,

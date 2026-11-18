@@ -789,6 +789,145 @@ describe('client', () => {
   });
 
   describe('multipart/form-data', () => {
+    it.each([
+      {
+        encoding: undefined,
+        expected: ['Alice', '', 'one', ''],
+        missing: null,
+      },
+      { encoding: 'form', expected: ['Alice', '', 'one', ''], missing: null },
+      {
+        encoding: 'legacy-json',
+        expected: ['"Alice"', '""', '"one"', '""', 'undefined'],
+        missing: 'undefined',
+      },
+    ] as const)(
+      'encodes object fields using route policy $encoding',
+      async ({ encoding, expected, missing }) => {
+        const contract = c.router({
+          upload: {
+            method: 'POST',
+            path: '/fields',
+            contentType: 'multipart/form-data',
+            ...(encoding && { multipart: { fieldEncoding: encoding } }),
+            body: c.type<{
+              name: string;
+              empty: string;
+              zero: number;
+              enabled: boolean;
+              missing?: string;
+              nil: null;
+              metadata: { id: number };
+              tags: Array<string | undefined>;
+              files: File[];
+            }>(),
+            responses: { 200: c.type<{ message: string }>() },
+          },
+        });
+        const files = [
+          new File(['one'], 'one.txt'),
+          new File(['two'], 'two.txt'),
+        ];
+        const body = {
+          name: 'Alice',
+          empty: '',
+          zero: 0,
+          enabled: false,
+          missing: undefined,
+          nil: null,
+          metadata: { id: 1 },
+          tags: ['one', '', undefined],
+          files,
+        };
+        const api = async (args: ApiFetcherArgs) => {
+          const form = args.body as FormData;
+          expect(form.get('name')).toBe(expected[0]);
+          expect(form.get('empty')).toBe(expected[1]);
+          expect(form.get('zero')).toBe('0');
+          expect(form.get('enabled')).toBe('false');
+          expect(form.get('nil')).toBe('null');
+          expect(form.get('metadata')).toBe('{"id":1}');
+          expect(form.getAll('tags')).toEqual(expected.slice(2));
+          expect(form.get('missing')).toBe(missing);
+          expect(form.getAll('files')[0]).toBe(files[0]);
+          expect(form.getAll('files')[1]).toBe(files[1]);
+          expect(args.rawBody).toBe(body);
+          return {
+            status: 200,
+            body: { message: 'received' },
+            headers: new Headers(),
+          };
+        };
+        const localClient = initClient(contract, {
+          baseUrl: 'https://multipart.example',
+          api,
+        });
+        await expect(
+          localClient.upload({
+            body,
+          }),
+        ).resolves.toMatchObject({
+          status: 200,
+          body: { message: 'received' },
+        });
+      },
+    );
+
+    it.each(['plain', 'query'] as const)(
+      'keeps sibling multipart policies independent in %s execution',
+      async (execution) => {
+        const contract = c.router({
+          uploads: c.router(
+            {
+              form: {
+                method: 'POST',
+                path: '/form',
+                contentType: 'multipart/form-data',
+                body: c.type<{ name: string }>(),
+                responses: { 204: c.noBody() },
+              },
+              legacy: {
+                method: 'POST',
+                path: '/legacy',
+                contentType: 'multipart/form-data',
+                multipart: { fieldEncoding: 'legacy-json' },
+                body: c.type<{ name: string }>(),
+                responses: { 204: c.noBody() },
+              },
+            },
+            { pathPrefix: '/uploads' },
+          ),
+        });
+        const fields: Array<[string, FormDataEntryValue | null]> = [];
+        const clientArgs = {
+          baseUrl: 'https://multipart.example',
+          api: async (args: ApiFetcherArgs) => {
+            fields.push([args.path, (args.body as FormData).get('name')]);
+            return { status: 204, body: undefined, headers: new Headers() };
+          },
+        };
+        const localClient = initClient(contract, clientArgs);
+        for (const name of ['form', 'legacy', 'form'] as const) {
+          if (execution === 'plain') {
+            await localClient.uploads[name]({ body: { name: 'Alice' } });
+          } else {
+            const route = contract.uploads[name];
+            await executeQueryRequest({
+              ...evaluateFetchApiArgs(route, clientArgs, {
+                body: { name: 'Alice' },
+              }),
+              route,
+            });
+          }
+        }
+        expect(fields).toEqual([
+          ['https://multipart.example/uploads/form', 'Alice'],
+          ['https://multipart.example/uploads/legacy', '"Alice"'],
+          ['https://multipart.example/uploads/form', 'Alice'],
+        ]);
+      },
+    );
+
     it('w/ body', async () => {
       const value = { key: 'value' };
       fetchMock.route({
@@ -817,34 +956,43 @@ describe('client', () => {
       });
     });
 
-    it('w/ FormData', async () => {
-      const value = { key: 'value' };
-      fetchMock.route({
-        url: 'https://api.com/upload',
-        response: { body: value, status: 200 },
-        method: 'POST',
-        repeat: 1,
-      });
+    it.each(['form', 'legacy-json'] as const)(
+      'preserves caller FormData with route policy %s',
+      async (fieldEncoding) => {
+        const localClient = initClient(
+          c.router({
+            upload: { ...router.upload, multipart: { fieldEncoding } },
+          }),
+          { baseUrl: 'https://api.com' },
+        );
+        const value = { key: 'value' };
+        fetchMock.route({
+          url: 'https://api.com/upload',
+          response: { body: value, status: 200 },
+          method: 'POST',
+          repeat: 1,
+        });
 
-      const formData = new FormData();
-      formData.append('test', 'test');
+        const formData = new FormData();
+        formData.append('test', 'test');
 
-      const result = await client.upload({
-        body: formData,
-      });
+        const result = await localClient.upload({
+          body: formData,
+          headers: { 'x-api-key': 'test' },
+        });
 
-      expect(result.body).toStrictEqual(value);
-      expect(result.status).toBe(200);
-      expect(result.headers.get('Content-Length')).toBe('15');
-      expect(result.headers.get('Content-Type')).toBe('application/json');
+        expect(result.body).toStrictEqual(value);
+        expect(result.status).toBe(200);
+        expect(result.headers.get('Content-Length')).toBe('15');
+        expect(result.headers.get('Content-Type')).toBe('application/json');
 
-      expect(fetchMock).toHaveLastFetched('*', {
-        matcherFunction: ({ options }) => {
-          const formData = options.body as FormData;
-          return formData.get('test') === 'test';
-        },
-      });
-    });
+        expect(fetchMock).toHaveLastFetched('*', {
+          matcherFunction: ({ options }) => {
+            return options.body === formData && formData.get('test') === 'test';
+          },
+        });
+      },
+    );
 
     it('w/ File Array', async () => {
       const value = { key: 'value' };

@@ -3,6 +3,8 @@ export type {
   AppRouteQueryImplementation,
   AppRouteMutationImplementation,
   AppRouteImplementation,
+  AppRouteImplementationOrOptions,
+  RouterImplementation,
   AppRouteOptions,
   TsRestRequest,
   TsRestRequestHandler,

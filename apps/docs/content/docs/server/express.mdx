@@ -37,6 +37,55 @@ createExpressEndpoints(contract, router, app);
 `createExpressEndpoints` is a function that takes a contract, a corresponding router with implementations and middleware for each endpoint, and an express app, and it will
 create the corresponding express routes for each endpoint with the correct method, paths, and middleware and attach them to your express app.
 
+## Modular router factories
+
+Use `RouterImplementation<T>` to type a separately defined router factory. The
+returned implementation must cover every route in its contract, and each
+handler keeps its request and response inference. `TsRestExpressServer` names
+the return type of `initServer`; `AppRouteImplementationOrOptions<T>` accepts
+either a handler or its route options.
+
+```typescript twoslash
+import { initContract } from '@ts-restless/core';
+import {
+  initServer,
+  type AppRouteImplementationOrOptions,
+  type RouterImplementation,
+  type TsRestExpressServer,
+} from '@ts-restless/express';
+
+type Post = { id: string; title: string };
+type PostRepository = { find(id: string): Promise<Post | null> };
+const c = initContract();
+const postsContract = c.router({
+  getPost: {
+    method: 'GET', path: '/posts/:id',
+    responses: { 200: c.type<Post | null>() },
+  },
+});
+
+function createPostsRouter(
+  server: TsRestExpressServer,
+  posts: PostRepository,
+): RouterImplementation<typeof postsContract> {
+  const getPost: AppRouteImplementationOrOptions<typeof postsContract.getPost> =
+    async ({ params }) => ({ status: 200, body: await posts.find(params.id) });
+  return server.router(postsContract, { getPost });
+}
+
+const server = initServer();
+const contract = c.router({ posts: postsContract });
+const router = server.router(contract, {
+  posts: createPostsRouter(server, {
+    find: async (id) => ({ id, title: 'Hello' }),
+  }),
+});
+```
+
+Pass the composed `contract` and `router` to `createExpressEndpoints` as usual.
+The factory can live in its own module and receive application dependencies
+without repeating the adapter's implementation mapping types.
+
 ## Validated arguments and the native request
 
 Handler arguments `params`, `query`, `body` and `headers` contain the contract's validated outputs, including transforms and defaults. The original Express `req` is passed through unchanged. Global and route middleware run before contract validation, including for invalid requests.

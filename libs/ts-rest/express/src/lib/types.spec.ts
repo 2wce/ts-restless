@@ -7,6 +7,12 @@ import {
 } from './types';
 import type { Request, RequestHandler } from 'express';
 import { IncomingHttpHeaders } from 'http';
+import {
+  initServer,
+  type AppRouteImplementationOrOptions,
+  type RouterImplementation,
+  type TsRestExpressServer,
+} from '../index';
 
 export type Equal<a, b> =
   (<T>() => T extends a ? 1 : 2) extends <T>() => T extends b ? 1 : 2
@@ -215,3 +221,49 @@ const heterogeneousOptions: TsRestExpressOptions<typeof heterogeneousContract> =
     },
   };
 void heterogeneousOptions;
+
+const modularContract = c.router({
+  get: {
+    method: 'GET',
+    path: '/modules/:id',
+    responses: { 200: c.type<{ id: string }>() },
+  },
+  create: {
+    method: 'POST',
+    path: '/modules',
+    body: c.type<{ id: string }>(),
+    responses: { 201: c.type<{ id: string }>() },
+  },
+});
+
+function createModule(
+  server: TsRestExpressServer,
+): RouterImplementation<typeof modularContract> {
+  const get: AppRouteImplementationOrOptions<typeof modularContract.get> = {
+    handler: async ({ params, req }) => {
+      const id: string = params.id;
+      const rawBody: unknown = req.body;
+      void rawBody;
+      return { status: 200, body: { id } };
+    },
+  };
+  return server.router(modularContract, {
+    get,
+    create: async ({ body }) => ({ status: 201, body }),
+  });
+}
+
+export type CompositionServerAssertion = Expect<
+  Equal<TsRestExpressServer, ReturnType<typeof initServer>>
+>;
+const composedContract = c.router({ modules: modularContract });
+const composedRouter: RouterImplementation<typeof composedContract> = {
+  modules: createModule(initServer()),
+};
+// @ts-expect-error a modular implementation must include every contract route
+const missingModuleRoute: RouterImplementation<typeof modularContract> = {};
+// @ts-expect-error implementation responses retain the contract body shape
+const wrongModuleResponse: AppRouteImplementationOrOptions<
+  typeof modularContract.get
+> = async () => ({ status: 200, body: { id: 123 } });
+void [composedRouter, missingModuleRoute, wrongModuleResponse];

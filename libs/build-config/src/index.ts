@@ -6,8 +6,8 @@ import type { Options } from 'unplugin-swc';
 export function libraryConfig(
   entry: Record<string, string>,
   options: { pack?: PackUserConfig; workspaceInputs?: string[] } = {},
-): UserConfig {
-  const config: UserConfig = {
+): Omit<UserConfig, 'pack'> & { pack: PackUserConfig } {
+  const config: Omit<UserConfig, 'pack'> & { pack: PackUserConfig } = {
     run: {
       tasks: {
         pack: {
@@ -38,7 +38,7 @@ export function libraryConfig(
     },
     pack: libraryPack(entry),
   };
-  return mergeConfig(config, { pack: options.pack ?? {} });
+  return { ...config, pack: mergeConfig(config.pack, options.pack ?? {}) };
 }
 
 // Publishing metadata lives in package.json; pnpm applies it when packing.

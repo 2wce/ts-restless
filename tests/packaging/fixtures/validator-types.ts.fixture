@@ -1,5 +1,5 @@
 import { initClient, initContract, executeQueryRequest, evaluateFetchApiArgs, evaluateResponse, ResponseMetadata, ResponseEvaluation, StandardSchemaV1, SchemaInputOrType, SchemaOutputOrType, ServerInferRequest, ClientInferRequest, ClientInferResponseBody } from '@ts-restless/core';
-import type { ClientArgs } from '@ts-restless/core';
+import type { ClientArgs, OverrideableClientArgs, AppRouteMutation } from '@ts-restless/core';
 import { generateOpenApi, type SchemaTransformerSync } from '@ts-restless/open-api';
 import { createExpressEndpoints, initServer } from '@ts-restless/express';
 import * as fastify from '{{fastifyEntry}}';
@@ -166,3 +166,36 @@ type ExecutionStatus = Expect<Equal<Awaited<typeof execution>['status'], 200>>;
 // @ts-expect-error successful body value is a string
 const incorrect: Promise<{ body: { value: number } }> = execution;
 void [createExpressEndpoints, initServer, fastify, nest, next, serverless, fetch, aws, azure, serverlessNext];
+
+const uploadRoute = c.mutation({
+  method: 'POST', path: '/upload', contentType: 'multipart/form-data',
+  multipart: { fieldEncoding: 'legacy-json' },
+  body: c.type<{ name: string; file: File }>(), responses: { 204: c.noBody() },
+});
+type MultipartPolicy = Expect<Equal<typeof uploadRoute.multipart.fieldEncoding, 'legacy-json'>>;
+type MultipartInput = Expect<Equal<ClientInferRequest<typeof uploadRoute>['body'], FormData | { name: string; file: File }>>;
+type MultipartHandlerInput = Expect<Equal<ServerInferRequest<typeof uploadRoute>['body'], { name: string }>>;
+const multipartRoute: AppRouteMutation = uploadRoute;
+void multipartRoute;
+// @ts-expect-error multipart encoding requires multipart contentType
+c.mutation({ method: 'POST', path: '/', contentType: 'application/json', body: c.type<string>(), responses: {}, multipart: { fieldEncoding: 'form' } });
+// @ts-expect-error GET routes cannot declare multipart encoding
+c.query({ method: 'GET', path: '/', responses: {}, multipart: { fieldEncoding: 'form' } });
+// @ts-expect-error arbitrary encoding names are not supported
+c.mutation({ method: 'POST', path: '/', contentType: 'multipart/form-data', body: c.type<string>(), responses: {}, multipart: { fieldEncoding: 'json' } });
+const removedMultipartClientOption: ClientArgs = {
+  baseUrl: '',
+  // @ts-expect-error route contracts own multipart field encoding
+  multipartFieldEncoding: 'json',
+};
+const removedMultipartOverride: Partial<OverrideableClientArgs> = {
+  // @ts-expect-error request overrides cannot alter the route's wire agreement
+  multipartFieldEncoding: 'native',
+};
+void [removedMultipartClientOption, removedMultipartOverride];
+
+const invalidMultipartRouter = {
+  invalid: { method: 'POST', path: '/', contentType: 'application/json', body: c.type<string>(), responses: {}, multipart: { fieldEncoding: 'form' } },
+} as const;
+// @ts-expect-error shared routers enforce multipart-only route policies
+c.router(invalidMultipartRouter);

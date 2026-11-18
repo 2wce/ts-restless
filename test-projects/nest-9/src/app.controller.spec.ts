@@ -17,7 +17,18 @@ describe('AppController', () => {
     await app.init();
   });
 
+  afterEach(async () => {
+    await app.close();
+  });
+
   describe('root', () => {
+    it('rejects requests through native method guards added after TsRestHandler', () => {
+      return request(app.getHttpServer())
+        .get('/')
+        .set('x-deny', 'yes')
+        .expect(403);
+    });
+
     it('should return "Hello World!"', () => {
       return request(app.getHttpServer())
         .get('/')

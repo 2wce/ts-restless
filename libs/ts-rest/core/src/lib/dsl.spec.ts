@@ -8,16 +8,169 @@ import {
   ContractNoBodyType,
   MergeHeadersWithLegacySupport,
   AppRoute,
+  AppRouteMutation,
   InferHeadersInput,
 } from './dsl';
+import type { ClientArgs, OverrideableClientArgs } from './client';
+import type {
+  ClientInferRequest,
+  ClientInferResponseBody,
+  ServerInferRequest,
+} from './infer-types';
 import type { Equal, Expect } from './test-helpers';
 import type { StandardSchemaV1 } from './standard-schema';
-import { Prettify } from './type-utils';
+import { Prettify, type Opaque, type UnwrapOpaque } from './type-utils';
 import * as v from 'valibot';
 
 const c = initContract();
 
 describe('contract', () => {
+  it('preserves payload properties that match historical string brands', () => {
+    type Payload = {
+      '~ts-restless.opaque': 'user-value';
+      '~ts-restless.no-body': false;
+      value: string;
+    };
+    const route = c.mutation({
+      method: 'POST',
+      path: '/payload',
+      body: c.type<Payload>(),
+      responses: { 200: c.type<Payload>() },
+    });
+    type Request = Expect<
+      Equal<ClientInferRequest<typeof route>['body'], Payload>
+    >;
+    type ServerRequest = Expect<
+      Equal<ServerInferRequest<typeof route>['body'], Payload>
+    >;
+    type Response = Expect<
+      Equal<ClientInferResponseBody<typeof route, 200>, Payload>
+    >;
+    type Unwrapped = Expect<
+      Equal<UnwrapOpaque<Opaque<Payload, 'Fixture'>>, Payload>
+    >;
+    type Indexed = Expect<
+      Equal<
+        UnwrapOpaque<Opaque<Record<string, string>, 'Fixture'>>,
+        Record<string, string>
+      >
+    >;
+    const payload: ClientInferResponseBody<typeof route, 200> = {
+      '~ts-restless.opaque': 'user-value',
+      '~ts-restless.no-body': false,
+      value: 'ok',
+    };
+    expect(payload.value).toBe('ok');
+  });
+
+  it('declares multipart encoding only on multipart mutations without changing body inference', () => {
+    const upload = c.mutation({
+      method: 'POST',
+      path: '/upload',
+      contentType: 'multipart/form-data',
+      multipart: { fieldEncoding: 'legacy-json' },
+      body: c.type<{ name: string; file: File }>(),
+      responses: { 204: c.noBody() },
+    });
+    type Encoding = Expect<
+      Equal<typeof upload.multipart.fieldEncoding, 'legacy-json'>
+    >;
+    type ClientBody = Expect<
+      Equal<
+        ClientInferRequest<typeof upload>['body'],
+        FormData | { name: string; file: File }
+      >
+    >;
+    type ServerBody = Expect<
+      Equal<ServerInferRequest<typeof upload>['body'], { name: string }>
+    >;
+    const valid: AppRouteMutation = upload;
+    void valid;
+    const broadContentType = undefined as AppRouteMutation['contentType'];
+    const existingRoute: AppRouteMutation = {
+      method: 'POST',
+      path: '/',
+      contentType: broadContentType,
+      body: c.type<string>(),
+      responses: {},
+    };
+    void existingRoute;
+    const invalidRouter = {
+      invalid: {
+        method: 'POST',
+        path: '/',
+        contentType: 'application/json',
+        body: c.type<string>(),
+        responses: {},
+        multipart: { fieldEncoding: 'form' },
+      },
+    } as const;
+    // @ts-expect-error routers also reject multipart policies on non-multipart routes
+    c.router(invalidRouter);
+
+    // @ts-expect-error multipart policies require multipart contentType
+    c.mutation({
+      method: 'POST',
+      path: '/',
+      body: c.type<string>(),
+      responses: {},
+      multipart: { fieldEncoding: 'form' as const },
+    });
+    // @ts-expect-error JSON routes cannot declare multipart encoding
+    c.mutation({
+      method: 'POST',
+      path: '/',
+      contentType: 'application/json',
+      body: c.type<string>(),
+      responses: {},
+      multipart: { fieldEncoding: 'form' as const },
+    });
+    // @ts-expect-error URL-encoded routes cannot declare multipart encoding
+    c.mutation({
+      method: 'POST',
+      path: '/',
+      contentType: 'application/x-www-form-urlencoded',
+      body: c.type<string>(),
+      responses: {},
+      multipart: { fieldEncoding: 'form' as const },
+    });
+    c.query({
+      method: 'GET',
+      path: '/',
+      responses: {},
+      // @ts-expect-error GET routes cannot declare multipart encoding
+      multipart: { fieldEncoding: 'form' as const },
+    });
+    // @ts-expect-error bodyless DELETE routes cannot declare multipart encoding
+    const invalidDelete: AppRoute = {
+      method: 'DELETE',
+      path: '/',
+      responses: {},
+      multipart: { fieldEncoding: 'form' as const },
+    };
+    void invalidDelete;
+    c.mutation({
+      method: 'POST',
+      path: '/',
+      contentType: 'multipart/form-data',
+      body: c.type<string>(),
+      responses: {},
+      // @ts-expect-error route policies only admit the two declared encodings
+      multipart: { fieldEncoding: 'json' },
+    });
+    const removedClientOption: ClientArgs = {
+      baseUrl: '',
+      // @ts-expect-error encoding is declared on the route
+      multipartFieldEncoding: 'json',
+    };
+    const removedRequestOption: Partial<OverrideableClientArgs> = {
+      // @ts-expect-error requests cannot override the route's wire agreement
+      multipartFieldEncoding: 'native',
+    };
+    void [removedClientOption, removedRequestOption];
+    expect(upload.multipart.fieldEncoding).toBe('legacy-json');
+  });
+
   it('should be typed correctly', () => {
     const contract = c.router({
       getPost: {

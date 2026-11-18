@@ -13,11 +13,153 @@ import { resolve, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
+import {
+  compileConsumer,
+  installConsumer,
+  readFixture,
+  withTemporaryConsumer,
+} from './consumer-harness.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const baseline = JSON.parse(
   await readFile(new URL('./package-baseline.json', import.meta.url)),
 );
+
+test('packed Express composition types preserve modular inference', async () => {
+  await withTemporaryConsumer(
+    'ts-restless-express-types-',
+    async (consumer) => {
+      const expressTypesVersion = JSON.parse(
+        await readFile(
+          resolve(root, 'node_modules/@types/express/package.json'),
+        ),
+      ).version;
+      await installConsumer(consumer, {
+        private: true,
+        dependencies: {
+          '@ts-restless/core': `file:${resolve(root, 'dist/packages/ts-restless-core.tgz')}`,
+          '@ts-restless/express': `file:${resolve(root, 'dist/packages/ts-restless-express.tgz')}`,
+          '@types/express': expressTypesVersion,
+        },
+      });
+      const source = await readFixture('express-composition.ts.fixture');
+      for (const extension of ['mts', 'cts']) {
+        const file = join(consumer, `composition.${extension}`);
+        await writeFile(file, source);
+        compileConsumer(consumer, file);
+      }
+    },
+  );
+});
+
+test('mixed-format contracts preserve strict types and no-body decoding', async () => {
+  await withTemporaryConsumer(
+    'ts-restless-mixed-contract-',
+    async (consumer) => {
+      await installConsumer(consumer, {
+        private: true,
+        dependencies: {
+          '@ts-restless/core': `file:${resolve(root, 'dist/packages/ts-restless-core.tgz')}`,
+          zod: JSON.parse(
+            await readFile(resolve(root, 'node_modules/zod/package.json')),
+          ).version,
+        },
+      });
+      const contract = await readFixture('mixed-contract.ts.fixture');
+      for (const extension of ['cts', 'mts']) {
+        await writeFile(join(consumer, `contract.${extension}`), contract);
+      }
+      await writeFile(
+        join(consumer, 'app.mts'),
+        await readFixture('mixed-client.ts.fixture', {
+          'contract-import': "import { contract } from './contract.cjs';",
+          'contract-load': '',
+        }),
+      );
+      await writeFile(
+        join(consumer, 'app.cts'),
+        await readFixture('mixed-client.ts.fixture', {
+          'contract-import': '',
+          'contract-load':
+            "const { contract } = await import('./contract.mjs');",
+        }),
+      );
+      const inputs = ['app.mts', 'app.cts'].map((file) => join(consumer, file));
+      for (const compiler of ['typescript-legacy', 'typescript']) {
+        for (const mode of ['bundler', 'node16', 'nodenext']) {
+          execFileSync(
+            process.execPath,
+            [
+              resolve(root, 'node_modules', compiler, 'bin/tsc'),
+              '--noEmit',
+              '--strict',
+              '--target',
+              'es2019',
+              '--module',
+              mode === 'bundler' ? 'esnext' : mode,
+              '--moduleResolution',
+              mode,
+              ...inputs,
+            ],
+            { cwd: consumer, stdio: 'inherit' },
+          );
+        }
+      }
+      for (const compiler of ['typescript-legacy', 'typescript']) {
+        const output = join(consumer, `emitted-${compiler}`);
+        execFileSync(
+          process.execPath,
+          [
+            resolve(root, 'node_modules', compiler, 'bin/tsc'),
+            '--strict',
+            '--target',
+            'es2019',
+            '--module',
+            'nodenext',
+            '--moduleResolution',
+            'nodenext',
+            '--declaration',
+            '--outDir',
+            output,
+            join(consumer, 'contract.cts'),
+            join(consumer, 'contract.mts'),
+          ],
+          { cwd: consumer, stdio: 'inherit' },
+        );
+        // Compile clients against emitted contract declarations, not workspace source.
+        for (const extension of ['mts', 'cts']) {
+          await writeFile(
+            join(output, `app.${extension}`),
+            await readFile(join(consumer, `app.${extension}`)),
+          );
+        }
+        execFileSync(
+          process.execPath,
+          [
+            resolve(root, 'node_modules', compiler, 'bin/tsc'),
+            '--strict',
+            '--target',
+            'es2019',
+            '--module',
+            'nodenext',
+            '--moduleResolution',
+            'nodenext',
+            join(output, 'app.mts'),
+            join(output, 'app.cts'),
+          ],
+          { cwd: consumer, stdio: 'inherit' },
+        );
+        for (const extension of ['mjs', 'cjs']) {
+          execFileSync(process.execPath, [join(output, `app.${extension}`)], {
+            cwd: consumer,
+            stdio: 'inherit',
+          });
+        }
+      }
+    },
+  );
+});
+
 test('packed packages preserve their public API and consumer compatibility', async () => {
   const consumer = await mkdtemp(join(tmpdir(), 'ts-restless-consumer-'));
   try {

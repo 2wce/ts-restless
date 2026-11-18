@@ -1,5 +1,5 @@
 import { queryFn } from './common';
-import { vi } from 'vitest';
+import { expectTypeOf, vi } from 'vitest';
 import { ApiFetcher, ApiFetcherArgs, initContract } from '@ts-restless/core';
 import { z } from 'zod';
 import { initQueryClient } from './vue-query';
@@ -476,9 +476,20 @@ describe('vue-query', () => {
   it('should handle mutation', async () => {
     api.mockResolvedValue(SUCCESS_RESPONSE);
 
-    const { result } = renderHook(() => client.posts.createPost.useMutation(), {
-      wrapper,
-    });
+    const { result } = renderHook(
+      () =>
+        client.posts.createPost.useMutation({
+          onMutate: () => ({ optimisticTodo: { id: 1 } }),
+          onSuccess: (_data, _variables, context) => {
+            const id: number | undefined = context?.optimisticTodo.id;
+            expect(id).toBe(1);
+            // @ts-expect-error optimistic IDs remain numeric
+            const invalid: string = context.optimisticTodo.id;
+            void invalid;
+          },
+        }),
+      { wrapper },
+    );
 
     expect(unref(result.current.data)).toStrictEqual(undefined);
 
@@ -594,7 +605,147 @@ describe('Vue Query v5 migration', () => {
         404: c.type<{ missing: true }>(),
       },
     },
+    write: {
+      method: 'POST',
+      path: '/items',
+      body: c.type<{ value: string }>(),
+      responses: { 200: c.type<{ value: string }>() },
+    },
   });
+  it.each([
+    { encoding: undefined, expected: 'Alice' },
+    { encoding: 'form', expected: 'Alice' },
+    { encoding: 'legacy-json', expected: '"Alice"' },
+  ] as const)(
+    'uses the multipart route policy $encoding through a mutation',
+    async ({ encoding, expected }) => {
+      const contract = c.router({
+        upload: {
+          method: 'POST',
+          path: '/upload',
+          contentType: 'multipart/form-data',
+          ...(encoding && { multipart: { fieldEncoding: encoding } }),
+          body: c.type<{ name: string }>(),
+          responses: { 200: c.type<{ saved: true }>() },
+        },
+      });
+      const client = initQueryClient(contract, {
+        baseUrl: 'https://vue.example',
+        api: async (args) => {
+          expect((args.body as FormData).get('name')).toBe(expected);
+          return { status: 200, body: { saved: true }, headers: new Headers() };
+        },
+      });
+      const h = renderHook(() => client.upload.useMutation(), { wrapper });
+      try {
+        await expect(
+          h.result.current.mutateAsync({
+            body: { name: 'Alice' },
+          }),
+        ).resolves.toMatchObject({ status: 200, body: { saved: true } });
+      } finally {
+        h.unmount();
+      }
+    },
+  );
+  it.each(['plain', 'ref', 'computed'] as const)(
+    'infers and preserves optimistic mutation context with %s options',
+    async (optionKind) => {
+      const events: Array<[string, number | undefined]> = [];
+      const failure = {
+        status: 500,
+        body: { message: 'failed' },
+        headers: new Headers(),
+      };
+      const api = async (args: ApiFetcherArgs) =>
+        (args.rawBody as { value: string }).value === 'fail'
+          ? failure
+          : { status: 200, body: { value: 'saved' }, headers: new Headers() };
+      const localClient = initQueryClient(localContract, {
+        baseUrl: 'https://vue.example',
+        api,
+      });
+      const options = {
+        onMutate: () => ({ optimisticTodo: { id: 1 } }),
+        onSuccess: (
+          _data: unknown,
+          _variables: unknown,
+          context: { optimisticTodo: { id: number } },
+        ) => {
+          events.push(['success', context.optimisticTodo.id]);
+        },
+        onError: (
+          _error: unknown,
+          _variables: unknown,
+          context: { optimisticTodo: { id: number } } | undefined,
+        ) => {
+          events.push(['error', context?.optimisticTodo.id]);
+        },
+        onSettled: (
+          _data: unknown,
+          _error: unknown,
+          _variables: unknown,
+          context: { optimisticTodo: { id: number } } | undefined,
+        ) => {
+          events.push(['settled', context?.optimisticTodo.id]);
+        },
+      };
+      const h = renderHook(
+        () =>
+          localClient.write.useMutation(
+            optionKind === 'plain'
+              ? options
+              : optionKind === 'ref'
+                ? ref(options)
+                : computed(() => ({
+                    ...options,
+                    onMutate: async () => ({ optimisticTodo: { id: 1 } }),
+                  })),
+          ),
+        { wrapper },
+      );
+      try {
+        expectTypeOf(h.result.current.context.value).toEqualTypeOf<
+          { optimisticTodo: { id: number } } | undefined
+        >();
+        await h.result.current.mutateAsync(
+          { body: { value: 'save' } },
+          {
+            onSuccess: (_data, _variables, context) => {
+              const id: number | undefined = context?.optimisticTodo.id;
+              events.push(['call-success', id]);
+            },
+            onSettled: (_data, _error, _variables, context) => {
+              const id: number | undefined = context?.optimisticTodo.id;
+              events.push(['call-settled', id]);
+            },
+          },
+        );
+        await expect(
+          h.result.current.mutateAsync(
+            { body: { value: 'fail' } },
+            {
+              onError: (_error, _variables, context) => {
+                const id: number | undefined = context?.optimisticTodo.id;
+                events.push(['call-error', id]);
+              },
+            },
+          ),
+        ).rejects.toBe(failure);
+        expect(events).toEqual([
+          ['success', 1],
+          ['settled', 1],
+          ['call-success', 1],
+          ['call-settled', 1],
+          ['error', 1],
+          ['settled', 1],
+          ['call-error', 1],
+        ]);
+      } finally {
+        h.unmount();
+      }
+    },
+  );
   it('tracks a computed key and maps current reactive request input', async () => {
     const api = vi.fn(async (args: ApiFetcherArgs) => ({
       status: 200,

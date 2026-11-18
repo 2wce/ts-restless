@@ -23,6 +23,12 @@ Serverless construction owns mutable router branches and generated middleware li
 
 Shared client execution validates decoded responses once under the effective route/client policy, including custom transports; fetchers own transport and decoding. Standalone `tsRestFetchApi` retains validation support. [ADR 0008](adr/0008-client-response-validation.md) records this refinement of the response boundary.
 
+Multipart object conversion reads the shared route's `multipart.fieldEncoding`
+policy, defaulting to `form`; `legacy-json` retains historical field output.
+Explicit FormData is passed through unchanged. Native servers retain parsing,
+field decoding and validation ownership. [ADR0021](adr/0021-route-multipart-encoding.md)
+records the route-level wire agreement and supersedes the client/request policy.
+
 React, Vue and Solid reuse core query execution. The plain client returns response envelopes and does not adopt query-library rejection semantics. Native-composition APIs remain planned; current wrappers are supported.
 
 [ADR 0009](adr/0009-request-scoped-headers.md) records request-scoped asynchronous header preparation for plain clients and query bindings. Header callbacks resolve before transport without an auth cache or automatic cancellation of arbitrary auth work. The roadmap records delivery; acceptance of this boundary does not establish package availability.
@@ -34,6 +40,12 @@ React, Vue and Solid reuse core query execution. The plain client returns respon
 Library source lives under `libs/ts-rest`. `react-query-v5` is an implementation workspace, bundled into public React root and `/v5` entries, not an eleventh public library. Library packing produces package-local `dist`; installed tarball tests check exports and strict ESM/CommonJS declarations independently of workspace source resolution.
 
 [ADR0012](adr/0012-modern-module-resolution.md) requires Node16/NodeNext or Bundler resolution for consumers. Conditional exports select both ESM and CommonJS declarations; obsolete resolver mappings are removed. Compiler version and runtime support remain separately evidenced.
+
+Core builds one CommonJS declaration graph and exposes it through ESM declaration
+wrappers. Both public formats share the same private unique-symbol brand, so
+`Opaque` can preserve user payload keys without losing mixed-format identity.
+The no-body marker retains registered runtime identity. [ADR0022](adr/0022-collision-free-contract-identity.md)
+records this refinement and the coordinated contract-rebuild boundary.
 
 `libs/build-config` owns shared Vite+ build presets; package configs own requirements such as React Query unbundling and Nest decorator transforms. The non-strict inference task declares its dependency on built core declarations. `apps/example-*` demonstrate integrations with caller-owned endpoint inputs. `apps/docs` owns public guides, snippet checking and static HTML/search/Markdown output. Its changelog is generated from package changelogs before MDX compilation, and its consent policy is local to docs. Maintainer plans and ADRs live in this `docs` directory.
 

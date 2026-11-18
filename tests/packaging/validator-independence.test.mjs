@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { readFile, writeFile, access, readdir } from 'node:fs/promises';
+import { readFile, writeFile, access, readdir, mkdir } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import {
   root,
@@ -310,6 +310,87 @@ for (const { profile, definition, nextVersion } of consumers) {
         cwd: consumer,
         stdio: 'pipe',
       });
+      if (profile === 'valibot') {
+        const buildRoot = join(consumer, 'next-app');
+        const appRoute = join(buildRoot, 'app/api/app/[...ts-rest]');
+        const edgeRoute = join(buildRoot, 'pages/api/edge');
+        await mkdir(appRoute, { recursive: true });
+        await mkdir(edgeRoute, { recursive: true });
+        await writeFile(
+          join(buildRoot, 'package.json'),
+          JSON.stringify({ name: 'next-build-probe', private: true }),
+        );
+        await writeFile(
+          join(buildRoot, 'app/layout.jsx'),
+          'export default function Layout({ children }) { return <html><body>{children}</body></html>; }',
+        );
+        await writeFile(
+          join(buildRoot, 'app/page.jsx'),
+          'export default function Page() { return <p>Next adapter build probe</p>; }',
+        );
+        for (const [handlerType, routeFile, handlerExport] of [
+          [
+            'app-router',
+            join(appRoute, 'route.js'),
+            'export const GET = handler;',
+          ],
+          [
+            'pages-router-edge',
+            join(edgeRoute, '[...ts-rest].js'),
+            "export const config = { runtime: 'edge' };\nexport default handler;",
+          ],
+        ]) {
+          await writeFile(
+            routeFile,
+            await readFixture('next-build-route.js.fixture', {
+              handlerType,
+              handlerExport,
+              basePath: handlerType === 'app-router' ? '/api/app' : '/api/edge',
+            }),
+          );
+        }
+        const build = () =>
+          execFileSync(
+            process.execPath,
+            [join(consumer, 'node_modules/next/dist/bin/next'), 'build'],
+            {
+              cwd: buildRoot,
+              stdio: 'pipe',
+              env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' },
+            },
+          );
+        try {
+          build();
+        } catch (error) {
+          const output = `${error.stdout ?? ''}\n${error.stderr ?? ''}`;
+          if (
+            error.status !== 1 ||
+            !/^Error \[SecurityFatalError\]:/m.test(output) ||
+            /Failed to (?:collect|compile)|MODULE_[A-Z_]+|Module not found|FATAL/.test(
+              output,
+            ) ||
+            /(?:^|\n)\s*(?:Error:|(?:Type|Syntax|Reference)Error:|Error \[(?!SecurityFatalError\]))/.test(
+              output,
+            )
+          ) {
+            throw error;
+          }
+          console.warn(
+            `Next ${nextVersion} stopped for its first-run security advisory; retrying the same build once:\n${output}`,
+          );
+          build();
+        }
+        const appManifest = JSON.parse(
+          await readFile(
+            join(buildRoot, '.next/server/app-paths-manifest.json'),
+          ),
+        );
+        const pagesManifest = JSON.parse(
+          await readFile(join(buildRoot, '.next/server/pages-manifest.json')),
+        );
+        assert.ok(appManifest['/api/app/[...ts-rest]/route']);
+        assert.ok(pagesManifest['/api/edge/[...ts-rest]']);
+      }
     });
   });
 }

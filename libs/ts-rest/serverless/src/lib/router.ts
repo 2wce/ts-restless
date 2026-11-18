@@ -238,6 +238,7 @@ export const createServerlessRouter = <
   routes: T,
   obj: RouterImplementationOrFluentRouter<T, TPlatformArgs, TRequestExtension>,
   options: ServerlessHandlerOptions<TPlatformArgs, TRequestExtension> = {},
+  rethrowError?: (error: unknown) => void,
 ) => {
   const { basePathChecker, varyHeader, evaluateContent, preflight, corsify } =
     tsRestMiddleware(options);
@@ -266,7 +267,7 @@ export const createServerlessRouter = <
       evaluateContent,
       ...requestMiddleware,
     ],
-    catch: errorHandler(options),
+    catch: errorHandler(options, rethrowError),
     finally: [
       ...(options.cors ? [corsify, varyHeader] : []),
       ...responseHandlers,
@@ -402,8 +403,10 @@ export const createServerlessRouter = <
 const errorHandler =
   <TPlatformArgs, TRequestExtension>(
     options: ServerlessHandlerOptions<TPlatformArgs, TRequestExtension>,
+    rethrowError?: (error: unknown) => void,
   ) =>
   async (error: unknown, request: TsRestRequest) => {
+    rethrowError?.(error);
     if (options?.errorHandler) {
       const maybeResponse = await options.errorHandler(error, request);
 

@@ -270,6 +270,16 @@ export class UserController {
 
 This isn't limited to parameter decorators - you can use guards, interceptors, pipes, and any other Nest decorators as you normally would.
 
+Method guards and custom metadata apply to every generated route in a multi-route
+handler, whether their decorators appear above or below `@TsRestHandler`. Guards
+run through Nest and share the same request object with native parameter
+decorators such as `@Req()`.
+
+Interceptor order still follows Nest's decorator order. Place
+`@UseInterceptors(ResponseInterceptor)` below `@TsRestHandler` when the
+interceptor needs to transform the completed response body. Placing it above
+`@TsRestHandler` makes it intercept the method's returned implementation instead.
+
 ## Type-Safe Error Handling
 
 While we recommend returning errors as responses to maintain full type safety in your contract, sometimes throwing exceptions is cleaner. `TsRestException` lets you throw type-safe exceptions that ts-restless will catch and convert to properly typed responses.

@@ -1,0 +1,39 @@
+import { initContract } from '@ts-restless/core';
+import {
+  initServer,
+  type AppRouteImplementationOrOptions,
+  type RouterImplementation,
+  type TsRestExpressServer,
+} from '@ts-restless/express';
+
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type Expect<T extends true> = T;
+type ServerAlias = Expect<Equal<TsRestExpressServer, ReturnType<typeof initServer>>>;
+const c = initContract();
+const contract = c.router({
+  get: { method: 'GET', path: '/modules/:id', responses: { 200: c.type<{ id: string }>() } },
+  create: { method: 'POST', path: '/modules', body: c.type<{ id: string }>(), responses: { 201: c.type<{ id: string }>() } },
+});
+
+function createModule(server: TsRestExpressServer): RouterImplementation<typeof contract> {
+  const get: AppRouteImplementationOrOptions<typeof contract.get> = {
+    handler: async ({ params, req }) => {
+      const id: string = params.id;
+      const rawBody: unknown = req.body;
+      void rawBody;
+      return { status: 200, body: { id } };
+    },
+  };
+  return server.router(contract, {
+    get,
+    create: async ({ body }) => ({ status: 201, body }),
+  });
+}
+
+const rootContract = c.router({ modules: contract });
+const implementation: RouterImplementation<typeof rootContract> = { modules: createModule(initServer()) };
+// @ts-expect-error every contract route remains required
+const missingRoute: RouterImplementation<typeof contract> = {};
+// @ts-expect-error contract response bodies remain strict
+const wrongResponse: AppRouteImplementationOrOptions<typeof contract.get> = async () => ({ status: 200, body: { id: 123 } });
+void [implementation, missingRoute, wrongResponse];

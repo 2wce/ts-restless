@@ -18,12 +18,13 @@ type MixedSchemaError<A, B> = Opaque<{ a: A; b: B }, 'MixedSchemaError'>;
  */
 type Path = string;
 
-declare const NullSymbol: unique symbol;
-export const ContractNoBody = Symbol('ContractNoBody');
+export type ContractNoBodyType = Opaque<symbol, 'ContractNoBody'>;
+export const ContractNoBody: ContractNoBodyType = Symbol.for(
+  'ts-restless.ContractNoBody',
+) as ContractNoBodyType;
 
 export type ContractPlainType<T> = Opaque<T, 'ContractPlainType'>;
-export type ContractNullType = Opaque<typeof NullSymbol, 'ContractNullType'>;
-export type ContractNoBodyType = typeof ContractNoBody;
+export type ContractNullType = Opaque<symbol, 'ContractNullType'>;
 export type ContractAnyType =
   | StandardSchemaV1<any>
   | ContractPlainType<unknown>
@@ -63,7 +64,10 @@ type AppRouteCommon = {
  */
 export type AppRouteQuery = AppRouteCommon & {
   method: 'GET';
+  multipart?: never;
 };
+
+export type MultipartFieldEncoding = 'form' | 'legacy-json';
 
 /**
  * A mutation endpoint. In REST terms, one using POST, PUT,
@@ -71,12 +75,20 @@ export type AppRouteQuery = AppRouteCommon & {
  */
 export type AppRouteMutation = AppRouteCommon & {
   method: 'POST' | 'DELETE' | 'PUT' | 'PATCH';
-  contentType?:
-    | 'application/json'
-    | 'multipart/form-data'
-    | 'application/x-www-form-urlencoded';
   body: ContractAnyType | ContractNoBodyType;
-};
+} & (
+    | {
+        contentType: 'multipart/form-data';
+        multipart?: { fieldEncoding: MultipartFieldEncoding };
+      }
+    | {
+        contentType?:
+          | 'application/json'
+          | 'multipart/form-data'
+          | 'application/x-www-form-urlencoded';
+        multipart?: never;
+      }
+  );
 
 /**
  * A mutation endpoint. In REST terms, one using POST, PUT,
@@ -84,6 +96,7 @@ export type AppRouteMutation = AppRouteCommon & {
  */
 export type AppRouteDeleteNoBody = AppRouteCommon & {
   method: 'DELETE';
+  multipart?: never;
 };
 
 type ValidatedHeaders<
