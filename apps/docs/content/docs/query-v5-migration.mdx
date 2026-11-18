@@ -11,7 +11,7 @@ The first stable **ts-restless v4** baseline supports **TanStack Query v5 only**
 2. Install the framework's native Query v5 dependency explicitly. Use `@tanstack/react-query@5`, `@tanstack/vue-query@5` or `@tanstack/solid-query@5`, plus the matching native devtools v5 if you use them. Align native Query/Core versions and remove stale v4 installations. Solid's moving latest tag may select another major.
 3. Replace your used `@ts-rest/*` packages as a matched set, pinned to a release containing this migration. Convert calls using the examples below, then run the [application verification checklist](/ts-restless-migration#verify-your-application).
 
-For a reproducible Vue evaluation, install `@ts-restless/core@4.0.0-alpha.3`, `@ts-restless/vue-query@4.0.0-alpha.3` and `@tanstack/vue-query@5`. On 2026-11-10, the moving `alpha` tag points to alpha.4; check the selected version when using a tag.
+For a reproducible Vue evaluation, install `@ts-restless/core@4.0.0-alpha.3`, `@ts-restless/vue-query@4.0.0-alpha.3` and `@tanstack/vue-query@5`. For newer APIs, select a matching numbered release using the [release selection guide](/ts-restless-migration#choose-the-release-first).
 
 React 19 compatibility is verified with React/DOM 19.3.1 and types 19.3.0 on native Query/Core 5.80.6 and 5.107.1. The retained Query 5.51.11/Core 5.51.9 checkpoint supports React 18; its native React peer excludes 19. Keep the adapter's Query 5 range and satisfy both packages' peers when selecting a pair. React 18.3.1 remains checked on all three Query checkpoints. This evidence covers providers, hooks and strict public inference; test your application's SSR/hydration separately if used.
 
@@ -100,7 +100,7 @@ mutation.mutate({ body: { value: 'save' } });
 
 Call hooks inside components. Mutation variables remain the contract request object; do not wrap them in `queryData`. Supply mutation callbacks in `useMutation` options or the `mutate` call as allowed by native v5. The binding supplies `mutationFn`.
 
-For an explicitly managed mutation client, pass it as the second argument: `tsr.write.useMutation(options, queryClient)`. It owns that mutation's defaults and cache and takes precedence over a surrounding provider. Omitting it preserves the native provider behavior. This correction is absent from alpha.5 and requires a containing release; see the [React guide](/client/react-query-v5#explicit-mutation-queryclient).
+For an explicitly managed mutation client, pass it as the second argument: `tsr.write.useMutation(options, queryClient)`. It owns that mutation's defaults and cache and takes precedence over a surrounding provider. Omitting it preserves the native provider behavior. See the [React guide](/client/react-query-v5#explicit-mutation-queryclient).
 
 For per-endpoint `useQueries`, move each request into its own `queryData` field:
 
@@ -177,7 +177,7 @@ const items = pages.data?.pages.flatMap((page) => page.body.items);
 
 The default result is native `InfiniteData`: `pages` contains response envelopes, and `pageParams` contains page values. If your contract expects a string cursor, convert a numeric offset with `String(pageParam)` in the request mapper. Keep `pages` and `pageParams` when manually updating an infinite cache. The same initial-page requirement applies to native infinite prefetch/fetch options; use the [React infinite-query guide](/client/react-query-v5#infinite-query).
 
-For infinite cache access, use route `getInfiniteQueryData`, `getInfiniteQueriesData`, `setInfiniteQueryData`, `setInfiniteQueriesData` and `getInfiniteQueryState`. Their optional page-parameter generic defaults to `unknown`; for example `cache.pages.getInfiniteQueryData<number>(['pages', 'infinite'])`. Ordinary cache helpers still describe a single response. Keep ordinary and infinite keys distinct, and limit filtered helpers to infinite queries for the route. These APIs are absent from alpha.5 and require a containing release; see the [infinite cache guide](/client/react-query-v5#infinite-cache-methods).
+For infinite cache access, use route `getInfiniteQueryData`, `getInfiniteQueriesData`, `setInfiniteQueryData`, `setInfiniteQueriesData` and `getInfiniteQueryState`. Their optional page-parameter generic defaults to `unknown`; for example `cache.pages.getInfiniteQueryData<number>(['pages', 'infinite'])`. Ordinary cache helpers still describe a single response. Keep ordinary and infinite keys distinct, and limit filtered helpers to infinite queries for the route. See the [infinite cache guide](/client/react-query-v5#infinite-cache-methods).
 
 ## React options and types
 

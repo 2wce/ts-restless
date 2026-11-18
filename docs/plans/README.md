@@ -16,6 +16,8 @@
 
 ## Retained implementation and design records
 
+- [Delivery documentation refresh](2026-11-16-delivery-documentation.md), durable source status, release selection and setup verification.
+
 - [Alpha default-install tag](2026-11-13-alpha-latest.md), mirroring alpha to `latest` through trusted publishing.
 
 - [Native replies and returned serverless headers](2026-11-13-native-replies-and-response-headers.md), fixing native response ownership and scoped Fetch header customization.

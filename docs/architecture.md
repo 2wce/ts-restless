@@ -17,7 +17,7 @@ ts-restless shares a TypeScript API contract between clients and servers. Runtim
 
 Express, Fastify, Next, serverless and modern Nest use core parsed-request evaluation. Legacy Nest uses the same location operations individually to retain first-error short-circuiting. Native integrations keep parsing, validation enablement, error construction and raw request identity. Successful transformed values are selected by validation outcome, including false, zero, empty string and undefined.
 
-Direct response evaluation covers Express, Fastify, Next, serverless and both Nest handler paths. Adapters retain their status, stream, Blob, media and native-write policies. [The roadmap](roadmap.md) records branch delivery; these shared operations do not provide a universal server dispatcher.
+Direct response evaluation covers Express, Fastify, Next, serverless and both Nest handler paths. Adapters retain their status, stream, Blob, media and native-write policies. [The roadmap](roadmap.md) records delivered capabilities; these shared operations do not provide a universal server dispatcher.
 
 Serverless construction owns mutable router branches and generated middleware lists. It retains caller handlers and schema/route-option leaves while keeping cloned nested routers and reused implementations independent. Single-request Fetch handling delegates to the same handler-construction boundary. [The untangling plan](plans/2026-11-12-untangle-codebase.md) records the public-behavior regression evidence.
 
@@ -51,6 +51,6 @@ records this refinement and the coordinated contract-rebuild boundary.
 
 ## Support and release boundaries
 
-Consult [the inventory](support-inventory.md) for exact peers, pinned consumers and known gaps. Initial stable support includes Query5 and Next15/16. React18/19 compatibility is verified with compatible native Query versions; check the containing release before installing React19 support. [The retirement policy](support-policy.md) distinguishes the initial stable baseline from retiring an already published stable promise.
+Consult [the inventory](support-inventory.md) for exact peers, pinned consumers and known gaps. Initial stable support includes Query5 and Next15/16. React18/19 compatibility is verified with compatible native Query versions; satisfy both the adapter's and native Query's peers when selecting a package set. [The retirement policy](support-policy.md) distinguishes the initial stable baseline from retiring an already published stable promise.
 
 Coordinated Changesets prereleases use reviewed version PRs and explicit prerelease tags. During alpha development, `latest` follows the same alpha version under [ADR0018](adr/0018-alpha-latest-tag.md). Stable activation is separate. Read [ADR 0007](adr/0007-public-coordinated-releases.md) and the [release checklist](prerelease-checklist.md). Source, locally verified artifacts, merged code and published packages are different evidence states.
