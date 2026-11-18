@@ -29,11 +29,13 @@ ADRs preserve consequential choices and their rationale. Use short Markdown reco
 
 | [0018](0018-alpha-latest-tag.md) | Mirror alpha to latest during alpha development, with trusted-publisher tag updates. |
 
-| [0019](0019-portable-contract-identity.md) | Portable runtime/declaration contract identity across ESM and CommonJS. |
+| [0019](0019-portable-contract-identity.md) | Superseded by 0022: portable string-brand contract identity. |
 
 | [0020](0020-multipart-field-encoding.md) | Superseded by 0021: multipart fields with client-level JSON compatibility. |
 
 | [0021](0021-route-multipart-encoding.md) | Route-owned multipart field encoding; form default and historical JSON compatibility. |
+
+| [0022](0022-collision-free-contract-identity.md) | Collision-free private branding through a shared declaration graph. |
 
 These initial records extract already approved decisions from existing documents; they do not newly approve roadmap proposals.
 

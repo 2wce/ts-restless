@@ -10,4 +10,6 @@ These records preserve measured outcomes at their stated baseline; they do not a
 - [Six upstream issue fixes](2026-11-17-upstream-issue-fixes.md): local acceptance and native/installed consumer evidence for issues #52–#57.
 - [Route multipart encoding](2026-11-17-route-multipart-encoding.md): route-policy replacement, native parser and installed-consumer verification.
 
+- [Collision-free contract identity](2026-11-18-collision-free-contract-identity.md): private branding, shared declarations and compiled mixed-format consumer checks.
+
 Keep dates, commands, exact versions, commits and limitations with findings. Append a dated correction when a fact changes; preserve original snapshots. New audits belong here, while individual implementation gate records can stay with their plans.

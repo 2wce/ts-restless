@@ -87,11 +87,33 @@ with the application's version, and keep the coordinated adapters together.
 Do not construct replacement symbols or cast away declaration mismatches.
 
 The public `Opaque` and `UnwrapOpaque` type names retain their inference and
-distinct-token behavior; their internal declaration brand is now portable.
+distinct-token behavior. Their private symbol brand preserves all user string
+keys, and both module formats share one declaration graph.
 These type markers still do not validate data at runtime. See the
-[contract identity decision](https://github.com/2wce/ts-restless/blob/main/docs/adr/0019-portable-contract-identity.md)
+[contract identity decision](https://github.com/2wce/ts-restless/blob/main/docs/adr/0022-collision-free-contract-identity.md)
 for the compatibility boundary. Verify a containing release before updating
 installed packages.
+
+Older TypeScript declaration emitters may require public type annotations when
+exporting shared contracts. Annotate the type-only declarations rather than
+importing generated private chunks or disabling declaration checks:
+
+```typescript twoslash
+import {
+  initContract,
+  type ContractPlainType,
+  type ContractNullType,
+  type ContractNoBodyType,
+} from '@ts-restless/core';
+const c = initContract();
+const body: ContractPlainType<{ value: string }> = c.type();
+const nullable: ContractNullType = c.type<null>();
+const empty: ContractNoBodyType = c.noBody();
+export const contract = c.router({
+  create: { method: 'POST', path: '/items', body, responses: { 200: body } },
+  clear: { method: 'POST', path: '/clear', body: nullable, responses: { 204: empty } },
+});
+```
 
 ## Multipart object bodies
 

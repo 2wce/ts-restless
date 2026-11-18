@@ -41,6 +41,12 @@ Library source lives under `libs/ts-rest`. `react-query-v5` is an implementation
 
 [ADR0012](adr/0012-modern-module-resolution.md) requires Node16/NodeNext or Bundler resolution for consumers. Conditional exports select both ESM and CommonJS declarations; obsolete resolver mappings are removed. Compiler version and runtime support remain separately evidenced.
 
+Core builds one CommonJS declaration graph and exposes it through ESM declaration
+wrappers. Both public formats share the same private unique-symbol brand, so
+`Opaque` can preserve user payload keys without losing mixed-format identity.
+The no-body marker retains registered runtime identity. [ADR0022](adr/0022-collision-free-contract-identity.md)
+records this refinement and the coordinated contract-rebuild boundary.
+
 `libs/build-config` owns shared Vite+ build presets; package configs own requirements such as React Query unbundling and Nest decorator transforms. The non-strict inference task declares its dependency on built core declarations. `apps/example-*` demonstrate integrations with caller-owned endpoint inputs. `apps/docs` owns public guides, snippet checking and static HTML/search/Markdown output. Its changelog is generated from package changelogs before MDX compilation, and its consent policy is local to docs. Maintainer plans and ADRs live in this `docs` directory.
 
 ## Support and release boundaries

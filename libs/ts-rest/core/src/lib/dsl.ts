@@ -18,9 +18,7 @@ type MixedSchemaError<A, B> = Opaque<{ a: A; b: B }, 'MixedSchemaError'>;
  */
 type Path = string;
 
-export type ContractNoBodyType = symbol & {
-  readonly '~ts-restless.no-body': true;
-};
+export type ContractNoBodyType = Opaque<symbol, 'ContractNoBody'>;
 export const ContractNoBody: ContractNoBodyType = Symbol.for(
   'ts-restless.ContractNoBody',
 ) as ContractNoBodyType;

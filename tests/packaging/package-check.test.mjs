@@ -60,6 +60,9 @@ test('mixed-format contracts preserve strict types and no-body decoding', async 
         private: true,
         dependencies: {
           '@ts-restless/core': `file:${resolve(root, 'dist/packages/ts-restless-core.tgz')}`,
+          zod: JSON.parse(
+            await readFile(resolve(root, 'node_modules/zod/package.json')),
+          ).version,
         },
       });
       const contract = await readFixture('mixed-contract.ts.fixture');
@@ -102,29 +105,56 @@ test('mixed-format contracts preserve strict types and no-body decoding', async 
           );
         }
       }
-      const output = join(consumer, 'runtime');
-      execFileSync(
-        process.execPath,
-        [
-          resolve(root, 'node_modules/typescript/bin/tsc'),
-          '--strict',
-          '--target',
-          'es2019',
-          '--module',
-          'nodenext',
-          '--moduleResolution',
-          'nodenext',
-          '--outDir',
-          output,
-          ...inputs,
-        ],
-        { cwd: consumer, stdio: 'inherit' },
-      );
-      for (const extension of ['mjs', 'cjs']) {
-        execFileSync(process.execPath, [join(output, `app.${extension}`)], {
-          cwd: consumer,
-          stdio: 'inherit',
-        });
+      for (const compiler of ['typescript-legacy', 'typescript']) {
+        const output = join(consumer, `emitted-${compiler}`);
+        execFileSync(
+          process.execPath,
+          [
+            resolve(root, 'node_modules', compiler, 'bin/tsc'),
+            '--strict',
+            '--target',
+            'es2019',
+            '--module',
+            'nodenext',
+            '--moduleResolution',
+            'nodenext',
+            '--declaration',
+            '--outDir',
+            output,
+            join(consumer, 'contract.cts'),
+            join(consumer, 'contract.mts'),
+          ],
+          { cwd: consumer, stdio: 'inherit' },
+        );
+        // Compile clients against emitted contract declarations, not workspace source.
+        for (const extension of ['mts', 'cts']) {
+          await writeFile(
+            join(output, `app.${extension}`),
+            await readFile(join(consumer, `app.${extension}`)),
+          );
+        }
+        execFileSync(
+          process.execPath,
+          [
+            resolve(root, 'node_modules', compiler, 'bin/tsc'),
+            '--strict',
+            '--target',
+            'es2019',
+            '--module',
+            'nodenext',
+            '--moduleResolution',
+            'nodenext',
+            join(output, 'app.mts'),
+            join(output, 'app.cts'),
+          ],
+          { cwd: consumer, stdio: 'inherit' },
+        );
+        for (const extension of ['mjs', 'cjs']) {
+          execFileSync(process.execPath, [join(output, `app.${extension}`)], {
+            cwd: consumer,
+            stdio: 'inherit',
+          });
+        }
       }
     },
   );

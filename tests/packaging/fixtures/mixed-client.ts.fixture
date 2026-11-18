@@ -1,15 +1,35 @@
 import {
   initClient,
   type ClientInferResponseBody,
+  type ClientInferRequest,
+  type ContractPlainType,
   type ContractNoBodyType,
   type ContractNullType,
   type Opaque,
   type UnwrapOpaque,
 } from '@ts-restless/core';
+import type { ZodInferOrType, ZodInputOrType } from '@ts-restless/core/legacy';
 {{contract-import}}
+
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type Expect<T extends true> = T;
+type LegacyOutput = Expect<Equal<ZodInferOrType<ContractPlainType<{ value: string }>>, { value: string }>>;
+type LegacyInput = Expect<Equal<ZodInputOrType<ContractPlainType<{ value: string }>>, { value: string }>>;
 
 async function main() {
   {{contract-load}}
+  const collision = {
+    '~ts-restless.opaque': 'user-value', '~ts-restless.no-body': false, value: 'ok',
+  } as const;
+  const collisionResponse: ClientInferResponseBody<typeof contract.collision, 200> = collision;
+  const collisionRequest: ClientInferRequest<typeof contract.collision>['body'] = collision;
+  const unwrappedCollision: UnwrapOpaque<Opaque<typeof collision, 'Fixture'>> = collision;
+  const indexed: UnwrapOpaque<Opaque<Record<string, string>, 'Fixture'>> = { '~ts-restless.opaque': 'user-value' };
+  // @ts-expect-error unwrapping must preserve the string index signature
+  const invalidIndexed: UnwrapOpaque<Opaque<Record<string, string>, 'Fixture'>> = { value: 1 };
+  // @ts-expect-error collision payloads still reject a non-string value
+  const invalidCollision: ClientInferResponseBody<typeof contract.collision, 200> = { ...collision, value: 1 };
+  void [collisionResponse, collisionRequest, unwrappedCollision, indexed, invalidIndexed, invalidCollision];
   const plain: ClientInferResponseBody<typeof contract.plain, 200> = { value: 'ok' };
   // @ts-expect-error mixed-format inference must reject a non-string property
   const invalidPlain: ClientInferResponseBody<typeof contract.plain, 200> = { value: 1 };
@@ -37,6 +57,10 @@ async function main() {
         headers: { 'content-type': 'application/json' },
       });
     }
+    if (path === '/collision') {
+      if (init?.body !== '{"~ts-restless.opaque":"user-value","~ts-restless.no-body":false,"value":"ok"}') throw new Error('payload keys changed');
+      return new Response(init.body, { status: 200, headers: { 'content-type': 'application/json' } });
+    }
     if (path === '/plain') {
       if (init?.body !== '{"value":"request"}') throw new Error('plain request encoding changed');
       return new Response('{"value":"response"}', {
@@ -54,6 +78,8 @@ async function main() {
     throw new Error(`unexpected request: ${path}`);
   };
   const client = initClient(contract, { baseUrl: 'https://example.test' });
+  const collisionResult = await client.collision({ body: collision });
+  if (collisionResult.status !== 200 || collisionResult.body['~ts-restless.opaque'] !== 'user-value' || collisionResult.body['~ts-restless.no-body'] !== false || collisionResult.body.value !== 'ok') throw new Error('payload keys lost');
   const emptyResponse = await client.empty();
   if (emptyResponse.body !== undefined) throw new Error('no-body response was decoded');
   const plainResponse = await client.plain({ body: { value: 'request' } });

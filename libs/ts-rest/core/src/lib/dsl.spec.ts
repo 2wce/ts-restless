@@ -12,15 +12,57 @@ import {
   InferHeadersInput,
 } from './dsl';
 import type { ClientArgs, OverrideableClientArgs } from './client';
-import type { ClientInferRequest, ServerInferRequest } from './infer-types';
+import type {
+  ClientInferRequest,
+  ClientInferResponseBody,
+  ServerInferRequest,
+} from './infer-types';
 import type { Equal, Expect } from './test-helpers';
 import type { StandardSchemaV1 } from './standard-schema';
-import { Prettify } from './type-utils';
+import { Prettify, type Opaque, type UnwrapOpaque } from './type-utils';
 import * as v from 'valibot';
 
 const c = initContract();
 
 describe('contract', () => {
+  it('preserves payload properties that match historical string brands', () => {
+    type Payload = {
+      '~ts-restless.opaque': 'user-value';
+      '~ts-restless.no-body': false;
+      value: string;
+    };
+    const route = c.mutation({
+      method: 'POST',
+      path: '/payload',
+      body: c.type<Payload>(),
+      responses: { 200: c.type<Payload>() },
+    });
+    type Request = Expect<
+      Equal<ClientInferRequest<typeof route>['body'], Payload>
+    >;
+    type ServerRequest = Expect<
+      Equal<ServerInferRequest<typeof route>['body'], Payload>
+    >;
+    type Response = Expect<
+      Equal<ClientInferResponseBody<typeof route, 200>, Payload>
+    >;
+    type Unwrapped = Expect<
+      Equal<UnwrapOpaque<Opaque<Payload, 'Fixture'>>, Payload>
+    >;
+    type Indexed = Expect<
+      Equal<
+        UnwrapOpaque<Opaque<Record<string, string>, 'Fixture'>>,
+        Record<string, string>
+      >
+    >;
+    const payload: ClientInferResponseBody<typeof route, 200> = {
+      '~ts-restless.opaque': 'user-value',
+      '~ts-restless.no-body': false,
+      value: 'ok',
+    };
+    expect(payload.value).toBe('ok');
+  });
+
   it('declares multipart encoding only on multipart mutations without changing body inference', () => {
     const upload = c.mutation({
       method: 'POST',

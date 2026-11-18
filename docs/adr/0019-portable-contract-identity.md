@@ -1,6 +1,10 @@
 # Preserve contract identity across module formats
 
-**Status:** Accepted. **Decision recorded:** 2026-11-16.
+**Status:** Superseded by ADR-0022. **Decision recorded:** 2026-11-16.
+
+Superseded by [ADR0022](0022-collision-free-contract-identity.md), which replaces
+the string brands with a private symbol and shared declaration graph after a
+valid payload property exposed a collision. The original rationale follows.
 
 The no-body runtime marker uses a namespaced registered symbol. Its declaration
 uses a namespaced structural brand, as do the existing `Opaque` plain/null

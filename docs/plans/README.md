@@ -4,6 +4,8 @@
 
 ## Active work
 
+- [Collision-free contract identity](2026-11-18-collision-free-contract-identity.md), replacing string brands with private symbols and a shared declaration graph under [ADR0022](../adr/0022-collision-free-contract-identity.md).
+
 - [Route multipart encoding](2026-11-17-route-multipart-encoding.md), moving the field policy into the shared route contract under [ADR0021](../adr/0021-route-multipart-encoding.md).
 
 - [Six upstream issue fixes: design](2026-11-16-upstream-issues-design.md) and [implementation](2026-11-16-upstream-issues.md), approved behavior and compatibility choices for fork issues #52–#57.

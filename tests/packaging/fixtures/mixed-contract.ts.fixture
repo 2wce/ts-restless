@@ -1,23 +1,43 @@
-import { initContract } from '@ts-restless/core';
+import {
+  initContract,
+  type ContractPlainType,
+  type ContractNullType,
+  type ContractNoBodyType,
+} from '@ts-restless/core';
+
+type CollisionPayload = {
+  '~ts-restless.opaque': 'user-value';
+  '~ts-restless.no-body': false;
+  value: string;
+};
 
 const c = initContract();
+// Public annotations keep exported contracts portable on older declaration emitters.
+const plain: ContractPlainType<{ value: string }> = c.type();
+const nullable: ContractNullType = c.type<null>();
+const empty: ContractNoBodyType = c.noBody();
+const collision: ContractPlainType<CollisionPayload> = c.type();
 export const contract = c.router({
+  collision: {
+    method: 'POST', path: '/collision', body: collision,
+    responses: { 200: collision },
+  },
   empty: {
     method: 'POST',
     path: '/empty',
-    body: c.noBody(),
-    responses: { 200: c.noBody() },
+    body: empty,
+    responses: { 200: empty },
   },
   plain: {
     method: 'POST',
     path: '/plain',
-    body: c.type<{ value: string }>(),
-    responses: { 200: c.type<{ value: string }>() },
+    body: plain,
+    responses: { 200: plain },
   },
   nullable: {
     method: 'POST',
     path: '/nullable',
-    body: c.type<null>(),
-    responses: { 200: c.type<null>() },
+    body: nullable,
+    responses: { 200: nullable },
   },
 });
