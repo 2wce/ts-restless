@@ -1,5 +1,43 @@
 # @ts-rest/core
 
+## 4.0.0-alpha.7
+
+### Major Changes
+
+- 2ff1fae: Move historical Zod3 bridges, inference helpers and error/payload helpers from `/zod3` to the canonical `/legacy` entry in core, Express, Nest, Next and serverless. Update imports as a matched package set; the old paths are removed in the v4 development baseline. Helper names and runtime behavior remain unchanged there. Default entries still use Standard Schema and do not load Zod.
+
+  Fastify's native4 `/legacy` and native5 root remain validator independent. Replace `RequestValidationErrorSchema` from Fastify `/zod3` with `RequestValidationErrorSchemaWithoutMessage` from `@ts-restless/core/legacy`, optionally aliasing it to the old local name. The historical helper requires Zod3; the Fastify adapters do not. Importing compatibility helpers does not restore historical default handler errors or automatic adaptation of old schemas. See the Standard Schema and Fastify migration guides for exact replacements and retained support commitments.
+
+- bfd96e8: Encode multipart object string fields without JSON quotation marks by default,
+  and omit undefined fields and array items. Preserve numeric/boolean/null/object
+  JSON text, repeated field names, binary Files and caller-created FormData.
+
+  Declare `multipart: { fieldEncoding: 'legacy-json' }` on a route with
+  `contentType: 'multipart/form-data'` to preserve historical JSON-per-field output,
+  including quoted strings and literal undefined fields/items. The optional
+  `multipart: { fieldEncoding: 'form' }` declaration selects the default policy.
+  Plain and query clients consume the route declaration automatically; encoding
+  is not selected through client or request options. If using the earlier
+  unreleased `multipartFieldEncoding` option, move its choice to the route:
+  `native` becomes `form`, and `json` becomes `legacy-json`.
+
+  Keep server multipart parsing, field decoding and validation matched to the
+  route policy. No automatic server parser/decoder is added. Explicit FormData
+  passes through unchanged under either policy.
+
+### Patch Changes
+
+- bfd96e8: Preserve no-body, plain typed and typed-null contracts when shared between ESM
+  and CommonJS consumers of the same coordinated release. The no-body marker now
+  has registered runtime identity. Both module formats share one declaration graph
+  and a private unique-symbol brand, preserving user payload keys without reserving
+  string property names. `Opaque` and `UnwrapOpaque` keep distinct tokens and their
+  existing inference.
+
+  Rebuild shared contract packages and applications together when upgrading from
+  historical module-local brands. Arbitrary symbols are still not valid no-body
+  declarations, and mixed historical package versions are not supported.
+
 ## 4.0.0-alpha.6
 
 ### Major Changes
