@@ -1,5 +1,14 @@
 # @ts-rest/vue-query
 
+## 4.0.0-alpha.7
+
+### Patch Changes
+
+- bfd96e8: Infer the result returned by synchronous or asynchronous mutation `onMutate`
+  callbacks throughout native mutation results and lifecycle/per-call callbacks.
+  Preserve reactive options, native optional results and the default unknown
+  context when no result is supplied.
+
 ## 4.0.0-alpha.6
 
 ### Major Changes

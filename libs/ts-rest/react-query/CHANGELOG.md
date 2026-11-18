@@ -1,5 +1,7 @@
 # @ts-rest/react-query
 
+## 4.0.0-alpha.7
+
 ## 4.0.0-alpha.6
 
 ### Major Changes
