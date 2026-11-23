@@ -10,6 +10,7 @@ import {
   AppRoute,
   AppRouteMutation,
   InferHeadersInput,
+  type JsonMediaType,
 } from './dsl';
 import type { ClientArgs, OverrideableClientArgs } from './client';
 import type {
@@ -169,6 +170,88 @@ describe('contract', () => {
     };
     void [removedClientOption, removedRequestOption];
     expect(upload.multipart.fieldEncoding).toBe('legacy-json');
+  });
+
+  it('declares structured JSON request media types on mutations', () => {
+    const contract = c.router({
+      patch: {
+        method: 'PATCH',
+        path: '/users/:id',
+        contentType: 'application/merge-patch+json',
+        body: z.object({ name: z.string().nullable().optional() }),
+        responses: { 204: c.noBody() },
+      },
+      operations: {
+        method: 'PATCH',
+        path: '/users/:id/operations',
+        contentType: 'application/json-patch+json',
+        body: c.type<Array<{ op: 'replace'; path: string; value: unknown }>>(),
+        responses: { 204: c.noBody() },
+      },
+      resource: {
+        method: 'POST',
+        path: '/articles',
+        contentType: 'application/vnd.api+json',
+        body: c.type<{ data: { type: 'articles' } }>(),
+        responses: { 201: c.noBody() },
+      },
+      json: {
+        method: 'POST',
+        path: '/json',
+        contentType: 'application/json',
+        body: c.type<{ value: string }>(),
+        responses: { 201: c.noBody() },
+      },
+    });
+    type ContentType = Expect<
+      Equal<typeof contract.patch.contentType, 'application/merge-patch+json'>
+    >;
+    type ClientBody = Expect<
+      Equal<
+        ClientInferRequest<typeof contract.patch>['body'],
+        { name?: string | null | undefined }
+      >
+    >;
+    type ServerBody = Expect<
+      Equal<
+        ServerInferRequest<typeof contract.operations>['body'],
+        Array<{ op: 'replace'; path: string; value: unknown }>
+      >
+    >;
+    const declared: JsonMediaType[] = [
+      'application/json',
+      'application/merge-patch+json',
+      'application/vnd.api+json',
+    ];
+    const broad: AppRouteMutation['contentType'][] = [
+      ...declared,
+      'multipart/form-data',
+      'application/x-www-form-urlencoded',
+      undefined,
+    ];
+    // @ts-expect-error structured JSON media types use the application tree
+    const textJson: JsonMediaType = 'text/json';
+    // @ts-expect-error only JSON media types are structured JSON
+    const xml: JsonMediaType = 'application/problem+xml';
+    void [declared, broad, textJson, xml];
+    c.mutation({
+      method: 'POST',
+      path: '/',
+      // @ts-expect-error mutations reject undeclared request media types
+      contentType: 'text/plain',
+      body: c.type<string>(),
+      responses: {},
+    });
+    // @ts-expect-error structured JSON routes cannot declare multipart encoding
+    c.mutation({
+      method: 'POST',
+      path: '/',
+      contentType: 'application/merge-patch+json',
+      body: c.type<string>(),
+      responses: {},
+      multipart: { fieldEncoding: 'form' as const },
+    });
+    expect(contract.resource.contentType).toBe('application/vnd.api+json');
   });
 
   it('should be typed correctly', () => {

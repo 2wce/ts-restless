@@ -1090,6 +1090,159 @@ describe('client', () => {
     });
   });
 
+  describe('structured JSON media types', () => {
+    const jsonContract = c.router({
+      mergePatch: {
+        method: 'PATCH',
+        path: '/users/:id',
+        contentType: 'application/merge-patch+json',
+        body: z.object({ name: z.string().nullable() }),
+        responses: { 200: c.type<{ name: string | null }>() },
+      },
+      resource: {
+        method: 'POST',
+        path: '/articles',
+        contentType: 'application/vnd.api+json',
+        body: c.type<{ data: { type: 'articles' } }>(),
+        responses: { 201: c.type<{ data: { id: string } }>() },
+      },
+      json: {
+        method: 'POST',
+        path: '/json',
+        contentType: 'application/json',
+        body: c.type<{ value: string }>(),
+        responses: { 201: c.noBody() },
+      },
+      clear: {
+        method: 'DELETE',
+        path: '/users/:id',
+        contentType: 'application/merge-patch+json',
+        body: z.object({ name: z.string() }).optional(),
+        responses: { 204: c.noBody() },
+      },
+    });
+
+    it.each([
+      {
+        name: 'mergePatch',
+        contentType: 'application/merge-patch+json',
+        args: { params: { id: '1' }, body: { name: null } },
+      },
+      {
+        name: 'resource',
+        contentType: 'application/vnd.api+json',
+        args: { body: { data: { type: 'articles' } } },
+      },
+      {
+        name: 'json',
+        contentType: 'application/json',
+        args: { body: { value: 'text' } },
+      },
+    ] as const)(
+      'serializes $contentType bodies as JSON in plain and query execution',
+      async ({ name, contentType, args }) => {
+        for (const execution of ['plain', 'query'] as const) {
+          const calls: ApiFetcherArgs[] = [];
+          const clientArgs = {
+            baseUrl: 'https://json.example',
+            api: async (fetcherArgs: ApiFetcherArgs) => {
+              calls.push(fetcherArgs);
+              return { status: 204, body: undefined, headers: new Headers() };
+            },
+          };
+          const route = jsonContract[name];
+          if (execution === 'plain') {
+            const request = initClient(jsonContract, clientArgs)[
+              name
+            ] as unknown as (input: typeof args) => Promise<unknown>;
+            await request(args);
+          } else {
+            await executeQueryRequest({
+              ...evaluateFetchApiArgs(route, clientArgs, args),
+              route,
+            });
+          }
+          expect(calls).toHaveLength(1);
+          expect(calls[0]).toMatchObject({
+            contentType,
+            headers: { 'content-type': contentType },
+            body: JSON.stringify(args.body),
+            rawBody: args.body,
+          });
+        }
+      },
+    );
+
+    it('sends the declared media type over fetch and decodes +json responses', async () => {
+      fetchMock.route({
+        url: 'https://api.com/articles',
+        response: ({ options: req }) => ({
+          body: {
+            data: {
+              id: (req.headers as Record<string, string>)['content-type'],
+            },
+          },
+          headers: { 'content-type': 'application/vnd.api+json' },
+          status: 201,
+        }),
+        method: 'POST',
+        repeat: 1,
+      });
+
+      const result = await initClient(jsonContract, {
+        baseUrl: 'https://api.com',
+      }).resource({ body: { data: { type: 'articles' } } });
+
+      expect(result).toMatchObject({
+        status: 201,
+        body: { data: { id: 'application/vnd.api+json' } },
+      });
+      expect(fetchMock).toHaveLastFetched('*', {
+        matcherFunction: ({ options }) =>
+          options.body === '{"data":{"type":"articles"}}',
+      });
+    });
+
+    it('lets a caller content-type header override the declared media type', async () => {
+      const calls: ApiFetcherArgs[] = [];
+      const localClient = initClient(jsonContract, {
+        baseUrl: 'https://json.example',
+        api: async (args) => {
+          calls.push(args);
+          return { status: 200, body: { name: null }, headers: new Headers() };
+        },
+      });
+
+      await localClient.mergePatch({
+        params: { id: '1' },
+        body: { name: null },
+        extraHeaders: { 'content-type': 'application/json' },
+      });
+
+      expect(calls[0]).toMatchObject({
+        contentType: 'application/merge-patch+json',
+        headers: { 'content-type': 'application/json' },
+      });
+    });
+
+    it('sends no JSON content type for an absent body', async () => {
+      const calls: ApiFetcherArgs[] = [];
+      const localClient = initClient(jsonContract, {
+        baseUrl: 'https://json.example',
+        api: async (args) => {
+          calls.push(args);
+          return { status: 204, body: undefined, headers: new Headers() };
+        },
+      });
+
+      await localClient.clear({ params: { id: '1' }, body: undefined });
+
+      expect(calls[0].contentType).toBeUndefined();
+      expect(calls[0].body).toBeUndefined();
+      expect(calls[0].headers).not.toHaveProperty('content-type');
+    });
+  });
+
   describe('next', () => {
     it('should include "next" property in the fetch request', async () => {
       const client = initClient(router, {
