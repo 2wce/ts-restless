@@ -246,6 +246,39 @@ Below is an example of what the OpenAPI document would look like with `operation
         "responses": {
 ```
 
+## Generated Path Prefix
+
+Prefer OpenAPI `servers` when a deployment mounts the API under a base path such as `/api`. It is the specification's base URL mechanism, keeps contract paths unchanged and can list several environments:
+
+```typescript
+const openApiSchema = generateOpenApi(
+  postsApi,
+  {
+    info: { title: 'Posts API', version: '1.0.0' },
+    servers: [{ url: '/api' }], // [!code ++]
+  },
+  { schemaTransformer: converter },
+);
+```
+
+Use `pathPrefix` when the generated `paths` keys themselves must include the prefix, for example for tools that ignore `servers` or for merging several documents with different mounts. It is available on `generateOpenApi` and `generateOpenApiAsync`:
+
+```typescript
+const openApiSchema = generateOpenApi(
+  postsApi, // contains GET /posts/:id
+  { info: { title: 'Posts API', version: '1.0.0' } },
+  {
+    schemaTransformer: converter,
+    pathPrefix: '/api', // [!code ++]
+  },
+);
+// paths: { '/api/posts/{id}': { get: ... } }
+```
+
+The prefix affects only the generated document. It does not change contract paths, clients, servers or mounted routes; mount the routes under the same prefix in your framework, and do not combine it with a `servers` URL containing the same prefix. To change the routes clients call, use the contract router's `pathPrefix` option instead. The generator adds both: a contract prefix of `/v1` and a generation prefix of `/api` produce `/api/v1/posts/{id}`.
+
+The generation prefix is normalized: missing leading slashes are added and repeated or trailing slashes are removed, so `api`, `/api/` and `//api` are equivalent. An empty prefix or `/` leaves paths unchanged. The prefix must be a literal path; colons, braces, `?` and `#` are rejected because path parameters belong in the contract and URLs belong in `servers`. Contract paths are appended verbatim, so a `/` route becomes `/api/`. Operation IDs, tags, and the routes passed to `schemaTransformer` and `operationMapper` are unchanged.
+
 ## JSON Query Params
 
 If you've enabled JSON Query params for your server and client, you can enable `jsonQuery` to mark the query params as `application/json` in the OpenAPI document:

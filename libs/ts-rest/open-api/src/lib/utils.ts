@@ -50,3 +50,20 @@ export const extractReferenceSchemas = (
     }
     return schema;
   });
+
+/** Collapse slashes so `api`, `/api/` and `//api` all become `/api`; `''` and `/` add nothing. */
+export const normalizePathPrefix = (prefix: string | undefined): string => {
+  if (prefix === undefined) return '';
+  if (/[:{}?#]/.test(prefix))
+    throw new Error(
+      `OpenAPI pathPrefix '${prefix}' must be a literal path. Use contract pathPrefix for path parameters and OpenAPI servers for URLs.`,
+    );
+  const segments = prefix.split('/').filter(Boolean);
+  return segments.length ? `/${segments.join('/')}` : '';
+};
+
+/** Contract paths stay verbatim; only a missing separator is added. */
+export const prefixPath = (prefix: string, path: string): string =>
+  !prefix || !path || path.startsWith('/')
+    ? `${prefix}${path}`
+    : `${prefix}/${path}`;
