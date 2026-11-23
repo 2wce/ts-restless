@@ -58,7 +58,7 @@ test('Markdown preserves installation commands, tab alternatives and contract ty
   assert.match(contract, /c\.type<Pokemon>/);
   assert.match(contract, /contract\.ts/);
   const query = await readFile(
-    resolve(output, 'markdown/client/react-query-v5.md'),
+    resolve(output, 'markdown/client/react-query.md'),
     'utf8',
   );
   assert.match(
@@ -203,14 +203,14 @@ for (const path of pages) {
 
 for (const [slug, packages] of [
   [
-    'client/react-query-v5',
+    'client/react-query',
     '@ts-restless/react-query@alpha @tanstack/react-query@5',
   ],
   [
-    'client/solid-query-v5',
+    'client/solid-query',
     '@ts-restless/solid-query@alpha @tanstack/solid-query@5',
   ],
-  ['client/vue-query-v5', '@ts-restless/vue-query@alpha @tanstack/vue-query@5'],
+  ['client/vue-query', '@ts-restless/vue-query@alpha @tanstack/vue-query@5'],
   [
     'recipies/frontend-only',
     '@ts-restless/core@alpha @ts-restless/react-query@alpha',

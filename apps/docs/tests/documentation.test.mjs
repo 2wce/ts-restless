@@ -146,7 +146,7 @@ test('checks supersession independently of metadata formatting and accepts resol
 
 test('keeps executable Vue, Solid and Nest examples under compiler checking', () => {
   const input = facts();
-  input.files.set('apps/docs/content/docs/client/vue-query-v5.mdx', '```ts\nconst broken: string = 1;\n```');
+  input.files.set('apps/docs/content/docs/client/vue-query.mdx', '```ts\nconst broken: string = 1;\n```');
   assert.ok(checkFacts(input).some((error) => /twoslash/.test(error)));
 });
 
