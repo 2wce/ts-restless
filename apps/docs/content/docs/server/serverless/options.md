@@ -23,6 +23,23 @@ For example, for a Vercel Function that lives inside `api/posts.ts`, you would s
 The `cors` option allows you to configure CORS for your handler. The `cors` option can be a boolean (setting it to `false` disables CORS) or an options object.
 We use `itty-router` under the hood for routing and CORS handling, so the options are the same as the `itty-router` CORS options. You can find the full list of options [here](https://itty.dev/itty-router/cors#corsoptions).
 
+When CORS is enabled, the preflight handler answers every `OPTIONS` request before route matching, including requests for unknown paths.
+
+## Unknown paths and unsupported methods
+
+A request whose path matches no contract route receives `404` with `{ "message": "Not Found" }`.
+
+A request whose path matches one or more contract routes, but none for its method, receives `405` with `{ "message": "Method Not Allowed" }` and an `Allow` header. `Allow` lists the methods of every route matching that path, sorted and comma-separated, for example `Allow: DELETE, GET, PATCH`. The base path is included in matching. No route handler or route middleware runs for these requests; global request middleware, response handlers and CORS headers still apply as they do for `404`.
+
+Contracts cannot declare `HEAD` or `OPTIONS`, and the handler does not derive them from other routes:
+
+- `HEAD` is not served from a `GET` route. A `HEAD` request for a `GET` path receives `405` with `Allow: GET`.
+- Without the `cors` option, an `OPTIONS` request for a known path receives `405`. With `cors`, the preflight response answers `OPTIONS`, so `Allow` on `405` responses also lists `OPTIONS`.
+
+Both responses are thrown as a `TsRestHttpError` and pass through a [custom error handler](#custom-error-handler) first. For `405`, `error.headers` contains the `Allow` header. If your error handler returns its own response, that response replaces the default one, so copy `error.headers` onto it to keep `Allow`.
+
+Hosts that route by method can reject a request before it reaches ts-restless. See the [Next.js](/server/serverless/next-serverless#http-methods) and [Azure Functions](/server/serverless/azure-functions#http-methods) guides. AWS Lambda behind an API Gateway `ANY` or proxy route, and Fetch runtimes, pass every method to the handler.
+
 ### Custom Error Handler
 
 The `errorHandler` option allows you to define a custom error handler to handle any uncaught exceptions. The error handler is a function that takes an error and request and optionally returns a response object.

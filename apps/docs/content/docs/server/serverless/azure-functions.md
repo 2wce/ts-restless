@@ -25,6 +25,10 @@ app.http('api', {
 });
 ```
 
+## HTTP methods
+
+The Functions host only invokes the handler for methods listed in `methods`, and answers other methods itself. List every method your contract uses, plus `OPTIONS` when you use the `cors` option. For listed methods, the adapter returns `404` for unknown paths and `405` with an `Allow` header for known paths whose contract routes use other methods; see [unknown paths and unsupported methods](/server/serverless/options#unknown-paths-and-unsupported-methods).
+
 ## Route Prefix
 
 By default, Azure Functions have a route prefix `api` for every route registered. Unless you specifically have the same in your contract, then you will need to add the following to the end of your `host.json` file to remove this prefix.

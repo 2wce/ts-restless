@@ -317,6 +317,27 @@ for (const handlerType of ['app-router', 'pages-router-edge'] as const) {
       expect(forwarded?.signal.aborted).toBe(true);
     });
 
+    it('returns 405 with Allow for methods Next forwards to an unsupported route', async () => {
+      // Next calls the GET export for HEAD when HEAD is not exported.
+      for (const [method, path, allow] of [
+        ['HEAD', '/control', 'GET'],
+        ['POST', '/control', 'GET'],
+        ['GET', '/write', 'POST'],
+      ] as const) {
+        const nativeHandler = createNextHandler(
+          controlContract,
+          {
+            control: async () => ({ status: 200, body: undefined }),
+            write: async ({ body }) => ({ status: 200, body }),
+          },
+          { handlerType },
+        );
+        const response = await nativeHandler(controlRequest(path, { method }));
+        expect(response.status).toBe(405);
+        expect(response.headers.get('allow')).toBe(allow);
+      }
+    });
+
     const handler = createNextHandler(
       contract,
       {
