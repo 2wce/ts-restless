@@ -650,6 +650,37 @@ describe('fetchRequestHandler', () => {
   });
 });
 
+describe('structured JSON request bodies', () => {
+  const jsonContract = c.router({
+    patch: {
+      method: 'PATCH',
+      path: '/users/:id',
+      contentType: 'application/merge-patch+json',
+      body: z.object({ name: z.string().nullable() }),
+      responses: { 200: z.object({ name: z.string().nullable() }) },
+    },
+  });
+  const handler = createFetchHandler(jsonContract, {
+    patch: async ({ body }) => ({ status: 200, body }),
+  });
+
+  it.each([
+    'application/merge-patch+json',
+    'application/merge-patch+json; charset=utf-8',
+    'application/vnd.api+json',
+  ])('parses %s request bodies as JSON', async (contentType) => {
+    const response = await handler(
+      new Request('http://localhost/users/1', {
+        method: 'PATCH',
+        headers: { 'content-type': contentType },
+        body: '{"name":null}',
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ name: null });
+  });
+});
+
 describe('empty JSON request bodies', () => {
   const emptyContract = c.router({
     empty: {

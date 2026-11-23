@@ -20,7 +20,7 @@ Choose `openApiVersion: '3.0.2'` (the default) or `'3.1.0'`. A converter must ta
 
 ## Schema Transformers
 
-A `SchemaTransformerSync` returns a schema object or `{ schema, required }`. `required` describes the presence of the whole value, separately from a schema object's required properties. Plain schema returns describe required values. Use `required: false` for optional or defaulted request bodies and header fields. Generation never validates an absent value to infer presence. An absent contract body or `c.noBody()` produces no request body.
+A `SchemaTransformerSync` returns a schema object or `{ schema, required }`. `required` describes the presence of the whole value, separately from a schema object's required properties. Plain schema returns describe required values. Use `required: false` for optional or defaulted request bodies and header fields. Generation never validates an absent value to infer presence. An absent contract body or `c.noBody()` produces no request body. A request body is listed under the route's `contentType`, such as `application/merge-patch+json` or `multipart/form-data`, defaulting to `application/json`.
 
 Return `null` for schemas outside your converter's scope. A runtime validator with no matching conversion produces an error; type-only contracts have no runtime schema to convert. Provide a converter handling every validator used by a mixed contract.
 

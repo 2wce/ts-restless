@@ -70,6 +70,12 @@ export type AppRouteQuery = AppRouteCommon & {
 export type MultipartFieldEncoding = 'form' | 'legacy-json';
 
 /**
+ * A request media type serialized with JSON.stringify: `application/json`
+ * or a structured `+json` suffix type such as `application/merge-patch+json`.
+ */
+export type JsonMediaType = 'application/json' | `application/${string}+json`;
+
+/**
  * A mutation endpoint. In REST terms, one using POST, PUT,
  * PATCH, or DELETE.
  */
@@ -83,7 +89,7 @@ export type AppRouteMutation = AppRouteCommon & {
       }
     | {
         contentType?:
-          | 'application/json'
+          | JsonMediaType
           | 'multipart/form-data'
           | 'application/x-www-form-urlencoded';
         multipart?: never;

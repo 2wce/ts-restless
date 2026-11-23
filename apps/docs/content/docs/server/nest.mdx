@@ -449,6 +449,24 @@ export class SearchController {
   documentation](/server/nest#configuration).
 </Callout>
 
+## Structured JSON request bodies
+
+The Nest platform's body parser owns request parsing; ts-restless validates the
+parsed body. Both platforms only parse `application/json` by default. For
+routes declaring a structured JSON `contentType`, such as
+`application/merge-patch+json`, register a parser before the application
+starts listening:
+
+- Express platform: call
+  `app.useBodyParser('json', { type: 'application/*+json' })` on the
+  `NestExpressApplication`.
+- Fastify platform: register the parser shown in the
+  [Fastify guide](/server/fastify#structured-json-request-bodies) on
+  `app.getHttpAdapter().getInstance()`.
+
+Without a parser, Express leaves the body unparsed and contract validation
+rejects the request, while Fastify answers 415.
+
 ## Important Considerations
 
 <Callout type="warning" title="Path Prefixes">

@@ -434,6 +434,43 @@ describe('ts-rest-express', () => {
     );
   });
 
+  it('validates structured JSON bodies parsed by the host JSON middleware', async () => {
+    const contract = c.router({
+      patch: {
+        method: 'PATCH',
+        path: '/users/:id',
+        contentType: 'application/merge-patch+json',
+        body: z.object({ name: z.string().nullable() }),
+        responses: { 200: z.object({ name: z.string().nullable() }) },
+      },
+    });
+    const router = s.router(contract, {
+      patch: async ({ body }) => ({ status: 200, body }),
+    });
+    const createApp = (parser: express.RequestHandler) => {
+      const app = express();
+      app.use(parser);
+      createExpressEndpoints(contract, router, app);
+      return app;
+    };
+    const send = (app: express.Express) =>
+      supertest(app)
+        .patch('/users/1')
+        .set('content-type', 'application/merge-patch+json')
+        .send('{"name":null}');
+
+    // express.json() only parses application/json by default.
+    expect((await send(createApp(express.json()))).status).toBe(400);
+
+    const response = await send(
+      createApp(
+        express.json({ type: ['application/json', 'application/*+json'] }),
+      ),
+    );
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ name: null });
+  });
+
   it('should handle no content body', async () => {
     const contract = c.router({
       noContent: {

@@ -6,6 +6,7 @@ import {
   AppRouter,
   ContractNoBody,
   isAppRoute,
+  JsonMediaType,
   MultipartFieldEncoding,
 } from './dsl';
 import { insertParamsIntoPath } from './paths';
@@ -225,6 +226,12 @@ const createFormData = (
   return formData;
 };
 
+// Mirrors JsonMediaType so declared structured JSON types reach the wire.
+const isJsonMediaType = (value: unknown): value is JsonMediaType =>
+  typeof value === 'string' &&
+  (value === 'application/json' ||
+    (value.startsWith('application/') && value.endsWith('+json')));
+
 const normalizeHeaders = (headers: Record<string, string | undefined>) => {
   return Object.fromEntries(
     Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v]),
@@ -330,11 +337,15 @@ export const fetchApi = async (options: FetchApiOptions) => {
               ),
       };
     } else if (body !== null && body !== undefined) {
+      const contentType =
+        'contentType' in route && isJsonMediaType(route.contentType)
+          ? route.contentType
+          : 'application/json';
       fetcherArgs = {
         ...fetcherArgs,
-        contentType: 'application/json',
+        contentType,
         headers: {
-          'content-type': 'application/json',
+          'content-type': contentType,
           ...fetcherArgs.headers,
         },
         body: JSON.stringify(body),

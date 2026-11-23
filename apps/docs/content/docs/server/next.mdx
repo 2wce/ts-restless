@@ -127,6 +127,16 @@ The contract is the same as in the [App Router example](/server/serverless/next-
 
 Keep JSON routes in the catch-all `createNextRouter` file, where Next's body parser stays enabled.
 
+### Structured JSON request bodies
+
+Next's built-in API route body parser owns request parsing. It parses
+`application/json` and `application/ld+json` as JSON, but passes other
+structured JSON types, such as `application/merge-patch+json`, to the adapter
+as a string, which contract validation rejects. For routes declaring such a
+`contentType`, use [`@ts-restless/serverless/next`](/server/serverless/next-serverless),
+which parses every JSON content type, or decode `req.body` before calling the
+router.
+
 ### JSON Query Parameters
 
 To handle JSON query parameters, you can use the `jsonQuery` option.

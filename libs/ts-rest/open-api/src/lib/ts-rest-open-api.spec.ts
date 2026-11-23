@@ -1155,6 +1155,39 @@ describe('ts-rest-open-api', () => {
       });
     });
 
+    it.each([
+      'application/json',
+      'application/merge-patch+json',
+      'application/vnd.api+json',
+    ] as const)('emits request bodies under %s', (contentType) => {
+      const schema = generateOpenApi(
+        c.router({
+          patch: {
+            method: 'PATCH',
+            path: '/users/:id',
+            contentType,
+            body: z.object({ name: z.string().nullable() }),
+            responses: { 204: c.noBody() },
+          },
+        }),
+        { info: { title: 'JSON API', version: '0.1' } },
+      );
+
+      expect(schema.paths['/users/{id}'].patch?.requestBody).toEqual({
+        description: 'Body',
+        required: true,
+        content: {
+          [contentType]: {
+            schema: {
+              type: 'object',
+              properties: { name: { type: 'string', nullable: true } },
+              required: ['name'],
+            },
+          },
+        },
+      });
+    });
+
     it('works with multipart/form-data', () => {
       const routerWithTransform = c.router({
         formEndpoint: {

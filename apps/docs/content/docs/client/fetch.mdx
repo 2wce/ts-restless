@@ -487,6 +487,54 @@ const result = await client.createPokemon({
 });
 ```
 
+### Structured JSON (application/\*+json)
+
+Declare a structured JSON media type, such as JSON Merge Patch, JSON Patch or
+JSON:API, as the route's `contentType`. The client serializes the body with
+`JSON.stringify` and sends the declared type:
+
+```typescript twoslash title="structured-json.ts"
+import { initClient, initContract } from '@ts-restless/core';
+import { z } from 'zod';
+
+const c = initContract();
+const contract = c.router({
+  renamePokemon: {
+    method: 'PATCH',
+    path: '/pokemon/:id',
+    contentType: 'application/merge-patch+json',
+    body: z.object({ nickname: z.string().nullable() }),
+    responses: { 204: c.noBody() },
+  },
+});
+
+const client = initClient(contract, {
+  baseUrl: 'https://api.example.com',
+});
+
+// ---cut---
+// Sent with content-type: application/merge-patch+json
+await client.renamePokemon({
+  params: { id: '25' },
+  body: { nickname: null },
+});
+```
+
+`contentType` accepts `application/json` and any `application/<subtype>+json`
+type. A custom API receives the declared type as `contentType` in its
+arguments. An explicit `content-type` request header still takes precedence on
+the wire. Responses whose `content-type` is an `application/*+json` type are
+decoded as JSON.
+
+Servers must parse the declared type as JSON. Several native body parsers only
+parse `application/json` by default; see the
+[Express](/server/express#structured-json-request-bodies),
+[Fastify](/server/fastify#structured-json-request-bodies),
+[Nest](/server/nest#structured-json-request-bodies) and
+[Next](/server/next#structured-json-request-bodies) guides.
+The serverless handlers parse any `json` content type themselves.
+OpenAPI documents list the request body under the declared media type.
+
 ### Form Data (multipart/form-data)
 
 For file uploads, use the `multipart/form-data` content type:

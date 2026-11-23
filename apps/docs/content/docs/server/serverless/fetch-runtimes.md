@@ -11,6 +11,13 @@ This includes but is not limited to:
 - Netlify Functions
 - Vercel Functions
 
+## JSON request bodies
+
+Serverless handlers parse request bodies themselves. Any non-GET request whose
+`content-type` contains `json`, including structured types such as
+`application/merge-patch+json` and `application/vnd.api+json`, is parsed as
+JSON before contract validation. `text/*` bodies are read as text.
+
 ## Empty request and response bodies
 
 Zero-length JSON request bytes are treated as an absent body (`undefined`), then validated against the route contract. Use `c.noBody()` when no request payload is expected; an undefined-accepting Standard Schema is also supported. A missing required body produces the normal 400 validation response. Nonempty malformed JSON, including whitespace-only payloads, retains the parsing-error path and any custom `errorHandler`.
