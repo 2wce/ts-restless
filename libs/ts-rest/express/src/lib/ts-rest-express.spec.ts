@@ -17,6 +17,7 @@ import { z as zod4 } from 'zod4';
 import { createExpressEndpoints, initServer } from './ts-rest-express';
 import multer from 'multer';
 import { RequestValidationError } from './request-validation-error';
+import type { TsRestExpressOptions } from './types';
 import * as v from 'valibot';
 
 const upload = multer();
@@ -215,6 +216,36 @@ describe('response evaluation compatibility', () => {
     expect(response.body).toEqual({ transformed: 'input' });
     expect(response.headers['content-type']).toMatch(/^application\/json/);
     expect(validate).toHaveBeenCalledExactlyOnceWith('input');
+  });
+});
+
+describe('initialization logging', () => {
+  const initialized = '[ts-rest] Initialized GET /posts/:id';
+  const cases: [
+    string,
+    TsRestExpressOptions<typeof postsRouter> | undefined,
+    string[],
+  ][] = [
+    ['omitted options', undefined, [initialized]],
+    ['partial options', { globalMiddleware: [] }, [initialized]],
+    ['explicitly disabled', { logInitialization: false }, []],
+  ];
+
+  it.each(cases)('logs according to %s', (_, options, expected) => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      createExpressEndpoints(
+        postsRouter,
+        s.router(postsRouter, {
+          getPost: async () => ({ status: 200, body: null }),
+        }),
+        express(),
+        options,
+      );
+      expect(log.mock.calls.map(([message]) => message)).toEqual(expected);
+    } finally {
+      log.mockRestore();
+    }
   });
 });
 
