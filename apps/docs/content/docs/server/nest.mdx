@@ -280,6 +280,18 @@ Interceptor order still follows Nest's decorator order. Place
 interceptor needs to transform the completed response body. Placing it above
 `@TsRestHandler` makes it intercept the method's returned implementation instead.
 
+### Native response objects
+
+Injecting `@Res()` or `@Next()` normally tells Nest that the handler sends its
+own response. With `@TsRestHandler`, routes can still return `{ status, body }`:
+ts-restless validates and sends it. A route that responds through the injected
+object itself, for example with `res.status(302).redirect('/login')`, keeps
+that response, and anything it returns is ignored.
+
+Because ts-restless sends these responses itself, interceptors that run after it
+cannot transform them. Use `@Res({ passthrough: true })` when you only need the
+native object for headers or cookies and want Nest to keep sending the result.
+
 ## Type-Safe Error Handling
 
 While we recommend returning errors as responses to maintain full type safety in your contract, sometimes throwing exceptions is cleaner. `TsRestException` lets you throw type-safe exceptions that ts-restless will catch and convert to properly typed responses.
