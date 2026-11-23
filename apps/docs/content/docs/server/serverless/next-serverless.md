@@ -39,6 +39,65 @@ so Next can produce its native response; it bypasses the adapter's `errorHandler
 and HTTP 500 conversion. Ordinary application errors and explicit HTTP errors
 continue through the configured serverless error handling.
 
+## Multipart and form bodies
+
+The handler decodes JSON and `text/*` request bodies only. It does not parse `multipart/form-data` or `application/x-www-form-urlencoded`; your application owns that parsing, field decoding and file handling, as Multer does for Express and Nest. Contract validation runs after request middleware, so parse the body in route or global request middleware and assign the result to `request.content`. That value is validated against the route's body schema before the handler runs.
+
+The native `request.formData()` parses both media types in App Router and Pages Router Edge handlers, so no extra package is needed:
+
+```typescript
+// contract.ts
+export const contract = c.router({
+  uploadImage: {
+    method: 'POST',
+    path: '/api/posts/:id/image',
+    contentType: 'multipart/form-data',
+    body: z.object({
+      title: z.string(),
+      tags: z.array(z.string()),
+      width: z.coerce.number(),
+      image: z.instanceof(File),
+    }),
+    responses: { 201: z.object({ url: z.string() }) },
+  },
+});
+
+// app/api/[...ts-rest]/route.ts
+const handler = createNextHandler(
+  contract,
+  {
+    uploadImage: {
+      middleware: [
+        async (request) => {
+          const form = await request.formData();
+          request.content = {
+            title: form.get('title') ?? undefined,
+            tags: form.getAll('tags'),
+            width: form.get('width') ?? undefined,
+            image: form.get('image') ?? undefined,
+          };
+        },
+      ],
+      handler: async ({ params, body }, { request }) => {
+        // Server body types omit File fields; read the validated parsed value.
+        const image: File = request.content.image;
+        const url = await storeImage(params.id, body.title, image);
+        return { status: 201, body: { url } };
+      },
+    },
+  },
+  { handlerType: 'app-router' },
+);
+```
+
+Keep the middleware's field decoding matched to the route's [multipart field encoding](/client/fetch#form-data-multipartform-data). With the default `form` encoding, strings arrive unchanged, numbers, booleans, `null` and nested objects arrive as JSON text, and arrays repeat the field name. Use `getAll()` for array fields, and coerce or `JSON.parse` other values in the middleware or schema. With `legacy-json`, `JSON.parse` every ordinary field.
+
+Server-side body types omit `File` fields on multipart routes. Declare a required file in the schema to validate its presence and type, then read it from `request.content` in the handler. `request.formData()` buffers the whole body in memory; enforce your platform's size limits, or use a streaming parser for large uploads.
+
+Without such middleware, a multipart request reaches validation with no body and receives the normal 400 validation response. A route whose schema is `c.type<T>()` skips validation, so its handler can call `request.formData()` itself. A required body sent without `Content-Type`, or with a media type that is neither decoded nor declared by the route, receives [415 Unsupported Media Type](/server/serverless/fetch-runtimes#request-media-types).
+
+For Pages Router API routes on the Node.js runtime, see [multipart request bodies](/server/next#multipart-request-bodies) in the `@ts-restless/next` guide.
+
 ## Context Object
 
 In addition to the regular context properties, the context object for Next handlers includes the following additional properties:

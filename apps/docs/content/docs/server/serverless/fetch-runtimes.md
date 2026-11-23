@@ -19,6 +19,19 @@ Declare empty responses with `c.noBody()`, returning `body: undefined` from the 
 
 If an application depended on a 500 for an absent required body, update its error handling to the contract's normal 400 validation response. Malformed nonempty JSON handling is unchanged.
 
+## Request media types
+
+Every serverless handler, including Next, AWS Lambda and Azure Functions, decodes JSON request bodies (any media type containing `json`) and `text/*` bodies before validation. Media types are matched case-insensitively. Other bodies are not decoded, and JSON is never guessed from the bytes.
+
+When a nonempty body was not decoded and the route's body schema then rejects the absent value, the handler responds `415 Unsupported Media Type` instead of a validation error. The JSON message names the missing or received `Content-Type` and the media type the route expects: the route's `contentType`, or `application/json`. The error is a `TsRestHttpError` with `statusCode` 415, so a custom `errorHandler` can reshape it. 415 identifies a problem the client can fix by changing the request's representation; the body itself was never evaluated.
+
+These requests keep their existing behavior:
+
+- An empty body without `Content-Type` produces the normal 400 validation response for a required body.
+- A request whose media type matches the route's declared `contentType`, such as `multipart/form-data` or `application/x-www-form-urlencoded`, is left to request middleware. Without a parser it produces the normal 400 validation response. See [multipart and form bodies](/server/serverless/next-serverless#multipart-and-form-bodies); the same middleware approach applies to every serverless handler.
+- A body assigned to `request.content` by middleware is validated as usual.
+- Routes without a runtime body schema, such as `c.type<T>()`, and schemas accepting an absent body run their handler, which can still read the raw `request`.
+
 ## Platform Context
 
 Some platforms provide additional context arguments that you may want to pass to your handler functions.

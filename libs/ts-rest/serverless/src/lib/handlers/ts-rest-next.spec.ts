@@ -1,10 +1,15 @@
-import { initContract, TsRestResponseError } from '@ts-restless/core';
+import {
+  initClient,
+  initContract,
+  TsRestResponseError,
+} from '@ts-restless/core';
 import { NextRequest } from 'next/server';
 import { redirect, permanentRedirect, notFound } from 'next/navigation.js';
 import { z } from 'zod';
 import { createNextHandler } from './ts-rest-next';
 import { TsRestHttpError } from '../http-error';
 import { TsRestResponse } from '../response';
+import { TsRestRequest } from '../request';
 
 const c = initContract();
 const controlContract = c.router({
@@ -45,6 +50,40 @@ const contract = initContract().router({
     responses: { 200: z.object({ id: z.number(), label: z.string() }) },
   },
 });
+
+const uploadContract = initContract().router({
+  upload: {
+    method: 'POST',
+    path: '/upload',
+    contentType: 'multipart/form-data',
+    body: z.object({
+      title: z.string(),
+      tags: z.array(z.string()),
+      count: z.coerce.number(),
+      file: z.instanceof(File),
+    }),
+    responses: {
+      200: z.object({
+        title: z.string(),
+        tags: z.array(z.string()),
+        count: z.number(),
+        fileName: z.string(),
+        fileText: z.string(),
+      }),
+    },
+  },
+});
+
+// Application-owned field decoding for the route's default `form` encoding.
+const parseUploadFormData = async (request: TsRestRequest) => {
+  const form = await request.formData();
+  request.content = {
+    title: form.get('title') ?? undefined,
+    tags: form.getAll('tags'),
+    count: form.get('count') ?? undefined,
+    file: form.get('file') ?? undefined,
+  };
+};
 
 for (const handlerType of ['app-router', 'pages-router-edge'] as const) {
   describe(`Next ${handlerType}`, () => {
@@ -275,6 +314,100 @@ for (const handlerType of ['app-router', 'pages-router-edge'] as const) {
       const body = await response.json();
       expect(body.pathParameterErrors.issues[0].path).toEqual(['id']);
       expect(body.queryParameterErrors.issues[0].path).toEqual(['label']);
+    });
+
+    describe('multipart request bodies', () => {
+      const upload = (middleware: Array<(request: TsRestRequest) => unknown>) =>
+        createNextHandler(
+          uploadContract,
+          {
+            upload: {
+              middleware,
+              handler: async ({ body }, { request }) => {
+                // Server body types omit File fields; read the parsed value.
+                const file: File = request.content.file;
+                return {
+                  status: 200,
+                  body: {
+                    title: body.title,
+                    tags: body.tags,
+                    count: body.count,
+                    fileName: file.name,
+                    fileText: await file.text(),
+                  },
+                };
+              },
+            },
+          },
+          { handlerType },
+        );
+      const clientFor = (nativeHandler: ReturnType<typeof upload>) =>
+        initClient(uploadContract, {
+          baseUrl: 'http://localhost',
+          api: async ({ path, method, headers, body }) => {
+            const response = await nativeHandler(
+              controlRequest(new URL(path).pathname, {
+                method,
+                headers,
+                body,
+              }),
+            );
+            return {
+              status: response.status,
+              body: await response.json(),
+              headers: response.headers,
+            };
+          },
+        });
+      const file = new File(['hello'], 'hello.txt', { type: 'text/plain' });
+
+      it('validates fields and files parsed by route middleware', async () => {
+        const client = clientFor(upload([parseUploadFormData]));
+
+        const result = await client.upload({
+          body: { title: 'Report', tags: ['a', 'b'], count: 2, file },
+        });
+
+        expect(result).toMatchObject({
+          status: 200,
+          body: {
+            title: 'Report',
+            tags: ['a', 'b'],
+            count: 2,
+            fileName: 'hello.txt',
+            fileText: 'hello',
+          },
+        });
+      });
+
+      it('reports invalid parsed fields through contract validation', async () => {
+        const form = new FormData();
+        form.append('title', 'Report');
+        form.append('count', '2');
+
+        const response = await upload([parseUploadFormData])(
+          controlRequest('/upload', { method: 'POST', body: form }),
+        );
+
+        expect(response.status).toBe(400);
+        const { bodyErrors } = await response.json();
+        expect(
+          bodyErrors.issues.map((issue: { path: unknown }) => issue.path),
+        ).toEqual([['file']]);
+      });
+
+      it('keeps the validation response when no middleware parses the body', async () => {
+        const client = clientFor(upload([]));
+
+        const result = await client.upload({
+          body: { title: 'Report', tags: [], count: 2, file },
+        });
+
+        expect(result.status).toBe(400);
+        expect(result.body).toMatchObject({
+          bodyErrors: { name: 'ValidationError' },
+        });
+      });
     });
   });
 }
