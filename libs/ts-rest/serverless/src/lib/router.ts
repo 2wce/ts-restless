@@ -101,7 +101,47 @@ const recursivelyProcessContract = ({
   }
 };
 
-const validateRequest = <TPlatformArgs, TRequestExtension>(
+const mediaTypeOf = (request: Request) =>
+  request.headers.get('content-type')?.split(';')[0].trim().toLowerCase() ||
+  undefined;
+
+// The adapter decodes only JSON and text; other media types are integration-owned.
+const isDecodedMediaType = (mediaType: string | undefined) =>
+  mediaType !== undefined &&
+  (mediaType.includes('json') || mediaType.startsWith('text/'));
+
+/**
+ * Explain a body that failed validation only because nothing decoded it.
+ * Routes declaring the received `contentType` (e.g. multipart) keep the
+ * validation error: their parsing belongs to request middleware.
+ */
+const undecodedBodyError = async (
+  request: TsRestRequest,
+  appRoute: AppRoute,
+) => {
+  const mediaType = mediaTypeOf(request);
+  const routeMediaType =
+    ('contentType' in appRoute && appRoute.contentType) || 'application/json';
+
+  if (
+    request.content !== undefined ||
+    isDecodedMediaType(mediaType) ||
+    mediaType === routeMediaType ||
+    request.body === null ||
+    request.bodyUsed ||
+    (await request.clone().arrayBuffer()).byteLength === 0
+  ) {
+    return null;
+  }
+
+  return new TsRestHttpError(415, {
+    message: mediaType
+      ? `Unsupported request Content-Type "${mediaType}"; send the body as ${routeMediaType}`
+      : `Request body has no Content-Type; send it as ${routeMediaType}`,
+  });
+};
+
+const validateRequest = async <TPlatformArgs, TRequestExtension>(
   req: TsRestRequest,
   appRoute: AppRoute,
   options: ServerlessHandlerOptions<TPlatformArgs, TRequestExtension>,
@@ -127,6 +167,10 @@ const validateRequest = <TPlatformArgs, TRequestExtension>(
     queryResult.error ||
     bodyResult.error
   ) {
+    const mediaTypeError =
+      bodyResult.error && (await undecodedBodyError(req, appRoute));
+    if (mediaTypeError) throw mediaTypeError;
+
     throw new TsRestRequestValidationError(
       paramsResult.error || null,
       headersResult.error || null,
@@ -209,13 +253,16 @@ const tsRestMiddleware = <TPlatformArgs, TRequestExtension>(
 
   const evaluateContent = async (request: TsRestRequest) => {
     if (request.method !== 'GET' && request.method !== 'HEAD') {
-      if (request.headers.get('content-type')?.includes('json')) {
+      const mediaType = mediaTypeOf(request);
+      if (!isDecodedMediaType(mediaType)) return;
+
+      if (mediaType?.includes('json')) {
         const bytes = await request.arrayBuffer();
         request['content'] =
           bytes.byteLength === 0
             ? undefined
             : JSON.parse(new TextDecoder().decode(bytes));
-      } else if (request.headers.get('content-type')?.startsWith('text/')) {
+      } else {
         request['content'] = await request.text();
       }
     }
@@ -282,7 +329,11 @@ export const createServerlessRouter = <
         request: TsRestRequest,
         platformArgs: TPlatformArgs,
       ) => {
-        const validationResults = validateRequest(request, appRoute, options);
+        const validationResults = await validateRequest(
+          request,
+          appRoute,
+          options,
+        );
 
         const contextResponseHeaders = new Headers();
         const implementation = isAppRouteImplementation(implementationOrOptions)

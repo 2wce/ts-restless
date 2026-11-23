@@ -8,6 +8,7 @@ import { parse as parseMultipart, getBoundary } from 'parse-multipart-data';
 import { z } from 'zod';
 import { vi } from 'vitest';
 import { TsRestResponse } from '../response';
+import { TsRestHttpError } from '../http-error';
 import {
   createFetchHandler,
   FetchHandlerOptions,
@@ -744,6 +745,168 @@ describe('empty JSON request bodies', () => {
       expect(await response.text()).toBe('parse failure');
     },
   );
+});
+
+describe('undecoded request media types', () => {
+  const mediaContract = c.router({
+    json: {
+      method: 'POST',
+      path: '/media/json',
+      body: z.object({ value: z.string() }),
+      responses: { 200: z.object({ value: z.string() }) },
+    },
+    multipart: {
+      method: 'POST',
+      path: '/media/multipart',
+      contentType: 'multipart/form-data',
+      body: z.object({ value: z.string() }),
+      responses: { 200: z.object({ value: z.string() }) },
+    },
+    raw: {
+      method: 'POST',
+      path: '/media/raw',
+      body: c.type<ArrayBuffer>(),
+      responses: { 200: z.object({ bytes: z.number() }) },
+    },
+  });
+  const jsonHandler = vi.fn(async ({ body }: { body: { value: string } }) => ({
+    status: 200 as const,
+    body,
+  }));
+  const handler = createFetchHandler(mediaContract, {
+    json: jsonHandler,
+    multipart: async ({ body }) => ({ status: 200, body }),
+    raw: async (_, { request }) => ({
+      status: 200,
+      body: { bytes: (await request.arrayBuffer()).byteLength },
+    }),
+  });
+  const jsonBytes = () => new TextEncoder().encode('{"value":"input"}');
+  const request = (
+    path: string,
+    body: BodyInit | undefined,
+    contentType?: string,
+  ) =>
+    new Request('http://localhost' + path, {
+      method: 'POST',
+      headers: contentType ? { 'content-type': contentType } : {},
+      body,
+    });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('identifies a missing Content-Type on a nonempty body', async () => {
+    const req = request('/media/json', jsonBytes());
+    expect(req.headers.get('content-type')).toBeNull();
+
+    const response = await handler(req);
+
+    expect(response.status).toBe(415);
+    expect(response.headers.get('content-type')).toBe('application/json');
+    expect(await response.json()).toEqual({
+      message: 'Request body has no Content-Type; send it as application/json',
+    });
+    expect(jsonHandler).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'application/octet-stream',
+    'application/x-www-form-urlencoded',
+    'multipart/form-data; boundary=x',
+  ])('identifies the unsupported Content-Type %s', async (contentType) => {
+    const response = await handler(
+      request('/media/json', jsonBytes(), contentType),
+    );
+
+    expect(response.status).toBe(415);
+    expect(await response.json()).toEqual({
+      message: `Unsupported request Content-Type "${contentType.split(';')[0]}"; send the body as application/json`,
+    });
+    expect(jsonHandler).not.toHaveBeenCalled();
+  });
+
+  it('names the media type declared by the route', async () => {
+    const response = await handler(
+      request('/media/multipart', jsonBytes(), 'application/octet-stream'),
+    );
+
+    expect(response.status).toBe(415);
+    expect((await response.json()).message).toBe(
+      'Unsupported request Content-Type "application/octet-stream"; send the body as multipart/form-data',
+    );
+  });
+
+  it('passes the media type error to a custom error handler', async () => {
+    const caught: unknown[] = [];
+    const customHandler = createFetchHandler(
+      mediaContract,
+      {
+        json: jsonHandler,
+        multipart: async ({ body }) => ({ status: 200, body }),
+        raw: async () => ({ status: 200, body: { bytes: 0 } }),
+      },
+      {
+        errorHandler: (error) => {
+          caught.push(error);
+        },
+      },
+    );
+
+    const response = await customHandler(
+      request('/media/json', jsonBytes(), 'application/octet-stream'),
+    );
+
+    expect(response.status).toBe(415);
+    expect(caught).toHaveLength(1);
+    expect(caught[0]).toBeInstanceOf(TsRestHttpError);
+    expect(caught[0]).not.toBeInstanceOf(TsRestRequestValidationError);
+    expect((caught[0] as TsRestHttpError).statusCode).toBe(415);
+  });
+
+  it.each([undefined, new Uint8Array()])(
+    'reports a missing body without Content-Type through validation (%s)',
+    async (body) => {
+      const response = await handler(request('/media/json', body));
+
+      expect(response.status).toBe(400);
+      expect((await response.json()).bodyErrors.name).toBe('ValidationError');
+    },
+  );
+
+  it('decodes JSON media types case-insensitively', async () => {
+    const response = await handler(
+      request('/media/json', jsonBytes(), 'Application/JSON; charset=utf-8'),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ value: 'input' });
+  });
+
+  it('leaves the declared media type to integration-owned parsing', async () => {
+    const form = new FormData();
+    form.append('value', 'input');
+
+    const response = await handler(
+      new Request('http://localhost/media/multipart', {
+        method: 'POST',
+        body: form,
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).bodyErrors.name).toBe('ValidationError');
+  });
+
+  it('keeps raw bodies available to routes without a body schema', async () => {
+    const response = await handler(
+      request('/media/raw', jsonBytes(), 'application/octet-stream'),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ bytes: 17 });
+  });
 });
 
 describe('returned response headers', () => {
