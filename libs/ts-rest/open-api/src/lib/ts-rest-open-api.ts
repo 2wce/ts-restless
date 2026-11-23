@@ -26,6 +26,8 @@ import { performContractTraversal } from './contract-traversal';
 import {
   convertSchemaObjectToMediaTypeObject,
   extractReferenceSchemas,
+  normalizePathPrefix,
+  prefixPath,
 } from './utils';
 import {
   normalizeComponents,
@@ -45,7 +47,15 @@ type OperationOptions = {
 type GenerationOptions<
   V extends OpenApiVersion,
   T extends SchemaTransformer,
-> = OperationOptions & { schemaTransformer: T; openApiVersion?: V };
+> = OperationOptions & {
+  schemaTransformer: T;
+  openApiVersion?: V;
+  /**
+   * Literal prefix for generated `paths` keys only. Runtime routes, operation IDs,
+   * tags and callback routes are unchanged; prefer `servers` for a deployment base URL.
+   */
+  pathPrefix?: string;
+};
 
 /**
  * Generate OpenAPI specification from ts-rest router
@@ -56,6 +66,7 @@ type GenerationOptions<
  * @param options.setOperationId - Whether to set operation IDs (true, false, or 'concatenated-path')
  * @param options.jsonQuery - Enable JSON query parameters, [see](/docs/open-api#json-query-params)
  * @param options.operationMapper - Function to customize OpenAPI operations. Receives the operation object, app route, and operation ID
+ * @param options.pathPrefix - Literal prefix added to generated paths only, [see](/docs/open-api#generated-path-prefix)
  * @returns OpenAPI specification object
  */
 export function generateOpenApi<V extends OpenApiVersion = '3.0.2'>(
@@ -64,6 +75,7 @@ export function generateOpenApi<V extends OpenApiVersion = '3.0.2'>(
   options: GenerationOptions<V, SchemaTransformerSync>,
 ): OpenApiDocument<V> {
   const openApiVersion = options?.openApiVersion ?? '3.0.2';
+  const pathPrefix = normalizePathPrefix(options?.pathPrefix);
   const references = normalizeComponents(
     apiDoc.components?.schemas ?? {},
     openApiVersion,
@@ -87,6 +99,7 @@ export function generateOpenApi<V extends OpenApiVersion = '3.0.2'>(
     setOperationId: options?.setOperationId,
     jsonQuery: options?.jsonQuery,
     operationMapper: options?.operationMapper,
+    pathPrefix,
   }) as OpenApiDocument<V>;
 }
 
@@ -99,6 +112,7 @@ export function generateOpenApi<V extends OpenApiVersion = '3.0.2'>(
  * @param options.setOperationId - Whether to set operation IDs (true, false, or 'concatenated-path')
  * @param options.jsonQuery - Enable JSON query parameters, [see](/docs/open-api#json-query-params)
  * @param options.operationMapper - Function to customize OpenAPI operations. Receives the operation object, app route, and operation ID
+ * @param options.pathPrefix - Literal prefix added to generated paths only, [see](/docs/open-api#generated-path-prefix)
  * @param options.schemaTransformer - Explicit validator-to-schema converter. Async generation accepts sync or async converters.
  */
 export async function generateOpenApiAsync<V extends OpenApiVersion = '3.0.2'>(
@@ -107,6 +121,7 @@ export async function generateOpenApiAsync<V extends OpenApiVersion = '3.0.2'>(
   options: GenerationOptions<V, SchemaTransformer>,
 ): Promise<OpenApiDocument<V>> {
   const openApiVersion = options?.openApiVersion ?? '3.0.2';
+  const pathPrefix = normalizePathPrefix(options?.pathPrefix);
   const references = normalizeComponents(
     apiDoc.components?.schemas ?? {},
     openApiVersion,
@@ -129,6 +144,7 @@ export async function generateOpenApiAsync<V extends OpenApiVersion = '3.0.2'>(
     setOperationId: options.setOperationId,
     jsonQuery: options.jsonQuery,
     operationMapper: options.operationMapper,
+    pathPrefix,
   }) as OpenApiDocument<V>;
 }
 
@@ -141,6 +157,7 @@ const traversedPathsToOpenApi = (
   options: OperationOptions & {
     openApiVersion?: OpenApiVersion;
     references?: Record<string, SchemaObject>;
+    pathPrefix?: string;
   },
 ) => {
   const mapMethod = {
@@ -273,8 +290,9 @@ const traversedPathsToOpenApi = (
       responses,
     };
 
-    pathObject[path.path] = {
-      ...pathObject[path.path],
+    const documentPath = prefixPath(options.pathPrefix ?? '', path.path);
+    pathObject[documentPath] = {
+      ...pathObject[documentPath],
       [mapMethod[path.route.method]]: options.operationMapper
         ? options.operationMapper(pathOperation, path.route, path.id)
         : pathOperation,
