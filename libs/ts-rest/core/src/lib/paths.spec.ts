@@ -111,6 +111,32 @@ describe('insertParamsIntoPath', () => {
     ).toBe('/1');
   });
 
+  it('should insert numeric zero params into path', () => {
+    // Clients coerce params with z.coerce.number(), so numbers reach this helper at runtime
+    const params = { id: 0 } as unknown as ParamsFromUrl<'/entity/:id'>;
+
+    expect(insertParamsIntoPath({ path: '/entity/:id', params })).toBe(
+      '/entity/0',
+    );
+  });
+
+  it('should insert numeric zero optional params into path', () => {
+    const params = { id: 0 } as unknown as ParamsFromUrl<'/entity/:id?/'>;
+
+    expect(insertParamsIntoPath({ path: '/entity/:id?/', params })).toBe(
+      '/entity/0/',
+    );
+  });
+
+  it('should omit empty optional params from path', () => {
+    expect(
+      insertParamsIntoPath({
+        path: '/post/:id?/comments/:commentId?',
+        params: { id: '', commentId: undefined },
+      }),
+    ).toBe('/post/comments');
+  });
+
   it('should preserve trailing slashes in path', () => {
     expect(
       insertParamsIntoPath({
