@@ -65,6 +65,68 @@ export default createSingleRouteHandler(api.posts.createPost, async (args) => {
 
 `createSingleRouteHandler` is a function that takes a single contract route and a handler, and creates a `nextApiHandler`
 
+### Multipart request bodies
+
+The adapter validates the `req.body` produced by Next.js. Next's built-in API body parser decodes JSON and `application/x-www-form-urlencoded` bodies, but passes `multipart/form-data` through as text, so a multipart object schema fails validation. Your application owns multipart parsing, field decoding and file handling, as Multer does for Express and Nest.
+
+Serve multipart routes from their own API route file, disable Next's body parser there, parse the body and assign the result to `req.body` before calling the ts-restless handler. The native `Response.formData()` parser is enough for small uploads:
+
+```typescript
+// pages/api/posts/[id]/image.ts
+import type { IncomingMessage } from 'node:http';
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { createSingleRouteHandler } from '@ts-restless/next';
+
+// Disabling the parser also removes Next's default 1 MB request limit.
+export const config = { api: { bodyParser: false } };
+
+const maxUploadBytes = 4 * 1024 * 1024;
+
+const uploadImage = createSingleRouteHandler(
+  contract.uploadImage,
+  async ({ params, body, req }) => {
+    // Server body types omit File fields; read the validated parsed value.
+    const image: File = req.body.image;
+    const url = await storeImage(params.id, body.title, image);
+    return { status: 201, body: { url } };
+  },
+);
+
+async function readFormData(req: IncomingMessage) {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > maxUploadBytes) return null;
+    chunks.push(chunk);
+  }
+  return new Response(Buffer.concat(chunks), {
+    headers: { 'content-type': req.headers['content-type'] ?? '' },
+  }).formData();
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.headers['content-type']?.startsWith('multipart/form-data')) {
+    const form = await readFormData(req);
+    if (!form) {
+      res.status(413).json({ message: 'Upload too large' });
+      return;
+    }
+    req.body = {
+      title: form.get('title') ?? undefined,
+      tags: form.getAll('tags'),
+      width: form.get('width') ?? undefined,
+      image: form.get('image') ?? undefined,
+    };
+  }
+  return uploadImage(req, res);
+}
+```
+
+The contract is the same as in the [App Router example](/server/serverless/next-serverless#multipart-and-form-bodies). Match field decoding to the route's [multipart field encoding](/client/fetch#form-data-multipartform-data): with the default `form` encoding, use `getAll()` for repeated array fields and coerce or `JSON.parse` numbers, booleans, `null` and nested objects; with `legacy-json`, `JSON.parse` every ordinary field. Server-side body types omit `File` fields on multipart routes, so declare required files in the schema for validation and read them from `req.body`. `Response.formData()` buffers the whole body; use a streaming parser such as Busboy or Formidable for large uploads, assigning its fields and files to `req.body` the same way.
+
+Keep JSON routes in the catch-all `createNextRouter` file, where Next's body parser stays enabled.
+
 ### JSON Query Parameters
 
 To handle JSON query parameters, you can use the `jsonQuery` option.

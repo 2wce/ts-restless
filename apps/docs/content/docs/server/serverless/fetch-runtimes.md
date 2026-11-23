@@ -28,7 +28,7 @@ When a nonempty body was not decoded and the route's body schema then rejects th
 These requests keep their existing behavior:
 
 - An empty body without `Content-Type` produces the normal 400 validation response for a required body.
-- A request whose media type matches the route's declared `contentType`, such as `multipart/form-data` or `application/x-www-form-urlencoded`, is left to request middleware. Without a parser it produces the normal 400 validation response.
+- A request whose media type matches the route's declared `contentType`, such as `multipart/form-data` or `application/x-www-form-urlencoded`, is left to request middleware. Without a parser it produces the normal 400 validation response. See [multipart and form bodies](/server/serverless/next-serverless#multipart-and-form-bodies); the same middleware approach applies to every serverless handler.
 - A body assigned to `request.content` by middleware is validated as usual.
 - Routes without a runtime body schema, such as `c.type<T>()`, and schemas accepting an absent body run their handler, which can still read the raw `request`.
 
