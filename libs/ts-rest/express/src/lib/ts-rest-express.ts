@@ -298,17 +298,25 @@ const requestValidationErrorHandler = <T extends AppRouter>(
   };
 };
 
+const defaultOptions = {
+  logInitialization: true,
+  jsonQuery: false,
+  responseValidation: false,
+  requestValidationErrorHandler: 'default',
+} satisfies TsRestExpressOptions<AppRouter>;
+
 export const createExpressEndpoints = <TRouter extends AppRouter>(
   schema: TRouter,
   router: RouterImplementation<TRouter>,
   app: IRouter,
-  options: TsRestExpressOptions<TRouter> = {
-    logInitialization: true,
-    jsonQuery: false,
-    responseValidation: false,
-    requestValidationErrorHandler: 'default',
-  },
+  partialOptions?: TsRestExpressOptions<TRouter>,
 ) => {
+  // Merge per property so omitted options keep their defaults.
+  const options: TsRestExpressOptions<TRouter> = {
+    ...defaultOptions,
+    ...partialOptions,
+  };
+
   recursivelyApplyExpressRouter({
     schema,
     router,
