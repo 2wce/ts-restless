@@ -2,7 +2,7 @@
 
 **Status:** Accepted. **Identity/version decision:** 2026-11-04; public-only release tracking approved and delivered 2026-11-06.
 
-Publish the ten library packages under `@ts-restless/*` as a coordinated Changesets group. The first stable target is4.0.0, preceded by explicit numbered alpha/beta/rc releases. Preserve upstream lineage and existing public API names. Examples, tooling and the bundled React5 implementation workspace remain private and excluded from release versioning/tagging.
+Publish the ten library packages under `@ts-restless/*` as a coordinated Changesets group. The first stable target is4.0.0, preceded by explicit numbered alpha/beta/rc releases. Preserve upstream lineage and existing public API names. Examples and tooling remain private and excluded from release versioning/tagging.
 
 Coordinated versions simplify matched-package migration and shared-contract compatibility. Independent adapter versions could reduce release impact but remain a separate A17 proposal. Publishing/versioning private examples adds release noise without a consumer package contract.
 

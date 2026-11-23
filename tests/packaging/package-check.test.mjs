@@ -237,8 +237,7 @@ test('packed packages preserve their public API and consumer compatibility', asy
         `${name}: published file allowlist`,
       );
       assert.ok(
-        !pkg.dependencies?.['@ts-restless/build-config'] &&
-          !pkg.dependencies?.['@ts-restless/react-query-v5'],
+        !pkg.dependencies?.['@ts-restless/build-config'],
         `${name}: no private runtime dependencies`,
       );
       dependencies[pkg.name] = `file:${archive}`;

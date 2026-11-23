@@ -27,7 +27,6 @@
     "@ts-restless/next": "3.52.1",
     "@ts-restless/open-api": "3.52.1",
     "@ts-restless/react-query": "3.52.1",
-    "@ts-restless/react-query-v5": "3.52.1",
     "@ts-restless/serverless": "3.52.1",
     "@ts-restless/solid-query": "3.52.1",
     "@ts-restless/vue-query": "3.52.1"

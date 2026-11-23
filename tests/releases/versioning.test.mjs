@@ -49,17 +49,13 @@ async function workspace() {
     join(cwd, 'pnpm-workspace.yaml'),
     "packages:\n  - 'libs/ts-rest/*'\n",
   );
-  for (const name of [...publicLibraries, 'react-query-v5']) {
+  for (const name of publicLibraries) {
     await mkdir(join(cwd, 'libs/ts-rest', name), { recursive: true });
     await writeFile(
       join(cwd, 'libs/ts-rest', name, 'package.json'),
       JSON.stringify({
         name: `@ts-restless/${name}`,
         version: '3.52.1',
-        private: name === 'react-query-v5',
-        ...(name === 'react-query-v5'
-          ? { dependencies: { '@ts-restless/core': 'workspace:*' } }
-          : {}),
         ...(name === 'nest'
           ? {
               peerDependencies: {
@@ -111,12 +107,6 @@ async function assertVersion(cwd, version, peer) {
   );
   assert.equal(published.peerDependencies['@ts-restless/core'], peer);
   assert.equal(pkg.peerDependencies['@nestjs/core'], '^9 || ^10 || ^11 || ^12');
-  const privatePkg = JSON.parse(
-    await readFile(join(cwd, 'libs/ts-rest/react-query-v5/package.json')),
-  );
-  assert.equal(privatePkg.private, true);
-  assert.equal(privatePkg.version, '3.52.1');
-  assert.equal(privatePkg.peerDependencies, undefined);
 }
 
 test('patch and minor releases pack native caret peers without an unintended major bump', async () => {
@@ -331,10 +321,6 @@ test('actual fork manifests with an initial major produce ten v4 packages and co
         assert.equal(pkg.version, version, `${name}: first release version`);
         assert.notEqual(pkg.private, true);
       }
-      const bundled = JSON.parse(
-        await readFile(join(cwd, 'libs/ts-rest/react-query-v5/package.json')),
-      );
-      assert.equal(bundled.private, true);
       execFileSync(
         'pnpm',
         [

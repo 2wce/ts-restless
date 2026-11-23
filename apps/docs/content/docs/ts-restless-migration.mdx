@@ -70,7 +70,7 @@ pnpm add @ts-restless/core@alpha @ts-restless/express@alpha
 
 For a pinned evaluation, replace `@alpha` with the exact version selected from the release notes. Preserve native framework and validator dependencies; the scope change does not install or upgrade them for you. Check the lockfile for stale upstream imports in shared workspaces and for duplicated native Query packages.
 
-Use public entry points rather than package-internal `src`, `lib` or `dist` imports. Supported subpaths include core and server adapter `/legacy`, React `/v5` and `/tanstack`, and serverless `/fetch`, `/aws`, `/azure` and `/next`. `react-query-v5` is a private implementation package; consumers use `@ts-restless/react-query`.
+Use public entry points rather than package-internal `src`, `lib` or `dist` imports. Supported subpaths include core and server adapter `/legacy`, React `/v5` and `/tanstack`, and serverless `/fetch`, `/aws`, `/azure` and `/next`. React Query v5 support ships in `@ts-restless/react-query`; there is no separate v5 package.
 
 ```typescript
 import { initClient, initContract } from '@ts-restless/core';

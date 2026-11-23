@@ -12,7 +12,7 @@ Contract-first typed REST in TypeScript, maintained as a fork of ts-rest. Keep u
 ## Package and test map
 
 - `libs/ts-rest/core`: contracts, inference, validation and transport.
-- Other `libs/ts-rest/*` packages: native server/query/OpenAPI integrations. `react-query-v5` is private and bundled into the public React adapter.
+- Other `libs/ts-rest/*` packages: native server/query/OpenAPI integrations.
 - `libs/build-config`: shared build tooling; `apps/example-*`: private examples.
 - `tests/packaging`, `tests/releases`: installed ESM/CommonJS consumers and release probes.
 - `test-projects`: isolated compatibility consumers; the complete matrix runs in CI.

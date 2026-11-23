@@ -2,8 +2,7 @@
   "extends": "./libs/ts-rest/react-query/tsconfig.lib.json",
   "include": [
     "libs/ts-rest/react-query/src/**/*.ts",
-    "libs/ts-rest/react-query-v5/src/**/*.ts",
-    "libs/ts-rest/react-query-v5/src/**/*.tsx"
+    "libs/ts-rest/react-query/src/**/*.tsx"
   ],
   "exclude": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"]
 }

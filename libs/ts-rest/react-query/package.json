@@ -27,13 +27,20 @@
   },
   "scripts": {
     "build": "vp pack",
-    "typecheck": "tsc --noEmit -p tsconfig.lib.json"
+    "typecheck": "tsc --noEmit -p tsconfig.lib.json && tsc --noEmit -p tsconfig.assertions.json"
   },
   "devDependencies": {
     "@ts-restless/core": "workspace:*",
+    "@tanstack/query-core": "catalog:",
     "@tanstack/react-query": "catalog:",
-    "@ts-restless/react-query-v5": "workspace:*",
-    "@ts-restless/build-config": "workspace:*"
+    "@ts-restless/build-config": "workspace:*",
+    "@testing-library/jest-dom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@types/react": "catalog:",
+    "react": "catalog:",
+    "react-error-boundary": "catalog:",
+    "vitest": "catalog:",
+    "zod": "catalog:"
   },
   "types": "./src/index.ts",
   "exports": {

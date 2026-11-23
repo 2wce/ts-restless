@@ -10,7 +10,7 @@ const projects = [
   'nest',
   'next',
   'open-api',
-  'react-query-v5',
+  'react-query',
   'serverless',
   'solid-query',
   'vue-query',
@@ -27,7 +27,7 @@ const projects = [
   test: {
     name,
     root: resolve('libs/ts-rest', name),
-    environment: ['react-query-v5', 'vue-query'].includes(name)
+    environment: ['react-query', 'vue-query'].includes(name)
       ? 'jsdom'
       : undefined,
     setupFiles: [resolve('tests/setup.ts')],
@@ -84,7 +84,7 @@ export default defineConfig({
     tasks: {
       'pack-artifacts': {
         command:
-          'pnpm build && pnpm --filter "./libs/ts-rest/*" --filter "!@ts-restless/react-query-v5" -r pack --out dist/packages/%s.tgz --silent',
+          'pnpm build && pnpm --filter "./libs/ts-rest/*" -r pack --out dist/packages/%s.tgz --silent',
         cache: false,
       },
       'check-packages': {

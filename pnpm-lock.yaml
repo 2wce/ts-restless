@@ -1421,46 +1421,29 @@ importers:
         version: link:../core
 
   libs/ts-rest/react-query:
-    dependencies:
-      react:
-        specifier: ^18.0.0 || ^19.0.0
-        version: 18.3.1
     devDependencies:
-      '@tanstack/react-query':
-        specifier: 'catalog:'
-        version: 5.107.1(@types/react@18.3.1)(react@18.3.1)
-      '@ts-restless/build-config':
-        specifier: workspace:*
-        version: link:../../build-config
-      '@ts-restless/core':
-        specifier: workspace:*
-        version: link:../core
-      '@ts-restless/react-query-v5':
-        specifier: workspace:*
-        version: link:../react-query-v5
-
-  libs/ts-rest/react-query-v5:
-    dependencies:
       '@tanstack/query-core':
         specifier: 'catalog:'
         version: 5.107.1
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.107.1(@types/react@18.3.1)(react@18.3.1)
-      '@ts-restless/core':
-        specifier: workspace:*
-        version: link:../core
-      react:
-        specifier: 'catalog:'
-        version: 18.3.1
-    devDependencies:
       '@testing-library/jest-dom':
         specifier: 'catalog:'
         version: 7.0.1(@testing-library/dom@10.4.2)(vitest@5.0.5)
       '@testing-library/react':
         specifier: 'catalog:'
         version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@18.3.0)(@types/react@18.3.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@ts-restless/build-config':
+        specifier: workspace:*
+        version: link:../../build-config
+      '@ts-restless/core':
+        specifier: workspace:*
+        version: link:../core
       '@types/react':
+        specifier: 'catalog:'
+        version: 18.3.1
+      react:
         specifier: 'catalog:'
         version: 18.3.1
       react-error-boundary:
