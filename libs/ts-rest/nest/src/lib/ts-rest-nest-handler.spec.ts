@@ -34,6 +34,7 @@ import {
   Req,
   Res,
   SetMetadata,
+  Type,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -47,6 +48,7 @@ import {
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { Request, Response } from 'express';
+import type { FastifyReply } from 'fastify';
 import { map, Observable } from 'rxjs';
 import { TsRestModule } from './ts-rest.module';
 import * as path from 'node:path';
@@ -128,6 +130,157 @@ describe('ts-rest-nest-handler', () => {
       }
     },
   );
+
+  describe('native @Res() injection', () => {
+    const c = initContract();
+    const contract = c.router({
+      plain: {
+        method: 'GET',
+        path: '/plain',
+        responses: { 200: z.object({ message: z.string() }) },
+      },
+      redirect: {
+        method: 'GET',
+        path: '/redirect',
+        responses: { 302: c.noBody() },
+      },
+    });
+
+    const serve = async (
+      adapter: 'express' | 'fastify',
+      controller: Type<unknown>,
+      run: (request: ReturnType<typeof supertest>) => Promise<void>,
+    ) => {
+      const moduleRef = await Test.createTestingModule({
+        controllers: [controller],
+      }).compile();
+      const app =
+        adapter === 'express'
+          ? moduleRef.createNestApplication()
+          : moduleRef.createNestApplication<NestFastifyApplication>(
+              new FastifyAdapter(),
+            );
+      try {
+        await app.init();
+        if (adapter === 'fastify')
+          await app.getHttpAdapter().getInstance().ready();
+        await run(supertest(app.getHttpServer()));
+      } finally {
+        await app.close();
+      }
+    };
+
+    it.each(['express', 'fastify'] as const)(
+      'sends returned responses from multi-handler routes that leave res unused on %s',
+      async (adapter) => {
+        @Controller()
+        class ResController {
+          @TsRestHandler(contract)
+          async handler(@Res() res: any) {
+            return tsRestHandler(contract, {
+              plain: async () => ({ status: 200, body: { message: 'ok' } }),
+              redirect: async () => {
+                res.status(302).redirect('/redirected');
+                return { status: 302, body: undefined };
+              },
+            });
+          }
+        }
+
+        await serve(adapter, ResController, async (request) => {
+          const plain = await request.get('/plain').timeout(2000);
+          expect(plain.status).toBe(200);
+          expect(plain.body).toEqual({ message: 'ok' });
+
+          const redirect = await request.get('/redirect').timeout(2000);
+          expect(redirect.status).toBe(302);
+          expect(redirect.header['location']).toBe('/redirected');
+        });
+      },
+    );
+
+    it.each(['express', 'fastify'] as const)(
+      'sends returned responses from single-handler routes that leave res unused on %s',
+      async (adapter) => {
+        @Controller()
+        class ResController {
+          @TsRestHandler(contract.plain)
+          async handler(@Res() _res: unknown) {
+            return tsRestHandler(contract.plain, async () => ({
+              status: 200,
+              body: { message: 'ok' },
+            }));
+          }
+        }
+
+        await serve(adapter, ResController, async (request) => {
+          const plain = await request.get('/plain').timeout(2000);
+          expect(plain.status).toBe(200);
+          expect(plain.body).toEqual({ message: 'ok' });
+        });
+      },
+    );
+
+    it.each(['express', 'fastify'] as const)(
+      'keeps Nest sending multi-handler responses with @Res({ passthrough: true }) on %s',
+      async (adapter) => {
+        @Controller()
+        class PassthroughController {
+          @TsRestHandler(contract)
+          async handler(
+            @Res({ passthrough: true }) res: Response | FastifyReply,
+          ) {
+            return tsRestHandler(contract, {
+              plain: async () => {
+                res.header('x-native', 'yes');
+                return { status: 200, body: { message: 'ok' } };
+              },
+              redirect: async () => ({ status: 302, body: undefined }),
+            });
+          }
+        }
+
+        await serve(adapter, PassthroughController, async (request) => {
+          const plain = await request.get('/plain').timeout(2000);
+          expect(plain.status).toBe(200);
+          expect(plain.header['x-native']).toBe('yes');
+          expect(plain.body).toEqual({ message: 'ok' });
+        });
+      },
+    );
+
+    it('sends returned responses alongside a file interceptor', async () => {
+      const uploadContract = c.router({
+        upload: {
+          method: 'POST',
+          path: '/upload',
+          contentType: 'multipart/form-data',
+          body: c.type<{ file: unknown }>(),
+          responses: { 200: z.object({ message: z.string() }) },
+        },
+      });
+
+      @Controller()
+      class UploadController {
+        @TsRestHandler(uploadContract)
+        @UseInterceptors(FileInterceptor('file'))
+        async handler(@Res() _res: unknown) {
+          return tsRestHandler(uploadContract, {
+            upload: async () => ({ status: 200, body: { message: 'ok' } }),
+          });
+        }
+      }
+
+      await serve('express', UploadController, async (request) => {
+        const upload = await request
+          .post('/upload')
+          .attach('file', path.join(__dirname, './nest.png'))
+          .timeout(2000);
+        expect(upload.status).toBe(200);
+        expect(upload.body).toEqual({ message: 'ok' });
+      });
+    });
+  });
 
   it.each([
     ['single', 'express', 'above'],

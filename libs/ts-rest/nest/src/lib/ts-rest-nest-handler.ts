@@ -2,9 +2,11 @@ import { getHttpVerbDecorator } from './route-decoration';
 import {
   METHOD_METADATA,
   PATH_METADATA,
+  RESPONSE_PASSTHROUGH_METADATA,
   ROUTE_ARGS_METADATA,
 } from '@nestjs/common/constants.js';
-import { Reflector } from '@nestjs/core';
+import { RouteParamtypes } from '@nestjs/common/enums/route-paramtypes.enum.js';
+import { HttpAdapterHost, Reflector } from '@nestjs/core';
 import { mergeMap, Observable } from 'rxjs';
 import type { Request, Response } from 'express';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -56,6 +58,29 @@ type TsRestAppRouteMetadata = {
    * Otherwise, it's null, i.e. single handler
    */
   routeKey: string | null;
+  /**
+   * Nest leaves sending to handlers that inject `@Res()` or `@Next()`
+   * without passthrough, so the interceptor sends their response instead.
+   */
+  ownsResponse: boolean;
+};
+
+const handlerOwnsResponse = (target: object, propertyKey: string | symbol) => {
+  const params: Record<string, unknown> =
+    Reflect.getMetadata(ROUTE_ARGS_METADATA, target.constructor, propertyKey) ??
+    {};
+  const injectsResponse = Object.keys(params).some((key) => {
+    const type = Number(key.split(':')[0]);
+    return type === RouteParamtypes.RESPONSE || type === RouteParamtypes.NEXT;
+  });
+  return (
+    injectsResponse &&
+    !Reflect.getMetadata(
+      RESPONSE_PASSTHROUGH_METADATA,
+      target.constructor,
+      propertyKey,
+    )
+  );
 };
 
 export class TsRestRequestValidationError extends BadRequestException {
@@ -94,18 +119,21 @@ export class TsRestResponseValidationError extends InternalServerErrorException 
 
 export { TsRestResponseValidationError as ResponseValidationError };
 
-const applyHandlerMetadata = (
-  route: AppRoute,
-  routeKey: string | null,
-  options: TsRestOptions | undefined,
-): MethodDecorator =>
-  applyDecorators(
-    ...(options ? [SetMetadata(TsRestOptionsMetadataKey, options)] : []),
-    SetMetadata(TsRestAppRouteMetadataKey, {
-      appRoute: route,
-      routeKey,
-    } satisfies TsRestAppRouteMetadata),
-  );
+const applyHandlerMetadata =
+  (
+    route: AppRoute,
+    routeKey: string | null,
+    options: TsRestOptions | undefined,
+  ): MethodDecorator =>
+  (target, propertyKey, descriptor) =>
+    applyDecorators(
+      ...(options ? [SetMetadata(TsRestOptionsMetadataKey, options)] : []),
+      SetMetadata(TsRestAppRouteMetadataKey, {
+        appRoute: route,
+        routeKey,
+        ownsResponse: handlerOwnsResponse(target, propertyKey),
+      } satisfies TsRestAppRouteMetadata),
+    )(target, propertyKey, descriptor);
 
 export const TsRestHandler = (
   appRouterOrRoute: AppRouter | AppRoute,
@@ -123,12 +151,6 @@ export const TsRestHandler = (
     if (isMultiHandler) {
       const originalMethod = descriptor.value;
 
-      const originalParamMetadata = Reflect.getMetadata(
-        ROUTE_ARGS_METADATA,
-        target.constructor,
-        propertyKey,
-      );
-
       Object.entries(appRouterOrRoute).forEach(([routeKey, route]) => {
         if (isAppRoute(route)) {
           const methodName = `${String(propertyKey)}_${routeKey}`;
@@ -139,13 +161,19 @@ export const TsRestHandler = (
           // Native decorators can add lifecycle metadata after this decorator runs.
           Object.setPrototypeOf(target[methodName], originalMethod);
 
-          if (originalParamMetadata) {
-            Reflect.defineMetadata(
-              ROUTE_ARGS_METADATA,
-              originalParamMetadata,
-              target.constructor,
-              methodName,
-            );
+          // Nest reads parameter and passthrough metadata by method name.
+          for (const key of [
+            ROUTE_ARGS_METADATA,
+            RESPONSE_PASSTHROUGH_METADATA,
+          ]) {
+            if (Reflect.hasMetadata(key, target.constructor, propertyKey)) {
+              Reflect.defineMetadata(
+                key,
+                Reflect.getMetadata(key, target.constructor, propertyKey),
+                target.constructor,
+                methodName,
+              );
+            }
           }
 
           const paramTypes = Reflect.getMetadata(
@@ -247,6 +275,8 @@ export class TsRestHandlerInterceptor implements NestInterceptor {
     @Optional()
     @Inject(TS_REST_MODULE_OPTIONS_TOKEN)
     private globalOptions: MaybeTsRestOptions,
+    @Optional()
+    private httpAdapterHost?: HttpAdapterHost,
   ) {}
 
   private getAppRouteFromContext(
@@ -273,7 +303,11 @@ export class TsRestHandlerInterceptor implements NestInterceptor {
     const res: Response | FastifyReply = ctx.switchToHttp().getResponse();
     const req: Request | FastifyRequest = ctx.switchToHttp().getRequest();
 
-    const { appRoute, routeKey } = this.getAppRouteFromContext(ctx);
+    const { appRoute, routeKey, ownsResponse } =
+      this.getAppRouteFromContext(ctx);
+    const httpAdapter = ownsResponse
+      ? this.httpAdapterHost?.httpAdapter
+      : undefined;
 
     const options = evaluateTsRestOptions(this.globalOptions, ctx);
 
@@ -338,6 +372,11 @@ export class TsRestHandlerInterceptor implements NestInterceptor {
           }
         }
 
+        // The handler already responded through its native response object.
+        if (httpAdapter?.isHeadersSent(res)) {
+          return undefined;
+        }
+
         const responseType = appRoute.responses[result.status];
         const responseSchema = isAppRouteOtherResponse(responseType)
           ? responseType.body
@@ -374,6 +413,7 @@ export class TsRestHandlerInterceptor implements NestInterceptor {
         }
 
         res.status(evaluated.metadata.status);
+        httpAdapter?.reply(res, evaluated.body, evaluated.metadata.status);
         return evaluated.body;
       }),
     );
