@@ -53,11 +53,14 @@ export const insertParamsIntoPath = <T extends string>({
   path: T;
   params: ParamsFromUrl<T>;
 }) => {
-  const pathParams: Record<string, string> = params;
+  // Values may be numbers at runtime (e.g. z.coerce.number()), so only absent values are omitted
+  const pathParams: Record<string, string | number | null | undefined> = params;
 
-  return path.replace(/\/?:([^/?]+)\??/g, (matched, p) =>
-    pathParams[p]
-      ? `${matched.startsWith('/') ? '/' : ''}${pathParams[p]}`
-      : '',
-  );
+  return path.replace(/\/?:([^/?]+)\??/g, (matched, p) => {
+    const value = pathParams[p];
+
+    return value === undefined || value === null || value === ''
+      ? ''
+      : `${matched.startsWith('/') ? '/' : ''}${String(value)}`;
+  });
 };
