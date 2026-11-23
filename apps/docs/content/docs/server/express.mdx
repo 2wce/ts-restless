@@ -37,6 +37,20 @@ createExpressEndpoints(contract, router, app);
 `createExpressEndpoints` is a function that takes a contract, a corresponding router with implementations and middleware for each endpoint, and an express app, and it will
 create the corresponding express routes for each endpoint with the correct method, paths, and middleware and attach them to your express app.
 
+### Structured JSON request bodies
+
+Your Express body parser owns request parsing; the adapter validates the parsed
+`req.body`. `express.json()` and `bodyParser.json()` only parse
+`application/json` by default. For routes declaring a structured JSON
+`contentType`, such as `application/merge-patch+json`, extend the parser's
+`type` option:
+
+```typescript
+app.use(express.json({ type: ['application/json', 'application/*+json'] }));
+```
+
+Without it, the body is not parsed and contract validation rejects the request.
+
 ## Modular router factories
 
 Use `RouterImplementation<T>` to type a separately defined router factory. The

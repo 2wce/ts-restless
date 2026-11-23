@@ -42,7 +42,10 @@ import {
 import { Test } from '@nestjs/testing';
 import supertest from 'supertest';
 import { TsRest } from './ts-rest.decorator';
-import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  FileInterceptor,
+  type NestExpressApplication,
+} from '@nestjs/platform-express';
 import {
   FastifyAdapter,
   NestFastifyApplication,
@@ -125,6 +128,67 @@ describe('ts-rest-nest-handler', () => {
         expect(
           (await supertest(app.getHttpServer()).get('/contract')).status,
         ).toBe(404);
+      } finally {
+        await app.close();
+      }
+    },
+  );
+
+  it.each(['express', 'fastify'] as const)(
+    'validates structured JSON bodies parsed by the %s platform parser',
+    async (adapter) => {
+      const c = initContract();
+      const contract = c.router({
+        patch: {
+          method: 'PATCH',
+          path: '/users/:id',
+          contentType: 'application/merge-patch+json',
+          body: z.object({ name: z.string().nullable() }),
+          responses: { 200: z.object({ name: z.string().nullable() }) },
+        },
+      });
+      @Controller()
+      class JsonController {
+        @TsRestHandler(contract)
+        async handler() {
+          return tsRestHandler(contract, {
+            patch: async ({ body }) => ({ status: 200, body }),
+          });
+        }
+      }
+      const moduleRef = await Test.createTestingModule({
+        controllers: [JsonController],
+      }).compile();
+      const app =
+        adapter === 'express'
+          ? moduleRef.createNestApplication<NestExpressApplication>()
+          : moduleRef.createNestApplication<NestFastifyApplication>(
+              new FastifyAdapter(),
+            );
+      const instance =
+        adapter === 'fastify'
+          ? (app as NestFastifyApplication).getHttpAdapter().getInstance()
+          : undefined;
+      if (instance) {
+        instance.addContentTypeParser(
+          /^application\/.+\+json$/,
+          { parseAs: 'string' },
+          instance.getDefaultJsonParser('error', 'error'),
+        );
+      } else {
+        (app as NestExpressApplication).useBodyParser('json', {
+          type: 'application/*+json',
+        });
+      }
+      try {
+        await app.init();
+        await instance?.ready();
+        const response = await supertest(app.getHttpServer())
+          .patch('/users/1')
+          .set('content-type', 'application/merge-patch+json')
+          .send('{"name":null}');
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual({ name: null });
       } finally {
         await app.close();
       }

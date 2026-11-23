@@ -57,6 +57,22 @@ start();
 `s.registerRouter` is a function that takes a contract, a corresponding router with implementations for each route and a fastify app, and it will
 create the corresponding fastify routes for each endpoint with the correct method, paths and middleware and attach them to your fastify app.
 
+### Structured JSON request bodies
+
+Fastify's content-type parsers own request parsing; the adapter validates the
+parsed `request.body`. Fastify only registers an `application/json` parser by
+default and answers other JSON types, such as `application/merge-patch+json`,
+with 415. Register Fastify's JSON parser for structured JSON types before
+registering the router:
+
+```typescript
+app.addContentTypeParser(
+  /^application\/.+\+json$/,
+  { parseAs: 'string' },
+  app.getDefaultJsonParser('error', 'error'),
+);
+```
+
 ## Options
 
 You can pass an optional options object as the last argument for `s.registerRouter`.

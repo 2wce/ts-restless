@@ -576,6 +576,48 @@ describe('ts-rest-fastify', () => {
     expect(response.body).toEqual({ pong: 'foo' });
   });
 
+  it('validates structured JSON bodies parsed by a host content-type parser', async () => {
+    const jsonContract = c.router({
+      patch: {
+        method: 'PATCH',
+        path: '/users/:id',
+        contentType: 'application/merge-patch+json',
+        body: z.object({ name: z.string().nullable() }),
+        responses: { 200: z.object({ name: z.string().nullable() }) },
+      },
+    });
+    const jsonRouter = s.router(jsonContract, {
+      patch: async ({ body }) => ({ status: 200, body }),
+    });
+    const createApp = async (structuredJson: boolean) => {
+      const app = fastify({ logger: false });
+      if (structuredJson) {
+        app.addContentTypeParser(
+          /^application\/.+\+json$/,
+          { parseAs: 'string' },
+          app.getDefaultJsonParser('error', 'error'),
+        );
+      }
+      s.registerRouter(jsonContract, jsonRouter, app, {
+        logInitialization: false,
+      });
+      await app.ready();
+      return app;
+    };
+    const send = (app: FastifyInstance) =>
+      supertest(app.server)
+        .patch('/users/1')
+        .set('content-type', 'application/merge-patch+json; charset=utf-8')
+        .send('{"name":null}');
+
+    // Fastify only registers an application/json parser by default.
+    expect((await send(await createApp(false))).status).toBe(415);
+
+    const response = await send(await createApp(true));
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ name: null });
+  });
+
   it("should throw error if body doesn't match", async () => {
     const app = fastify({ logger: false });
 
