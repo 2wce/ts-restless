@@ -18,8 +18,8 @@ const contributorFiles = new Set([
   'apps/docs/README.md',
 ]);
 const checkedGuides = new Set([
-  'apps/docs/content/docs/client/vue-query-v5.mdx',
-  'apps/docs/content/docs/client/solid-query-v5.mdx',
+  'apps/docs/content/docs/client/vue-query.mdx',
+  'apps/docs/content/docs/client/solid-query.mdx',
   'apps/docs/content/docs/server/nest.mdx',
 ]);
 const nativeCommands = new Set([

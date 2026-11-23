@@ -1,1 +1,1 @@
-export * from '../../react-query-v5/src/v5';
+export * from './v5/index';

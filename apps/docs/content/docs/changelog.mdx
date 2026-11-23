@@ -4,6 +4,24 @@ description: Combined ts-restless changelog, including historical upstream ts-re
 
 ---
 
+## 4.0.0-alpha.7
+
+- ([2ff1fae](https://github.com/2wce/ts-restless/commit/2ff1fae)) **core**: Move historical Zod3 bridges, inference helpers and error/payload helpers from `/zod3` to the canonical `/legacy` entry in core, Express, Nest, Next and serverless. Update imports as a matched package set; the old paths are removed in the v4 development baseline. Helper names and runtime behavior remain unchanged there. Default entries still use Standard Schema and do not load Zod.
+- ([bfd96e8](https://github.com/2wce/ts-restless/commit/bfd96e8)) **core**: Encode multipart object string fields without JSON quotation marks by default,
+- ([bfd96e8](https://github.com/2wce/ts-restless/commit/bfd96e8)) **core**: Preserve no-body, plain typed and typed-null contracts when shared between ESM
+- ([2ff1fae](https://github.com/2wce/ts-restless/commit/2ff1fae)) **express**: Move historical Zod3 bridges, inference helpers and error/payload helpers from `/zod3` to the canonical `/legacy` entry in core, Express, Nest, Next and serverless. Update imports as a matched package set; the old paths are removed in the v4 development baseline. Helper names and runtime behavior remain unchanged there. Default entries still use Standard Schema and do not load Zod.
+- ([bfd96e8](https://github.com/2wce/ts-restless/commit/bfd96e8)) **express**: Export `RouterImplementation`, `AppRouteImplementationOrOptions` and
+- ([2ff1fae](https://github.com/2wce/ts-restless/commit/2ff1fae)) **fastify**: Move historical Zod3 bridges, inference helpers and error/payload helpers from `/zod3` to the canonical `/legacy` entry in core, Express, Nest, Next and serverless. Update imports as a matched package set; the old paths are removed in the v4 development baseline. Helper names and runtime behavior remain unchanged there. Default entries still use Standard Schema and do not load Zod.
+- ([1c2c0cf](https://github.com/2wce/ts-restless/commit/1c2c0cf)) **fastify**: Respect native responses already sent or hijacked by Fastify handlers. Skip response-envelope validation and a second send once Fastify owns the response, preserving the native status, body and headers without second-send warnings.
+- ([2ff1fae](https://github.com/2wce/ts-restless/commit/2ff1fae)) **nest**: Move historical Zod3 bridges, inference helpers and error/payload helpers from `/zod3` to the canonical `/legacy` entry in core, Express, Nest, Next and serverless. Update imports as a matched package set; the old paths are removed in the v4 development baseline. Helper names and runtime behavior remain unchanged there. Default entries still use Standard Schema and do not load Zod.
+- ([bfd96e8](https://github.com/2wce/ts-restless/commit/bfd96e8)) **nest**: Retain native method guards, interceptors and custom metadata on generated
+- ([2ff1fae](https://github.com/2wce/ts-restless/commit/2ff1fae)) **next**: Move historical Zod3 bridges, inference helpers and error/payload helpers from `/zod3` to the canonical `/legacy` entry in core, Express, Nest, Next and serverless. Update imports as a matched package set; the old paths are removed in the v4 development baseline. Helper names and runtime behavior remain unchanged there. Default entries still use Standard Schema and do not load Zod.
+- ([2ff1fae](https://github.com/2wce/ts-restless/commit/2ff1fae)) **open-api**: Require explicit schema conversion at the default entry and support OpenAPI 3.0.2 and 3.1.0 dialects. Move the historical Zod 3 generator/converter to the opt-in `@ts-restless/open-api/legacy` entry with optional Zod 3 and Anatine peers. Upgrade OpenAPI model types to `openapi3-ts` 4.x, map local definitions into components and reject incompatible dialects or unresolved references.
+- ([2ff1fae](https://github.com/2wce/ts-restless/commit/2ff1fae)) **serverless**: Move historical Zod3 bridges, inference helpers and error/payload helpers from `/zod3` to the canonical `/legacy` entry in core, Express, Nest, Next and serverless. Update imports as a matched package set; the old paths are removed in the v4 development baseline. Helper names and runtime behavior remain unchanged there. Default entries still use Standard Schema and do not load Zod.
+- ([1c2c0cf](https://github.com/2wce/ts-restless/commit/1c2c0cf)) **serverless**: Accept optional Fetch `HeadersInit` on serverless handler responses. Context headers override ordinary returned headers, cookies from both sources are preserved, and existing content-type serialization rules remain in effect.
+- ([bfd96e8](https://github.com/2wce/ts-restless/commit/bfd96e8)) **serverless**: Preserve Next.js redirect and not-found control-flow errors before serverless
+- ([bfd96e8](https://github.com/2wce/ts-restless/commit/bfd96e8)) **vue-query**: Infer the result returned by synchronous or asynchronous mutation `onMutate`
+
 ## 4.0.0-alpha.6
 
 - ([dc4f14e](https://github.com/2wce/ts-restless/commit/dc4f14e)) **core**: Adopt package-export-aware TypeScript resolution for the stable v4 baseline. Consumers using `moduleResolution: "node"`/`"node10"` or `"classic"` must migrate to matching Node16/NodeNext settings for direct Node execution, or Bundler resolution for bundled applications. Remove `typesVersions` fallbacks; supported public imports resolve through conditional exports.
@@ -93,7 +111,6 @@ description: Combined ts-restless changelog, including historical upstream ts-re
 - ([f08fc34](https://github.com/2wce/ts-restless/commit/f08fc34)) **open-api**: Support Nest 12 and Next 15/16 while retaining older framework peer ranges.
 - ([724b9b3](https://github.com/2wce/ts-restless/commit/724b9b3)) **react-query**: Make default core and adapter entry points validator independent through Standard
 - ([f36510a](https://github.com/2wce/ts-restless/commit/f36510a)) **react-query**: Support the "Standard Schema" validation interface to enable support for Zod4, Valibot, Arktype etc.
-- ([f36510a](https://github.com/2wce/ts-restless/commit/f36510a)) **react-query-v5**: Support the "Standard Schema" validation interface to enable support for Zod4, Valibot, Arktype etc.
 - ([724b9b3](https://github.com/2wce/ts-restless/commit/724b9b3)) **serverless**: Make default core and adapter entry points validator independent through Standard
 - ([f08fc34](https://github.com/2wce/ts-restless/commit/f08fc34)) **serverless**: Support Nest 12 and Next 15/16 while retaining older framework peer ranges.
 - ([f36510a](https://github.com/2wce/ts-restless/commit/f36510a)) **serverless**: Support the "Standard Schema" validation interface to enable support for Zod4, Valibot, Arktype etc.
@@ -115,7 +132,6 @@ description: Combined ts-restless changelog, including historical upstream ts-re
 - ([964f7c6](https://github.com/ts-rest/ts-rest/commit/964f7c6)) **nest**: Support optional path params in the type system, and ensure multiple levels of query params are dealt with in nest
 - ([9a444c5](https://github.com/ts-rest/ts-rest/commit/9a444c5)) **nest**: Added NestJS v11 to dependencies
 - ([83416b3](https://github.com/ts-rest/ts-rest/commit/83416b3)) **open-api**: Support automatic reusable "Components" in OpenAPI schemas, reduces final size of schema, uses the "Title" property from @anatine/zod-openapi
-- ([5cde6d9](https://github.com/ts-rest/ts-rest/commit/5cde6d9)) **react-query-v5**: add react 19 as peer dependency
 
 ## 3.51.1
 

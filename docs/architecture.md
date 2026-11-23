@@ -37,7 +37,7 @@ React, Vue and Solid reuse core query execution. The plain client returns respon
 
 ## Package and artifact boundaries
 
-Library source lives under `libs/ts-rest`. `react-query-v5` is an implementation workspace, bundled into public React root and `/v5` entries, not an eleventh public library. Library packing produces package-local `dist`; installed tarball tests check exports and strict ESM/CommonJS declarations independently of workspace source resolution.
+Library source lives under `libs/ts-rest`; the React adapter's v5 implementation lives in `libs/ts-rest/react-query/src/v5` and backs both its root and `/v5` entries. Library packing produces package-local `dist`; installed tarball tests check exports and strict ESM/CommonJS declarations independently of workspace source resolution.
 
 [ADR0012](adr/0012-modern-module-resolution.md) requires Node16/NodeNext or Bundler resolution for consumers. Conditional exports select both ESM and CommonJS declarations; obsolete resolver mappings are removed. Compiler version and runtime support remain separately evidenced.
 

@@ -122,9 +122,9 @@ There is no release staging workspace.
 
 Workspace packages export their TypeScript source files. Unit tests and examples
 consume those exports directly, so normal development does not require a library
-build or TypeScript path aliases. The React Query v5 subpath re-exports the
-isolated v5 workspace; its release build uses `tsconfig.react-query-pack.json`
-to include both source trees in native declaration generation.
+build or TypeScript path aliases. The React Query release build uses
+`tsconfig.react-query-pack.json` to include its `.tsx` sources in native
+declaration generation.
 
 Declare example dependencies in the package that uses them. Runtime imports go
 in `dependencies`, tooling/tests/types in `devDependencies`, and local packages
@@ -213,8 +213,7 @@ Workspace discovery excludes `dist`, `.next` and generated-client directories,
 so artifact manifests never become additional workspace packages.
 
 Public libraries build into `libs/ts-rest/<package>/dist`. `pnpm pack:packages`
-builds them and runs native recursive pnpm packing for the ten public packages,
-excluding the private React Query v5 package.
+builds them and runs native recursive pnpm packing for the ten public packages.
 
 ## Consumer compatibility
 

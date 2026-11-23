@@ -15,7 +15,7 @@
 
 ## F01 — Current TanStack Query v5 infinite types
 
-**Evidence:** upstream [#815](https://github.com/ts-rest/ts-rest/issues/815), [#825](https://github.com/ts-rest/ts-rest/issues/825); existing fork [#5](https://github.com/2wce/ts-restless/issues/5). [hooks-options.ts](../../libs/ts-rest/react-query-v5/src/v5/types/hooks-options.ts) supplies six native generics to infinite/suspense-infinite options. The workspace pins Query `5.51.11` and query-core `5.51.9`; upstream reports concern later five-argument signatures. This code coupling is confirmed; the exact current-version failure must be reproduced against a recorded consumer before fixing.
+**Evidence:** upstream [#815](https://github.com/ts-rest/ts-rest/issues/815), [#825](https://github.com/ts-rest/ts-rest/issues/825); existing fork [#5](https://github.com/2wce/ts-restless/issues/5). [hooks-options.ts](../../libs/ts-rest/react-query/src/v5/types/hooks-options.ts) supplies six native generics to infinite/suspense-infinite options. The workspace pins Query `5.51.11` and query-core `5.51.9`; upstream reports concern later five-argument signatures. This code coupling is confirmed; the exact current-version failure must be reproduced against a recorded consumer before fixing.
 
 **Deliverable:** Extend the existing option/inference mapping to the approved Query5 baseline/current line, preserving request, selected data, page parameters, errors, initial data and suspense behavior. Avoid copying a fresh hierarchy of upstream overloads. A12/A13 native composition can later reduce this coupling.
 
