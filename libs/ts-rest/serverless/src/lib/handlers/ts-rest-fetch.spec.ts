@@ -1214,3 +1214,172 @@ describe('returned response headers', () => {
     );
   });
 });
+
+describe('unsupported methods on known paths', () => {
+  const itemContract = c.router({
+    getItem: {
+      method: 'GET',
+      path: '/items/:id',
+      responses: { 200: z.object({ id: z.string() }) },
+    },
+    updateItem: {
+      method: 'PATCH',
+      path: '/items/:id',
+      body: z.object({ label: z.string() }),
+      responses: { 200: z.object({ id: z.string() }) },
+    },
+    deleteItem: {
+      method: 'DELETE',
+      path: '/items/:id',
+      responses: { 204: c.noBody() },
+    },
+    createItem: {
+      method: 'POST',
+      path: '/items',
+      body: z.object({ label: z.string() }),
+      responses: { 201: z.object({ id: z.string() }) },
+    },
+  });
+  const calls = vi.fn();
+  const send = (
+    options: FetchHandlerOptions,
+    path: string,
+    init?: RequestInit,
+  ) =>
+    createFetchHandler(
+      itemContract,
+      {
+        getItem: async ({ params }) => {
+          calls('getItem');
+          return { status: 200, body: { id: params.id } };
+        },
+        updateItem: async ({ params }) => {
+          calls('updateItem');
+          return { status: 200, body: { id: params.id } };
+        },
+        deleteItem: async () => {
+          calls('deleteItem');
+          return { status: 204, body: undefined };
+        },
+        createItem: async () => {
+          calls('createItem');
+          return { status: 201, body: { id: 'new' } };
+        },
+      },
+      options,
+    )(new Request('http://localhost' + path, init));
+
+  afterEach(() => {
+    calls.mockClear();
+  });
+
+  it('returns 405 with the methods registered for the matched path', async () => {
+    const response = await send({}, '/items/1', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ label: 'unused' }),
+    });
+    expect(response.status).toBe(405);
+    expect(response.headers.get('allow')).toBe('DELETE, GET, PATCH');
+    expect(response.headers.get('content-type')).toBe('application/json');
+    expect(await response.json()).toEqual({ message: 'Method Not Allowed' });
+    expect(calls).not.toHaveBeenCalled();
+  });
+
+  it('keeps 404 without Allow for unknown paths', async () => {
+    for (const method of ['GET', 'POST', 'OPTIONS']) {
+      const response = await send({}, '/missing/1', { method });
+      expect(response.status).toBe(404);
+      expect(response.headers.has('allow')).toBe(false);
+      expect(await response.json()).toEqual({ message: 'Not Found' });
+    }
+  });
+
+  it('lists only the methods of the routes matching the path', async () => {
+    const response = await send({}, '/items', { method: 'GET' });
+    expect(response.status).toBe(405);
+    expect(response.headers.get('allow')).toBe('POST');
+  });
+
+  it('does not implicitly serve HEAD or OPTIONS from contract routes', async () => {
+    for (const method of ['HEAD', 'OPTIONS']) {
+      const response = await send({}, '/items/1', { method });
+      expect(response.status).toBe(405);
+      expect(response.headers.get('allow')).toBe('DELETE, GET, PATCH');
+    }
+    expect(calls).not.toHaveBeenCalled();
+  });
+
+  it('applies the base path and still serves the registered method', async () => {
+    const options = { basePath: '/api' };
+    const rejected = await send(options, '/api/items/1', { method: 'PUT' });
+    expect(rejected.status).toBe(405);
+    expect(rejected.headers.get('allow')).toBe('DELETE, GET, PATCH');
+
+    const accepted = await send(options, '/api/items/1');
+    expect(accepted.status).toBe(200);
+    expect(await accepted.json()).toEqual({ id: '1' });
+    expect(calls).toHaveBeenCalledWith('getItem');
+  });
+
+  it('advertises OPTIONS when CORS preflight answers it', async () => {
+    const options = { cors: { origin: 'https://client.example' } };
+    const preflight = await send(options, '/items/1', {
+      method: 'OPTIONS',
+      headers: {
+        origin: 'https://client.example',
+        'access-control-request-method': 'PATCH',
+      },
+    });
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.has('allow')).toBe(false);
+
+    const rejected = await send(options, '/items/1', {
+      method: 'PUT',
+      headers: { origin: 'https://client.example' },
+    });
+    expect(rejected.status).toBe(405);
+    expect(rejected.headers.get('allow')).toBe('DELETE, GET, OPTIONS, PATCH');
+    expect(rejected.headers.get('access-control-allow-origin')).toBe(
+      'https://client.example',
+    );
+  });
+
+  it('passes the 405 error and its Allow header to error and response handlers', async () => {
+    let handled: unknown;
+    const response = await send(
+      {
+        errorHandler: (error) => {
+          handled = error;
+        },
+        responseHandlers: [
+          (response) => {
+            response.headers.set('x-response', 'retained');
+          },
+        ],
+      },
+      '/items/1',
+      { method: 'PUT' },
+    );
+    expect(handled).toBeInstanceOf(TsRestHttpError);
+    expect(handled).toMatchObject({
+      statusCode: 405,
+      body: { message: 'Method Not Allowed' },
+    });
+    expect(new Headers((handled as TsRestHttpError).headers).get('allow')).toBe(
+      'DELETE, GET, PATCH',
+    );
+    expect(response.status).toBe(405);
+    expect(response.headers.get('allow')).toBe('DELETE, GET, PATCH');
+    expect(response.headers.get('x-response')).toBe('retained');
+  });
+
+  it('lets a custom error handler own the 405 response', async () => {
+    const custom = TsRestResponse.fromText('custom', { status: 405 });
+    const response = await send({ errorHandler: () => custom }, '/items/1', {
+      method: 'PUT',
+    });
+    expect(response).toBe(custom);
+    expect(response.headers.has('allow')).toBe(false);
+  });
+});

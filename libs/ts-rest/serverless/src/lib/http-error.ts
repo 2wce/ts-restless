@@ -5,6 +5,7 @@ export class TsRestHttpError extends Error {
     public statusCode: number,
     public body: any,
     public contentType = 'application/json',
+    public headers?: HeadersInit,
   ) {
     super();
 

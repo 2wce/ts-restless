@@ -25,6 +25,16 @@ export const handler = createNextHandler(contract, router, {
 });
 ```
 
+## HTTP methods
+
+An App Router route file exports one function per HTTP method, so re-export the handler for every method your contract uses, for example `export { handler as GET, handler as POST, handler as PATCH }`. Next.js decides which methods reach ts-restless:
+
+- A method that the route file does not export receives Next's own `405` response, without an `Allow` header. ts-restless does not see the request.
+- Without a `HEAD` export, Next calls the `GET` export for `HEAD` requests. ts-restless does not serve `HEAD` from contract routes, so those requests receive `405` with `Allow: GET` (or whichever methods match the path).
+- Without an `OPTIONS` export, Next answers `OPTIONS` itself with `204` and an `Allow` header listing the exported methods. Export `OPTIONS` as well when you use the `cors` option, so the adapter's preflight response is used.
+
+For exported methods, the adapter returns `404` for unknown paths and `405` with an `Allow` header for known paths whose contract routes use other methods; see [unknown paths and unsupported methods](/server/serverless/options#unknown-paths-and-unsupported-methods). A Pages Router Edge handler is a single default export, so every method reaches ts-restless.
+
 ## Example Usage
 
 - [App Router on Next 16](https://github.com/2wce/ts-restless/blob/main/apps/example-next/app/api/app-router/%5B...ts-rest%5D/route.ts)

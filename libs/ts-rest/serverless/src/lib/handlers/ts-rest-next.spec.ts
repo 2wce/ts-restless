@@ -278,6 +278,66 @@ for (const handlerType of ['app-router', 'pages-router-edge'] as const) {
       expect(await response.json()).toEqual({ value: 'posted' });
     });
 
+    // Upstream ts-rest#867 reported POST arriving as GET on Node 22. Next
+    // constructs route requests from a URL and init, so mirror that here.
+    it('forwards method, JSON body, headers and signal from an init-built NextRequest', async () => {
+      const url = new URL('http://localhost/write');
+      if (handlerType === 'pages-router-edge') {
+        url.searchParams.set('ts-rest', 'write');
+      }
+      const controller = new AbortController();
+      const request = new NextRequest(url, {
+        method: 'POST',
+        body: JSON.stringify({ value: 'posted' }),
+        headers: { 'content-type': 'application/json', 'x-trace': 'abc' },
+        signal: controller.signal,
+        duplex: 'half',
+      });
+      let forwarded: Request | undefined;
+      const nativeHandler = createNextHandler(
+        controlContract,
+        {
+          control: async () => ({ status: 200, body: undefined }),
+          write: async ({ body }, { nextRequest, request: rawRequest }) => {
+            expect(nextRequest).toBe(request);
+            forwarded = rawRequest;
+            return { status: 200, body };
+          },
+        },
+        { handlerType },
+      );
+      const response = await nativeHandler(request);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ value: 'posted' });
+      expect(forwarded?.method).toBe('POST');
+      expect(forwarded?.headers.get('content-type')).toBe('application/json');
+      expect(forwarded?.headers.get('x-trace')).toBe('abc');
+      expect(forwarded?.signal.aborted).toBe(false);
+      controller.abort();
+      expect(forwarded?.signal.aborted).toBe(true);
+    });
+
+    it('returns 405 with Allow for methods Next forwards to an unsupported route', async () => {
+      // Next calls the GET export for HEAD when HEAD is not exported.
+      for (const [method, path, allow] of [
+        ['HEAD', '/control', 'GET'],
+        ['POST', '/control', 'GET'],
+        ['GET', '/write', 'POST'],
+      ] as const) {
+        const nativeHandler = createNextHandler(
+          controlContract,
+          {
+            control: async () => ({ status: 200, body: undefined }),
+            write: async ({ body }) => ({ status: 200, body }),
+          },
+          { handlerType },
+        );
+        const response = await nativeHandler(controlRequest(path, { method }));
+        expect(response.status).toBe(405);
+        expect(response.headers.get('allow')).toBe(allow);
+      }
+    });
+
     const handler = createNextHandler(
       contract,
       {

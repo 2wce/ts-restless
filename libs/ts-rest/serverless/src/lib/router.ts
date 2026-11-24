@@ -444,8 +444,25 @@ export const createServerlessRouter = <
     },
   });
 
-  router.all('*', () => {
-    throw new TsRestHttpError(404, { message: 'Not Found' });
+  // Contract routes cannot declare HEAD or OPTIONS, so neither is synthesized
+  // from GET; OPTIONS is only advertised when CORS preflight answers it.
+  const registeredRoutes = [...router.routes];
+  router.all('*', (request: TsRestRequest) => {
+    const pathname = new URL(request.url).pathname;
+    const allowed = new Set<string>();
+    for (const [method, pattern] of registeredRoutes) {
+      if (pattern.test(pathname)) allowed.add(method);
+    }
+    if (allowed.size === 0) {
+      throw new TsRestHttpError(404, { message: 'Not Found' });
+    }
+    if (options.cors) allowed.add('OPTIONS');
+    throw new TsRestHttpError(
+      405,
+      { message: 'Method Not Allowed' },
+      'application/json',
+      { allow: [...allowed].sort().join(', ') },
+    );
   });
 
   return router;
@@ -477,16 +494,16 @@ const errorHandler =
         : new TsRestHttpError(500, { message: 'Server Error' });
 
     const isJson = httpError.contentType?.includes('json');
+    const headers = new Headers(httpError.headers);
+    if (httpError.contentType) {
+      headers.set('content-type', httpError.contentType);
+    }
 
     return new TsRestResponse(
       isJson ? JSON.stringify(httpError.body) : httpError.body,
       {
         status: httpError.statusCode,
-        headers: httpError.contentType
-          ? new Headers({
-              'content-type': httpError.contentType,
-            })
-          : undefined,
+        headers,
       },
     );
   };

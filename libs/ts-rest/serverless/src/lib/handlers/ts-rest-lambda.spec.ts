@@ -818,6 +818,37 @@ describe('tsRestLambda', () => {
       isBase64Encoded: false,
     });
   });
+
+  it('should return 405 with Allow for an unsupported method on a known path', async () => {
+    const event = createV1LambdaRequest({
+      httpMethod: 'DELETE',
+      path: '/ping/1',
+    });
+
+    const response = await lambdaHandler(
+      event as unknown as APIGatewayProxyEvent,
+      {} as Context,
+    );
+    expect(response).toEqual({
+      statusCode: 405,
+      headers: {
+        'access-control-allow-credentials': 'true',
+        'access-control-allow-origin': 'http://localhost',
+        allow: 'OPTIONS, POST',
+        'content-type': 'application/json',
+        vary: 'Origin',
+      },
+      multiValueHeaders: {
+        'access-control-allow-credentials': ['true'],
+        'access-control-allow-origin': ['http://localhost'],
+        allow: ['OPTIONS', 'POST'],
+        'content-type': ['application/json'],
+        vary: ['Origin'],
+      },
+      body: '{"message":"Method Not Allowed"}',
+      isBase64Encoded: false,
+    });
+  });
 });
 
 describe('empty JSON AWS gateway bodies', () => {
