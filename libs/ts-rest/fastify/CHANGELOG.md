@@ -1,5 +1,7 @@
 # @ts-rest/fastify
 
+## 4.0.0-alpha.8
+
 ## 4.0.0-alpha.7
 
 ### Major Changes
